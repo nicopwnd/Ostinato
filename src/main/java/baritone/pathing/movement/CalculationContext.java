@@ -58,6 +58,8 @@ public class CalculationContext {
     public final BlockStateInterface bsi;
     public final ToolSet toolSet;
     public final boolean hasWaterBucket;
+    public final boolean hasBoat;
+    public final int maxFallHeightBoat;
     public final boolean aquaAffinity;
     public final boolean hasThrowaway;
     public final boolean canSprint;
@@ -100,6 +102,9 @@ public class CalculationContext {
         this.aquaAffinity = net.minecraft.enchantment.EnchantmentHelper.hasAquaAffinity(player);
         this.hasThrowaway = !AltoClefSettings.getInstance().isInteractionPaused() && Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
         this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && PlayerInventory.isHotbar(player.inventory.getSlotFor(STACK_BUCKET_WATER)) && world.getDimensionKey() != World.THE_NETHER;
+        this.hasBoat = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
+                && java.util.stream.IntStream.range(0, 9).anyMatch(i -> player.inventory.mainInventory.get(i).getItem() instanceof net.minecraft.item.BoatItem);
+        this.maxFallHeightBoat = Baritone.settings().maxFallHeightBoat.value;
         this.canSprint = Baritone.settings().allowSprint.value && player.getFoodStats().getFoodLevel() > 6;
         this.placeBlockCost = Baritone.settings().blockPlacementPenalty.value;
         this.allowBreak = !AltoClefSettings.getInstance().isInteractionPaused() && Baritone.settings().allowBreak.value;
@@ -178,6 +183,11 @@ public class CalculationContext {
             return COST_INF;
         }
         return 1;
+    }
+
+    /** Place, board, drive off, then break and pick the boat back up. */
+    public double boatFallCost() {
+        return 100 + placeBlockCost;
     }
 
     public double placeBucketCost() {

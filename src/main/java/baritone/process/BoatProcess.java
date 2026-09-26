@@ -9,6 +9,7 @@ import baritone.api.process.PathingCommandType;
 import baritone.api.utils.Rotation;
 import baritone.api.utils.input.Input;
 import baritone.pathing.movement.MovementHelper;
+import baritone.pathing.movement.movements.MovementFall;
 import baritone.utils.BaritoneProcessHelper;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
@@ -61,11 +62,17 @@ public final class BoatProcess extends BaritoneProcessHelper {
             return true;
         }
         if (ctx.player().getRidingEntity() instanceof BoatEntity) {
-            // Seated by someone else (or a relog): sail if there's somewhere to go.
+            if (MovementFall.boatRide) return false;
+            // Seated by someone else, a relog, or a boat fall that just landed: sail if there's somewhere to go.
             Goal g = currentGoal();
+            boat = ctx.player().getRidingEntity();
             if (g != null && plan(g, ctx.playerFeet(), true)) {
-                boat = ctx.player().getRidingEntity();
                 return enter(Phase.SAIL);
+            }
+            if (!boat.isInWater()) {
+                // Aground: get out and take the boat with us.
+                target = g;
+                return enter(Phase.EXIT);
             }
             return false;
         }
