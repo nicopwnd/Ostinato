@@ -235,7 +235,10 @@ public class MovementFall extends Movement {
         }
         if (boat != null) {
             state.setTarget(new MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), new Vector3d(boat.getPosX(), boat.getPosY() + 0.3, boat.getPosZ()), ctx.playerRotations()), true));
-            if (boatTicks % 4 == 3) Minecraft.getInstance().playerController.interactWithEntity(ctx.player(), boat, Hand.MAIN_HAND);
+            if (boatTicks % 4 == 3) {
+                net.minecraft.util.ActionResultType r = Minecraft.getInstance().playerController.interactWithEntity(ctx.player(), boat, Hand.MAIN_HAND);
+                if (boatTicks % 40 == 3) logDebug("boat fall: board " + r + " boat=" + boat.getPositionVec() + " sneak=" + ctx.player().isSneaking() + " riding=" + ctx.player().getRidingEntity());
+            }
             return state;
         }
         int slot = BoatUtil.hotbarBoat(ctx);
