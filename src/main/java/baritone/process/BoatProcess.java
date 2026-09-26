@@ -2,6 +2,7 @@ package baritone.process;
 
 import baritone.Baritone;
 import baritone.api.pathing.goals.Goal;
+import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalNear;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
@@ -37,8 +38,11 @@ public final class BoatProcess extends BaritoneProcessHelper {
     private Goal target;
     private int surfaceY;
     private List<BlockPos> route = Collections.emptyList();
+    private boolean fromCustom;
     private int routeIdx;
     private BlockPos launch;
+    /** Land cell (feet) beside the launch water, so the boat goes onto the surface from above; null to place from the water. */
+    private BlockPos bank;
     private Entity boat;
     private int phaseTicks, sailStuck;
     private double lastProgressD;
@@ -97,6 +101,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
     private Goal currentGoal() {
         if (target != null && phase != Phase.IDLE) return target;
         Goal g = baritone.getCustomGoalProcess().getGoal();
+        fromCustom = g != null && baritone.getCustomGoalProcess().isActive();
         return g != null ? g : baritone.getPathingBehavior().getGoal();
     }
 
@@ -116,6 +121,26 @@ public final class BoatProcess extends BaritoneProcessHelper {
         if (!MovementHelper.isWater(ctx.world().getBlockState(p))) return false;
         BlockState up = ctx.world().getBlockState(p.up());
         return up.isAir() && ctx.world().isBlockLoaded(p);
+    }
+
+    /** Standable: solid top at y with two air blocks above. */
+    private boolean land(int x, int y, int z) {
+        BlockPos p = new BlockPos(x, y, z);
+        return !MovementHelper.isWater(ctx.world().getBlockState(p)) && MovementHelper.canWalkOn(ctx, p) && ctx.world().getBlockState(p.up()).isAir() && ctx.world().getBlockState(p.up(2)).isAir();
+    }
+
+    private void findBank() {
+        BlockPos me = ctx.playerFeet();
+        double bestD = Double.MAX_VALUE;
+        for (int i = 0; i < Math.min(6, route.size()); i++) {
+            BlockPos c = route.get(i);
+            for (int[] d : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                if (!land(c.getX() + d[0], surfaceY, c.getZ() + d[1])) continue;
+                BlockPos b = new BlockPos(c.getX() + d[0], surfaceY + 1, c.getZ() + d[1]);
+                double dd = b.distanceSq(me) + i * 4;
+                if (dd < bestD) { bestD = dd; bank = b; launch = c; }
+            }
+        }
     }
 
     private boolean nearShore(int x, int y, int z) {
@@ -183,7 +208,9 @@ public final class BoatProcess extends BaritoneProcessHelper {
         route = new ArrayList<>(r);
         routeIdx = 0;
         surfaceY = y;
-        launch = start;
+        launch = route.get(Math.min(2, route.size() - 1));
+        bank = null;
+        if (!aboard && !ctx.player().isInWater()) findBank();
         target = g;
         sailStuck = 0;
         lastProgressD = Double.MAX_VALUE;
@@ -222,17 +249,27 @@ public final class BoatProcess extends BaritoneProcessHelper {
         switch (phase) {
             case APPROACH: {
                 // Get within reach of the launch cell (the pathfinder brings us to the water's edge).
-                if (ctx.player().getPositionVec().distanceTo(center(launch)) < 3.5) return enter(Phase.PLACE) ? pause() : pause();
+                if (bank != null) {
+                    if (ctx.playerFeet().equals(bank) && ctx.player().isOnGround()) return enter(Phase.PLACE) ? pause() : pause();
+                } else if (ctx.player().getPositionVec().distanceTo(center(launch)) < 3.5) return enter(Phase.PLACE) ? pause() : pause();
                 if (phaseTicks > 400) return abort("could not reach the water");
-                return new PathingCommand(new GoalNear(launch, 2), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+                return new PathingCommand(bank != null ? new GoalBlock(bank) : new GoalNear(launch, 2), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
             }
             case PLACE: {
                 if (findBoat(4) != null) { enter(Phase.MOUNT); return pause(); }
                 int slot = boatSlot();
-                if (slot < 0 || phaseTicks > 60) return abort("could not place the boat");
+                if (slot < 0 || phaseTicks > 100) return abort("could not place the boat (" + Minecraft.getInstance().objectMouseOver + " eye " + ctx.player().getPosYEye() + ")");
                 ctx.player().inventory.currentItem = slot;
-                look(launch.getX() + 0.5, surfaceY + 0.9, launch.getZ() + 0.5);
-                if (phaseTicks % 5 == 4) baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
+                if (surfacing()) {
+                    if (phaseTicks < 15) return pause();
+                    // Can't place from under the surface; let the swim carry on and look again shortly.
+                    PathingCommand c = abort("underwater");
+                    lastCheck = ctx.player().ticksExisted;
+                    return c;
+                }
+                // Boats only go on the water's top surface (or a block top with room), so aim at it from above.
+                look(launch.getX() + 0.5, surfaceY + 0.85, launch.getZ() + 0.5);
+                if (phaseTicks % 5 == 4) Minecraft.getInstance().playerController.processRightClick(ctx.player(), ctx.world(), Hand.MAIN_HAND);
                 return pause();
             }
             case MOUNT: {
@@ -241,8 +278,10 @@ public final class BoatProcess extends BaritoneProcessHelper {
                     enter(Phase.SAIL);
                     return pause();
                 }
-                Entity b = findBoat(5);
-                if (b == null || phaseTicks > 60) return abort("could not board");
+                surfacing();
+                Entity b = findBoat(8);
+                if (b == null || phaseTicks > 100) return abort("could not board");
+                if (ctx.player().getDistance(b) > 3) return new PathingCommand(new GoalNear(b.getPosition(), 1), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
                 look(b.getPosX(), b.getPosY() + 0.3, b.getPosZ());
                 if (phaseTicks % 4 == 3) Minecraft.getInstance().playerController.interactWithEntity(ctx.player(), b, Hand.MAIN_HAND);
                 return pause();
@@ -271,7 +310,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             case COLLECT: {
                 ItemEntity drop = boatDrop();
                 if (drop == null || phaseTicks > 100) return finish();
-                return new PathingCommand(new GoalNear(drop.getPosition(), 0), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+                return new PathingCommand(new GoalNear(drop.getPosition(), 1), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
             }
             default:
                 return pause();
@@ -293,7 +332,8 @@ public final class BoatProcess extends BaritoneProcessHelper {
         routeIdx = nearest;
         BlockPos end = route.get(route.size() - 1);
         double endD = Math.hypot(end.getX() + 0.5 - bx, end.getZ() + 0.5 - bz);
-        if (endD < 1.8 || routeIdx >= route.size() - 1) {
+        // Pinned against the bank near the landing counts as arrived.
+        if (endD < 1.8 || routeIdx >= route.size() - 1 || endD < 4 && (sailStuck > 20 || boat.collidedHorizontally)) {
             enter(Phase.EXIT);
             return pause();
         }
@@ -353,6 +393,13 @@ public final class BoatProcess extends BaritoneProcessHelper {
         return new PathingCommand(target, PathingCommandType.REQUEST_PAUSE);
     }
 
+    /** Swim up while the eyes are under the surface; items and entities can't be used well from below. */
+    private boolean surfacing() {
+        boolean under = ctx.player().getPosYEye() < surfaceY + 1.1 && ctx.player().isInWater();
+        if (under) baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+        return under && phaseTicks < 80;
+    }
+
     private PathingCommand abort(String why) {
         logDebug("Boat: giving up (" + why + ")");
         lastCheck = ctx.player().ticksExisted + 200; // don't retry straight away
@@ -363,6 +410,8 @@ public final class BoatProcess extends BaritoneProcessHelper {
         Goal g = target;
         reset();
         baritone.getInputOverrideHandler().clearAllKeys();
+        // A failed calc toward the drop can knock the custom goal process out; hand the goal back.
+        if (g != null && fromCustom && !baritone.getCustomGoalProcess().isActive()) baritone.getCustomGoalProcess().setGoalAndPath(g);
         return new PathingCommand(g, PathingCommandType.REVALIDATE_GOAL_AND_PATH);
     }
 
