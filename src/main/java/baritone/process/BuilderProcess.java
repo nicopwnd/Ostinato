@@ -777,7 +777,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (exec == null || exec.finished() || exec.failed()) {
             return;
         }
-        Movement movement = (Movement) exec.getPath().movements().get(exec.getPosition());
+        // A zero-length path (start == goal) has no movements; get(0) crashed the client (TenorClef s297t).
+        java.util.List<?> movements = exec.getPath().movements();
+        if (exec.getPosition() < 0 || exec.getPosition() >= movements.size()) {
+            return;
+        }
+        Movement movement = (Movement) movements.get(exec.getPosition());
         movement.update();
     }
 
