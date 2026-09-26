@@ -211,13 +211,13 @@ public class MovementFall extends Movement {
             return state.setTarget(new MovementTarget(new Rotation(want, 10), true));
         }
         boatRide = false;
-        if (ctx.playerFeet().distanceSq(src) > 2 && ctx.player().isOnGround() && boatTicks < 60 && ctx.playerFeet().getY() >= src.getY()) {
+        if (nearSrc() > 2 && ctx.player().isOnGround() && boatTicks < 60 && ctx.playerFeet().getY() >= src.getY()) {
             // Handed the movement a step early/late: walk back onto src first.
             boatTicks++;
             state.setTarget(new MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(src), ctx.playerRotations()), false));
             return state.setInput(Input.MOVE_FORWARD, true);
         }
-        if (ctx.playerFeet().distanceSq(src) > 2 || boatTicks++ > 160) {
+        if (nearSrc() > 2 || boatTicks++ > 160) {
             logDebug("boat fall: couldn't place/mount " + ctx.player().getPositionVec() + " src=" + src + " dest=" + dest + " ticks=" + boatTicks);
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
@@ -258,6 +258,13 @@ public class MovementFall extends Movement {
             Minecraft.getInstance().playerController.processRightClick(ctx.player(), ctx.world(), Hand.MAIN_HAND);
         }
         return state;
+    }
+
+    // Block-distance² from src (Vector3i.distanceSq offsets one side by 0.5, which trips on a jump).
+    private int nearSrc() {
+        BlockPos f = ctx.playerFeet();
+        int x = f.getX() - src.getX(), y = f.getY() - src.getY(), z = f.getZ() - src.getZ();
+        return x * x + y * y + z * z;
     }
 
     private Direction avoid() {
