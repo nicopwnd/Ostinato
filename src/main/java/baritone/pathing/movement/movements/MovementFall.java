@@ -284,6 +284,11 @@ public class MovementFall extends Movement {
         if (ctx.player().getRidingEntity() instanceof BoatEntity) {
             return state.getStatus() != MovementStatus.RUNNING;
         }
+        // Boat placed but not mounted yet: it's no longer in the inventory, so a cost recheck says
+        // "impossible". Don't let that cancel us mid-mount.
+        if (Boolean.TRUE.equals(boatMode) && boatTicks > 0 && state.getStatus() == MovementStatus.RUNNING) {
+            return false;
+        }
         return ctx.playerFeet().equals(src) || state.getStatus() != MovementStatus.RUNNING;
     }
 
