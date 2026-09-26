@@ -384,6 +384,11 @@ public final class Settings {
     public final Setting<Boolean> sprintJump = new Setting<>(false);
 
     /**
+     * Place and ride a boat across large bodies of water when it is faster than swimming
+     */
+    public final Setting<Boolean> allowBoats = new Setting<>(true);
+
+    /**
      * If we overshoot a traverse and end up one block beyond the destination, mark it as successful anyway.
      * <p>
      * This helps with speed exceeding 20m/s
