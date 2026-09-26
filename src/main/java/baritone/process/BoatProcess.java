@@ -1,0 +1,389 @@
+package baritone.process;
+
+import baritone.Baritone;
+import baritone.api.pathing.goals.Goal;
+import baritone.api.pathing.goals.GoalNear;
+import baritone.api.process.PathingCommand;
+import baritone.api.process.PathingCommandType;
+import baritone.api.utils.Rotation;
+import baritone.api.utils.input.Input;
+import baritone.pathing.movement.MovementHelper;
+import baritone.utils.BaritoneProcessHelper;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.BoatEntity;
+import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.item.BoatItem;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+
+import java.util.*;
+
+/**
+ * Boat travel: when the goal lies across open water and we carry a boat, place it, get in, sail a
+ * water-surface route (kept off the shoreline, where a 1.4-wide boat snags), get out at the far shore,
+ * break the boat and pick it back up, then hand control back to whatever process owns the goal.
+ * A boat does ~8 blocks/s on open water against ~2 for swimming and ~5.6 for sprinting.
+ */
+public final class BoatProcess extends BaritoneProcessHelper {
+
+    private enum Phase { IDLE, APPROACH, PLACE, MOUNT, SAIL, EXIT, BREAK, COLLECT }
+
+    private static final int RADIUS = 160, MAX_CELLS = 90_000, MIN_GAIN = 24;
+
+    private Phase phase = Phase.IDLE;
+    private Goal target;
+    private int surfaceY;
+    private List<BlockPos> route = Collections.emptyList();
+    private int routeIdx;
+    private BlockPos launch;
+    private Entity boat;
+    private int phaseTicks, sailStuck;
+    private double lastProgressD;
+    private int lastCheck;
+
+    public BoatProcess(Baritone baritone) {
+        super(baritone);
+    }
+
+    @Override
+    public boolean isActive() {
+        if (ctx.player() == null || ctx.world() == null || !Baritone.settings().allowBoats.value) {
+            return reset();
+        }
+        if (phase != Phase.IDLE) {
+            return true;
+        }
+        if (ctx.player().getRidingEntity() instanceof BoatEntity) {
+            // Seated by someone else (or a relog): sail if there's somewhere to go.
+            Goal g = currentGoal();
+            if (g != null && plan(g, ctx.playerFeet(), true)) {
+                boat = ctx.player().getRidingEntity();
+                return enter(Phase.SAIL);
+            }
+            return false;
+        }
+        if (ctx.player().ticksExisted - lastCheck < 40 || boatSlot() < 0) {
+            return false;
+        }
+        lastCheck = ctx.player().ticksExisted;
+        Goal g = currentGoal();
+        if (g == null || !baritone.getPathingBehavior().isPathing() && !baritone.getCustomGoalProcess().isActive()) {
+            return false;
+        }
+        BlockPos feet = ctx.playerFeet();
+        if (g.isInGoal(feet)) {
+            return false;
+        }
+        return plan(g, feet, false) && enter(Phase.APPROACH);
+    }
+
+    private boolean enter(Phase p) {
+        phase = p;
+        phaseTicks = 0;
+        logDebug("Boat: " + p + (p == Phase.APPROACH || p == Phase.SAIL ? " route " + route.size() + " cells" : ""));
+        return true;
+    }
+
+    private boolean reset() {
+        phase = Phase.IDLE;
+        boat = null;
+        route = Collections.emptyList();
+        return false;
+    }
+
+    private Goal currentGoal() {
+        if (target != null && phase != Phase.IDLE) return target;
+        Goal g = baritone.getCustomGoalProcess().getGoal();
+        return g != null ? g : baritone.getPathingBehavior().getGoal();
+    }
+
+    /** Hotbar slot holding a boat, or -1. */
+    private int boatSlot() {
+        for (int i = 0; i < 9; i++) {
+            if (ctx.player().inventory.mainInventory.get(i).getItem() instanceof BoatItem) return i;
+        }
+        return -1;
+    }
+
+    // ---- planning --------------------------------------------------------------------------
+
+    /** Open water surface: water with air (not a roof, not a lily pad) above. */
+    private boolean surface(int x, int y, int z) {
+        BlockPos p = new BlockPos(x, y, z);
+        if (!MovementHelper.isWater(ctx.world().getBlockState(p))) return false;
+        BlockState up = ctx.world().getBlockState(p.up());
+        return up.isAir() && ctx.world().isBlockLoaded(p);
+    }
+
+    private boolean nearShore(int x, int y, int z) {
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+            if (!surface(x + dx, y, z + dz)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Dijkstra over the water surface from the cell nearest the player to the cell nearest the goal.
+     * Accept only when the crossing gains at least MIN_GAIN blocks toward the goal.
+     */
+    private boolean plan(Goal g, BlockPos feet, boolean aboard) {
+        BlockPos start = null;
+        search:
+        for (int r = 0; r <= 3; r++) {
+            for (int dy = 1; dy >= -2; dy--) for (int dx = -r; dx <= r; dx++) for (int dz = -r; dz <= r; dz++) {
+                if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
+                if (surface(feet.getX() + dx, feet.getY() + dy, feet.getZ() + dz)) {
+                    start = new BlockPos(feet.getX() + dx, feet.getY() + dy, feet.getZ() + dz);
+                    break search;
+                }
+            }
+        }
+        if (start == null) return false;
+        int y = start.getY();
+        Map<Long, Double> dist = new HashMap<>();
+        Map<Long, Long> parent = new HashMap<>();
+        PriorityQueue<double[]> open = new PriorityQueue<>(Comparator.comparingDouble(a -> a[0]));
+        long s = key(start.getX(), start.getZ());
+        dist.put(s, 0.0);
+        open.add(new double[]{0, start.getX(), start.getZ()});
+        long best = s;
+        double bestH = flatDist(g, start.getX(), y, start.getZ());
+        double startH = flatDist(g, feet.getX(), feet.getY(), feet.getZ());
+        while (!open.isEmpty() && dist.size() < MAX_CELLS) {
+            double[] c = open.poll();
+            int cx = (int) c[1], cz = (int) c[2];
+            long ck = key(cx, cz);
+            if (c[0] > dist.get(ck)) continue;
+            double h = flatDist(g, cx, y, cz);
+            if (h < bestH) { bestH = h; best = ck; }
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                int nx = cx + dx, nz = cz + dz;
+                if (Math.abs(nx - start.getX()) > RADIUS || Math.abs(nz - start.getZ()) > RADIUS || !surface(nx, y, nz)) continue;
+                if (dx != 0 && dz != 0 && (!surface(cx + dx, y, cz) || !surface(cx, y, cz + dz))) continue;
+                double nd = c[0] + (dx != 0 && dz != 0 ? 1.414 : 1) + (nearShore(nx, y, nz) ? 3 : 0);
+                long nk = key(nx, nz);
+                Double old = dist.get(nk);
+                if (old == null || nd < old) {
+                    dist.put(nk, nd);
+                    parent.put(nk, ck);
+                    open.add(new double[]{nd, nx, nz});
+                }
+            }
+        }
+        if (!aboard && startH - bestH < MIN_GAIN) return false;
+        if (aboard && best == s) return false;
+        LinkedList<BlockPos> r = new LinkedList<>();
+        for (Long k = best; k != null; k = parent.get(k)) {
+            r.addFirst(new BlockPos((int) (k >> 32), y, (int) (long) k));
+        }
+        route = new ArrayList<>(r);
+        routeIdx = 0;
+        surfaceY = y;
+        launch = start;
+        target = g;
+        sailStuck = 0;
+        lastProgressD = Double.MAX_VALUE;
+        return true;
+    }
+
+    private static long key(int x, int z) {
+        return ((long) x << 32) | (z & 0xFFFFFFFFL);
+    }
+
+    private static double flatDist(Goal g, int x, int y, int z) {
+        // Goal heuristics are in ticks; walking a block costs ~4.6, which is close enough to rank cells.
+        return g.heuristic(x, y + 1, z) / 4.633;
+    }
+
+    /** Every half-block along the segment sits over open water, with the boat's half-width to spare. */
+    private boolean clearLine(double ax, double az, double bx, double bz) {
+        double len = Math.hypot(bx - ax, bz - az);
+        int steps = (int) Math.ceil(len * 2);
+        double px = -(bz - az) / Math.max(len, 1e-6) * 0.7, pz = (bx - ax) / Math.max(len, 1e-6) * 0.7;
+        for (int i = 0; i <= steps; i++) {
+            double x = ax + (bx - ax) * i / Math.max(steps, 1), z = az + (bz - az) * i / Math.max(steps, 1);
+            if (!surface(MathHelper.floor(x), surfaceY, MathHelper.floor(z))
+                    || !surface(MathHelper.floor(x + px), surfaceY, MathHelper.floor(z + pz))
+                    || !surface(MathHelper.floor(x - px), surfaceY, MathHelper.floor(z - pz))) return false;
+        }
+        return true;
+    }
+
+    // ---- control ---------------------------------------------------------------------------
+
+    @Override
+    public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
+        baritone.getInputOverrideHandler().clearAllKeys();
+        phaseTicks++;
+        switch (phase) {
+            case APPROACH: {
+                // Get within reach of the launch cell (the pathfinder brings us to the water's edge).
+                if (ctx.player().getPositionVec().distanceTo(center(launch)) < 3.5) return enter(Phase.PLACE) ? pause() : pause();
+                if (phaseTicks > 400) return abort("could not reach the water");
+                return new PathingCommand(new GoalNear(launch, 2), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+            }
+            case PLACE: {
+                if (findBoat(4) != null) { enter(Phase.MOUNT); return pause(); }
+                int slot = boatSlot();
+                if (slot < 0 || phaseTicks > 60) return abort("could not place the boat");
+                ctx.player().inventory.currentItem = slot;
+                look(launch.getX() + 0.5, surfaceY + 0.9, launch.getZ() + 0.5);
+                if (phaseTicks % 5 == 4) baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
+                return pause();
+            }
+            case MOUNT: {
+                if (ctx.player().getRidingEntity() instanceof BoatEntity) {
+                    boat = ctx.player().getRidingEntity();
+                    enter(Phase.SAIL);
+                    return pause();
+                }
+                Entity b = findBoat(5);
+                if (b == null || phaseTicks > 60) return abort("could not board");
+                look(b.getPosX(), b.getPosY() + 0.3, b.getPosZ());
+                if (phaseTicks % 4 == 3) Minecraft.getInstance().playerController.interactWithEntity(ctx.player(), b, Hand.MAIN_HAND);
+                return pause();
+            }
+            case SAIL:
+                return sail();
+            case EXIT: {
+                if (!(ctx.player().getRidingEntity() instanceof BoatEntity)) {
+                    enter(Phase.BREAK);
+                    return pause();
+                }
+                if (phaseTicks > 40) return abort("stuck in the boat");
+                baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
+                return pause();
+            }
+            case BREAK: {
+                if (boat == null || !boat.isAlive()) { enter(Phase.COLLECT); return pause(); }
+                if (phaseTicks > 100 || ctx.player().getDistance(boat) > 5) return finish();
+                look(boat.getPosX(), boat.getPosY() + 0.3, boat.getPosZ());
+                if (phaseTicks % 4 == 0) {
+                    Minecraft.getInstance().playerController.attackEntity(ctx.player(), boat);
+                    ctx.player().swingArm(Hand.MAIN_HAND);
+                }
+                return pause();
+            }
+            case COLLECT: {
+                ItemEntity drop = boatDrop();
+                if (drop == null || phaseTicks > 100) return finish();
+                return new PathingCommand(new GoalNear(drop.getPosition(), 0), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+            }
+            default:
+                return pause();
+        }
+    }
+
+    private PathingCommand sail() {
+        if (!(ctx.player().getRidingEntity() instanceof BoatEntity)) return abort("fell out of the boat");
+        boat = ctx.player().getRidingEntity();
+        double bx = boat.getPosX(), bz = boat.getPosZ();
+        // Advance past cells we've reached, then aim at the farthest one in clear sight.
+        int nearest = routeIdx;
+        double nd = Double.MAX_VALUE;
+        for (int i = routeIdx; i < Math.min(route.size(), routeIdx + 30); i++) {
+            BlockPos c = route.get(i);
+            double d = Math.hypot(c.getX() + 0.5 - bx, c.getZ() + 0.5 - bz);
+            if (d < nd) { nd = d; nearest = i; }
+        }
+        routeIdx = nearest;
+        BlockPos end = route.get(route.size() - 1);
+        double endD = Math.hypot(end.getX() + 0.5 - bx, end.getZ() + 0.5 - bz);
+        if (endD < 1.8 || routeIdx >= route.size() - 1) {
+            enter(Phase.EXIT);
+            return pause();
+        }
+        int aim = routeIdx + 1;
+        for (int i = Math.min(route.size() - 1, routeIdx + 48); i > routeIdx + 1; i--) {
+            BlockPos c = route.get(i);
+            if (clearLine(bx, bz, c.getX() + 0.5, c.getZ() + 0.5)) { aim = i; break; }
+        }
+        BlockPos a = route.get(aim);
+        double tx = a.getX() + 0.5 - bx, tz = a.getZ() + 0.5 - bz;
+        float want = (float) (MathHelper.atan2(tz, tx) * 180 / Math.PI) - 90;
+        float diff = MathHelper.wrapDegrees(want - boat.rotationYaw);
+        // Left/right turn the boat 1 degree/tick (it carries momentum); forward only once roughly aligned.
+        if (diff > 4) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_RIGHT, true);
+        if (diff < -4) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_LEFT, true);
+        if (Math.abs(diff) < 50) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
+        baritone.getLookBehavior().updateTarget(new Rotation(want, 10), true);
+        // Stall guard: no progress toward the landing for 5 s → replan from here (once), then give up.
+        if (endD < lastProgressD - 1) { lastProgressD = endD; sailStuck = 0; }
+        else if (++sailStuck > 100) {
+            if (!plan(target, new BlockPos(bx, boat.getPosY(), bz), true)) return abort("stuck at sea");
+            logDebug("Boat: replanned from " + new BlockPos(bx, boat.getPosY(), bz));
+            sailStuck = -200;
+        }
+        if (phaseTicks % 40 == 0) logDebug("Boat: sail " + routeIdx + "/" + route.size() + " d=" + Math.round(endD));
+        return pause();
+    }
+
+    private Entity findBoat(double r) {
+        Entity best = null;
+        for (Entity e : ctx.entities()) {
+            if (e instanceof BoatEntity && e.getPassengers().isEmpty() && ctx.player().getDistance(e) < r
+                    && (best == null || ctx.player().getDistance(e) < ctx.player().getDistance(best))) best = e;
+        }
+        return best;
+    }
+
+    private ItemEntity boatDrop() {
+        for (Entity e : ctx.entities()) {
+            if (e instanceof ItemEntity && ((ItemEntity) e).getItem().getItem() instanceof BoatItem && ctx.player().getDistance(e) < 8) return (ItemEntity) e;
+        }
+        return null;
+    }
+
+    private void look(double x, double y, double z) {
+        double dx = x - ctx.player().getPosX(), dy = y - ctx.player().getPosYEye(), dz = z - ctx.player().getPosZ();
+        float yaw = (float) (MathHelper.atan2(dz, dx) * 180 / Math.PI) - 90;
+        float pitch = (float) -(MathHelper.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI);
+        baritone.getLookBehavior().updateTarget(new Rotation(yaw, pitch), true);
+    }
+
+    private static net.minecraft.util.math.vector.Vector3d center(BlockPos p) {
+        return new net.minecraft.util.math.vector.Vector3d(p.getX() + 0.5, p.getY() + 1, p.getZ() + 0.5);
+    }
+
+    private PathingCommand pause() {
+        return new PathingCommand(target, PathingCommandType.REQUEST_PAUSE);
+    }
+
+    private PathingCommand abort(String why) {
+        logDebug("Boat: giving up (" + why + ")");
+        lastCheck = ctx.player().ticksExisted + 200; // don't retry straight away
+        return finish();
+    }
+
+    private PathingCommand finish() {
+        Goal g = target;
+        reset();
+        baritone.getInputOverrideHandler().clearAllKeys();
+        return new PathingCommand(g, PathingCommandType.REVALIDATE_GOAL_AND_PATH);
+    }
+
+    @Override
+    public void onLostControl() {
+        if (ctx.player() != null && ctx.player().getRidingEntity() instanceof BoatEntity) return; // keep sailing state
+        reset();
+    }
+
+    @Override
+    public String displayName0() {
+        return "Boat " + phase;
+    }
+
+    @Override
+    public boolean isTemporary() {
+        return true;
+    }
+
+    @Override
+    public double priority() {
+        return 3;
+    }
+}

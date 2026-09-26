@@ -100,6 +100,10 @@ public class PathExecutor implements IPathExecutor, Helper {
         }
         Movement movement = (Movement) path.movements().get(pathPosition);
         BetterBlockPos whereAmI = ctx.playerFeet();
+        if (sprintJumping && advanceAlongJump(movement, whereAmI)) {
+            onTick();
+            return false;
+        }
         if (!movement.getValidPositions().contains(whereAmI)) {
             for (int i = 0; i < pathPosition && i < path.length(); i++) {//this happens for example when you lag out and get teleported back a couple blocks
                 if (((Movement) path.movements().get(i)).getValidPositions().contains(whereAmI)) {
@@ -377,6 +381,9 @@ public class PathExecutor implements IPathExecutor, Helper {
         if (requested) {
             if (shouldSprintJump(current)) {
                 behavior.baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+                sprintJumping = true;
+            } else if (ctx.player().isOnGround()) {
+                sprintJumping = false;
             }
             return true;
         }
@@ -472,6 +479,35 @@ public class PathExecutor implements IPathExecutor, Helper {
                 clearKeys();
                 behavior.baritone.getLookBehavior().updateTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), data.getA(), ctx.playerRotations()), false);
                 behavior.baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean sprintJumping;
+
+    /**
+     * Mid-jump the feet sit a block above the path, and a jump lands one or two moves ahead, which the
+     * normal skip-ahead ignores, so the traverse would turn around and walk back. Match at floor height instead.
+     */
+    private boolean advanceAlongJump(Movement movement, BetterBlockPos feet) {
+        BetterBlockPos flat = new BetterBlockPos(feet.x, movement.getSrc().y, feet.z);
+        if (flat.equals(movement.getSrc())) {
+            return false;
+        }
+        Vector3i dir = movement.getDirection();
+        for (int i = pathPosition; i < path.length() - 1 && i <= pathPosition + 5; i++) {
+            IMovement m = path.movements().get(i);
+            if (!m.getDirection().equals(dir)) {
+                return false;
+            }
+            if (m.getDest().equals(flat)) {
+                if (i + 1 >= path.length() - 1 || !path.movements().get(i + 1).getDirection().equals(dir)) {
+                    return false; // let the last straight move finish normally before a turn
+                }
+                pathPosition = i + 1;
+                onChangeInPathPosition();
                 return true;
             }
         }
