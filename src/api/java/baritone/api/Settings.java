@@ -381,7 +381,7 @@ public final class Settings {
     /**
      * Jump while sprinting down long straight flat runs (~30% faster than plain sprinting)
      */
-    public final Setting<Boolean> sprintJump = new Setting<>(true);
+    public final Setting<Boolean> sprintJump = new Setting<>(false);
 
     /**
      * If we overshoot a traverse and end up one block beyond the destination, mark it as successful anyway.
