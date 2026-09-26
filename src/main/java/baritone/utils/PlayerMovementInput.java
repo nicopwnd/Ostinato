@@ -51,7 +51,7 @@ public class PlayerMovementInput extends MovementInput {
             this.moveStrafe--;
         }
 
-        if (this.sneaking = handler.isInputForcedDown(Input.SNEAK)) {
+        if (this.sneaking = handler.isInputForcedDown(Input.SNEAK) || handler.onMagma()) {
             this.moveStrafe *= 0.3D;
             this.moveForward *= 0.3D;
         }

@@ -109,6 +109,11 @@ public class MovementSwim extends Movement {
         if (Math.abs(dest.x - src.x) + Math.abs(dy) + Math.abs(dest.z - src.z) != 1) return new BetterBlockPos[0];
         if (dy < 0) return new BetterBlockPos[]{dest};
         if (dy > 0) return new BetterBlockPos[]{dest.up()};
+        // Crawling under a roof: leave the roof alone, only the dest cell matters.
+        BlockState srcHead = ctx.world().getBlockState(src.up());
+        if (!srcHead.getCollisionShape(ctx.world(), src.up()).isEmpty() && !ctx.world().getBlockState(dest.up()).getCollisionShape(ctx.world(), dest.up()).isEmpty()) {
+            return new BetterBlockPos[]{dest};
+        }
         return new BetterBlockPos[]{dest, dest.up()};
     }
 
@@ -125,7 +130,9 @@ public class MovementSwim extends Movement {
             if (dy > 0 && !water(c, tx, ty, tz)) return COST_INF;
             // Sinking, the cell above the dug one is where we are; sideways, the head cell is dug too.
             if (dy <= 0) mine += dig(c, tx, ty, tz, false, true);
-            if (dy >= 0) mine += dig(c, tx, ty + 1, tz, true, false);
+            // Swim pose is one block tall: already squeezed under a roof, a 1-high gap sideways is enough.
+            boolean crawl = dy == 0 && !headroom(c, x, y + 1, z) && !headroom(c, tx, ty + 1, tz) && water(c, tx, ty, tz);
+            if (dy >= 0 && !crawl) mine += dig(c, tx, ty + 1, tz, true, false);
             if (mine >= COST_INF) return COST_INF;
             return SWIM_ONE_BLOCK_COST + mine;
         }

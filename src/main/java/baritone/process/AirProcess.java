@@ -44,26 +44,43 @@ public final class AirProcess extends BaritoneProcessHelper {
             return active = false;
         }
         int air = ctx.player().getAir(), max = ctx.player().getMaxAir();
+        if (ctx.world().getBlockState(new BlockPos(ctx.player().getPositionVec()).down()).getBlock() == Blocks.MAGMA_BLOCK
+                || (ctx.player().isInWater() && ctx.world().getBlockState(ctx.playerFeet().down()).getBlock() == Blocks.MAGMA_BLOCK)) {
+            // Whatever process is driving: sneaking is the only thing that stops magma burning us.
+            baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
+        }
         if (!active && ctx.player().isInWater() && ctx.player().ticksExisted % 20 == 0) {
             // Blocks to the nearest breathable spot: open surface straight up, or a bubble column.
             int surface = findSurfaceY();
             int sd = surface == NONE ? Integer.MAX_VALUE : surface - ctx.playerFeet().getY();
             col = columnGoal(sd);
             depth = Math.min(sd, colDist);
-            if (depth == Integer.MAX_VALUE) depth = 48; // no air in reach: keep a big reserve
+            if (depth == Integer.MAX_VALUE) depth = 0; // no air in reach: keep going, one may come into range
         }
-        if (!active && ctx.player().isInWater() && air < Math.max(max / 3, depth * 6)) {
+        if (!active && ctx.player().isInWater() && air < Math.min(max - 40, Math.max(max / 3, depth * 9)) && !goalWithinBreath(air, depth)) {
             // ~1.5x the straight swim (4 ticks/block): paths detour around hulls and walls.
             active = true;
             surfaceY = findSurfaceY();
             Goal c = columnGoal(surfaceY == NONE ? Integer.MAX_VALUE : surfaceY - ctx.playerFeet().getY());
+            if (c == null && surfaceY == NONE) {
+                // Nowhere to breathe in range (roofed tunnel): stopping won't help, carry on.
+                active = false;
+                return false;
+            }
             goal = c != null ? c : surfaceGoal(surfaceY == NONE ? ctx.playerFeet().getY() + 64 : surfaceY);
-            if (c != null) logDebug("Low on air (" + air + "), heading to a bubble column");
+            if (c != null) logDebug("Low on air (" + air + " d=" + depth + " eta=" + baritone.getPathingBehavior().estimatedTicksToGoal().map(Math::round).orElse(-1L) + "), heading to a bubble column");
             else logDebug("Low on air (" + air + "), surfacing to y=" + surfaceY);
         } else if (active && air >= max) {
             active = false;
         }
         return active;
+    }
+
+    /** The current task's goal is closer than turning back for air (with a margin for slow swimming). */
+    private boolean goalWithinBreath(int air, int airDist) {
+        // Also press on when the goal is nearer than the air behind us: turning back can only be worse.
+        return baritone.getPathingBehavior().isPathing()
+                && baritone.getPathingBehavior().estimatedTicksToGoal().map(t -> t * 1.3 + 20 < air || t * 1.3 < airDist * 9).orElse(false);
     }
 
     /** Top of the water nearby: highest y over a 9x9 area whose block is water with a non-water block above. */
@@ -95,8 +112,8 @@ public final class AirProcess extends BaritoneProcessHelper {
         int best = surfaceDist == Integer.MAX_VALUE ? Integer.MAX_VALUE : surfaceDist + 2;
         colDist = Integer.MAX_VALUE;
         Set<BlockPos> cells = new HashSet<>();
-        for (int dx = -32; dx <= 32; dx++) {
-            for (int dz = -32; dz <= 32; dz++) {
+        for (int dx = -40; dx <= 40; dx++) {
+            for (int dz = -40; dz <= 40; dz++) {
                 for (int dy = -8; dy <= 8; dy++) {
                     BlockPos p = feet.add(dx, dy, dz);
                     if (column(p) && column(p.up())) {

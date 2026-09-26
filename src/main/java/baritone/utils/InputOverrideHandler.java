@@ -83,6 +83,15 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
         this.inputForceStateMap.clear();
     }
 
+    /** Standing on magma: sneaking is the only thing that stops it burning us, whatever else is steering. */
+    boolean onMagma() {
+        if (ctx.player() == null || ctx.world() == null || !ctx.player().isOnGround()) {
+            return false;
+        }
+        net.minecraft.util.math.BlockPos below = new net.minecraft.util.math.BlockPos(ctx.player().getPositionVec().add(0, -0.2, 0));
+        return ctx.world().getBlockState(below).getBlock() == net.minecraft.block.Blocks.MAGMA_BLOCK;
+    }
+
     @Override
     public final void onTick(TickEvent event) {
         if (event.getType() == TickEvent.Type.OUT) {
