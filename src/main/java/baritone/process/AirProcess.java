@@ -57,6 +57,10 @@ public final class AirProcess extends BaritoneProcessHelper {
             depth = Math.min(sd, colDist);
             if (depth == Integer.MAX_VALUE) depth = 0; // no air in reach: keep going, one may come into range
         }
+        if (!active && ctx.player().isSwimming() && col == null && baritone.getPathingBehavior().isPathing() && air > 20) {
+            // Swimming under open water: the movement creeps up to breathe without leaving the swim pose.
+            return false;
+        }
         if (!active && ctx.player().isInWater() && air < Math.min(max - 40, Math.max(max / 3, depth * 9)) && !goalWithinBreath(air, depth)) {
             // ~1.5x the straight swim (4 ticks/block): paths detour around hulls and walls.
             active = true;

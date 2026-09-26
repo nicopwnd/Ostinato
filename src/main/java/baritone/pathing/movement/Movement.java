@@ -165,6 +165,21 @@ public abstract class Movement implements IMovement, MovementHelper {
      *
      * @return true if it took over steering (the caller must not force JUMP)
      */
+    /** Surfacing for air in the swim pose; shared by movements so it survives path segments. */
+    public static boolean breathing;
+
+    /** Blocks from the eyes up to open air straight above, or -1 if roofed over within 24. */
+    private double surfaceAbove(net.minecraft.entity.player.PlayerEntity p) {
+        BlockPos eyes = new BlockPos(p.getEyePosition(1));
+        for (int i = 0; i < 24; i++) {
+            BlockPos q = eyes.up(i);
+            net.minecraft.block.BlockState st = ctx.world().getBlockState(q);
+            if (MovementHelper.isWater(st)) continue;
+            return st.getCollisionShape(ctx.world(), q).isEmpty() && st.getFluidState().isEmpty() ? Math.max(0, q.getY() - 0.11 - p.getPosYEye()) : -1;
+        }
+        return -1;
+    }
+
     private boolean applySwim(MovementState state) {
         if (!Baritone.settings().swimInWater.value || state.getStatus().isComplete()) return false;
         net.minecraft.entity.player.PlayerEntity p = ctx.player();
@@ -182,11 +197,22 @@ public abstract class Movement implements IMovement, MovementHelper {
                 && dest.y >= feet.getY()) return false;
 
         double dy = dest.y - p.getPositionVec().y;
-        boolean lowAir = p.getAir() < p.getMaxAir() / 3;
+        int air = p.getAir(), max = p.getMaxAir();
+        double toSurface = surfaceAbove(p);
+        // Start rising while there's still time to creep up in the swim pose (~0.1 block/tick at -30).
+        if (toSurface >= 0 && air < toSurface * 10 + 60) breathing = true;
+        if (air >= max || toSurface < 0) breathing = false;
         float pitch;
-        if (!p.isSwimming()) {
-            pitch = lowAir ? -35f : 35f;   // dip the eyes under so sprint engages the swim pose
-        } else if (lowAir || dy > 0.5) {
+        if (breathing) {
+            // Keep sprint-swimming, heading for the surface: steep only if air is short, then a slow creep
+            // so the eyes break the surface without leaving the swim pose. Once out, hold just there.
+            if (!p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER)) pitch = -2f;
+            else if (toSurface > 1.5) pitch = (float) -Math.min(45, Math.max(12, Math.toDegrees(Math.asin(Math.min(1, toSurface / Math.max(20, air * 0.6) / 0.18)))));
+            else pitch = -8f;
+            if (!p.isSwimming() && air > 30) pitch = 35f; // get into the swim pose first
+        } else if (!p.isSwimming()) {
+            pitch = air < 30 ? -35f : 35f;   // dip the eyes under so sprint engages the swim pose
+        } else if (dy > 0.5) {
             pitch = -35f;                  // rise
         } else if (dy < -0.5) {
             pitch = 30f;                   // dive
@@ -196,7 +222,7 @@ public abstract class Movement implements IMovement, MovementHelper {
         float yaw = state.getTarget().getRotation().map(Rotation::getYaw)
                 .orElse(ctx.playerRotations().getYaw());
         state.setInput(Input.SPRINT, true);
-        state.setInput(Input.JUMP, lowAir && !p.isSwimming());
+        state.setInput(Input.JUMP, air < 30 && !p.isSwimming());
         state.setTarget(new MovementState.MovementTarget(new Rotation(yaw, pitch), true));
         return true;
     }
