@@ -117,9 +117,23 @@ public class MovementSwim extends Movement {
         return new BetterBlockPos[]{dest, dest.up()};
     }
 
+    /** A thin sheet of flowing water on a floor (a stream down steps): you wade it, you can't swim up into it. */
+    private static boolean shallow(CalculationContext c, int x, int y, int z) {
+        net.minecraft.fluid.FluidState f = c.get(x, y, z).getFluidState();
+        return !f.isSource() && !f.get(net.minecraft.fluid.FlowingFluid.FALLING) && !water(c, x, y - 1, z);
+    }
+
+    private static boolean current(CalculationContext c, int x, int y, int z) {
+        net.minecraft.fluid.FluidState f = c.get(x, y, z).getFluidState();
+        return !f.isSource() && !f.get(net.minecraft.fluid.FlowingFluid.FALLING);
+    }
+
     public static double cost(CalculationContext c, int x, int y, int z, int dx, int dy, int dz) {
         if (!Baritone.settings().swimInWater.value) return COST_INF;
         int tx = x + dx, ty = y + dy, tz = z + dz;
+        // A stream down steps is wading depth: walk it (ascend/traverse), there's nothing to swim in.
+        // Rising into sideways-flowing water fights the current: take the step as an ascend instead.
+        if (dy > 0 && ((water(c, x, y, z) && shallow(c, x, y, z)) || ((dx != 0 || dz != 0) && water(c, tx, ty, tz) && current(c, tx, ty, tz)))) return COST_INF;
         // Swimming, not walking: both ends must be in water with room for the head.
         // Dest may be the air block just above the surface (surfacing); it must sit on water.
         if (!water(c, x, y, z) && !dugShaft(c, x, y, z)) return COST_INF;
@@ -193,6 +207,11 @@ public class MovementSwim extends Movement {
         Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), new Vector3d(dest.x + 0.5, dest.y + 0.5, dest.z + 0.5), ctx.playerRotations());
         state.setTarget(new MovementState.MovementTarget(r, false));
         state.setInput(Input.MOVE_FORWARD, true);
+        // Against a step edge (a stream down stairs) or sagging below the lane: jumping in water
+        // against a wall is vanilla's climb-out boost; it also keeps us up in a current.
+        if (dest.y >= feet.y && (ctx.player().collidedHorizontally || pos.y < dest.y - 0.1)) {
+            state.setInput(Input.JUMP, true);
+        }
         return state;
     }
 }
