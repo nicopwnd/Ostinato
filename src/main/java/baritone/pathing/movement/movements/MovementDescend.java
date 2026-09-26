@@ -41,6 +41,12 @@ import java.util.Set;
 
 public class MovementDescend extends Movement {
 
+    /**
+     * Drops (feet to feet) where a boat lands a hair above the floor, the rider is treated as on land,
+     * and both the boat and the rider take the full fall.
+     */
+    private static final java.util.Set<Integer> BOAT_BREAK_HEIGHTS = new java.util.HashSet<>(java.util.Arrays.asList(12, 13, 49, 51, 111, 114, 202, 310, 315));
+
     private int numTicks = 0;
     public boolean forceSafeMode = false;
 
@@ -209,7 +215,7 @@ public class MovementDescend extends Movement {
                 res.cost = tentativeCost + context.placeBucketCost();
                 return true;
             }
-            if (context.hasBoat && unprotectedFallHeight <= context.maxFallHeightBoat + 1) {
+            if (context.hasBoat && unprotectedFallHeight <= context.maxFallHeightBoat + 1 && !BOAT_BREAK_HEIGHTS.contains(y - newY - 1)) {
                 res.x = destX;
                 res.y = newY + 1;
                 res.z = destZ;
