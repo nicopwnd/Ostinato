@@ -63,6 +63,12 @@ public class MovementFall extends Movement {
 
     /** True while a boat fall is driving; BoatProcess keeps its hands off until we land. */
     public static volatile boolean boatRide;
+    /** Tick boatRide was last refreshed; a claim older than a few ticks (movement cancelled) lapses. */
+    public static volatile int boatRideTick;
+
+    public static boolean boatRideClaimed(int now) {
+        return boatRide && now - boatRideTick <= 5;
+    }
     private Boolean boatMode;
     private int boatTicks;
 
@@ -109,7 +115,13 @@ public class MovementFall extends Movement {
                     && !MovementHelper.isWater(ctx.world().getBlockState(dest));
         }
         if (boatMode) {
-            return boatFall(state);
+            // Claim any boat ride for this movement from the start, so BoatProcess doesn't see us seated
+            // on land and climb straight back out (which also puts a 60-tick cooldown on boarding).
+            boatRide = true;
+            boatRideTick = ctx.player().ticksExisted;
+            boatFall(state);
+            boatRide = state.getStatus() == MovementStatus.RUNNING;
+            return state;
         }
         BlockPos playerFeet = ctx.playerFeet();
         Rotation toDest = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations());
@@ -217,7 +229,6 @@ public class MovementFall extends Movement {
             }
             return state.setTarget(new MovementTarget(new Rotation(want, 10), true));
         }
-        boatRide = false;
         if (nearSrc() > 2 && ctx.player().isOnGround() && boatTicks < 60 && ctx.playerFeet().getY() >= src.getY()) {
             // Handed the movement a step early/late: walk back onto src first.
             boatTicks++;

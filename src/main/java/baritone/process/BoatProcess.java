@@ -64,7 +64,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
         }
         if (ctx.player().getRidingEntity() instanceof BoatEntity) {
             BoatUtil.restore(ctx);
-            if (MovementFall.boatRide) return false;
+            if (MovementFall.boatRideClaimed(ctx.player().ticksExisted)) return false;
             if (!BoatUtil.isDriver(ctx.player())) {
                 // A passenger can't steer: get out and leave the boat to its driver.
                 target = currentGoal();
@@ -79,6 +79,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             }
             if (!boat.isInWater()) {
                 // Aground: get out and take the boat with us.
+                logDebug("Boat: seated aground with nowhere to sail, getting out");
                 target = g;
                 return enter(Phase.EXIT);
             }
