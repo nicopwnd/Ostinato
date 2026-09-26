@@ -375,6 +375,9 @@ public class PathExecutor implements IPathExecutor, Helper {
 
         // if the movement requested sprinting, then we're done
         if (requested) {
+            if (shouldSprintJump(current)) {
+                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+            }
             return true;
         }
 
@@ -473,6 +476,54 @@ public class PathExecutor implements IPathExecutor, Helper {
             }
         }
         return false;
+    }
+
+    /**
+     * Sprint-jump on a straight, flat, already-clear run: a sprint jump covers ~4 blocks, so we need
+     * that many more same-direction flat moves with open air two above their floor (the jump peaks ~1.25 up).
+     */
+    private boolean shouldSprintJump(IMovement current) {
+        if (!Baritone.settings().sprintJump.value || !(current instanceof MovementTraverse || current instanceof MovementDiagonal)) {
+            return false;
+        }
+        if (!ctx.player().isOnGround() || ctx.player().isInWater() || ctx.player().isInLava() || ctx.player().isSneaking()) {
+            return false;
+        }
+        Vector3d motion = ctx.player().getMotion();
+        if (motion.x * motion.x + motion.z * motion.z < 0.2 * 0.2) {
+            return false; // accelerate first; jumping from a standstill is slower than walking
+        }
+        Vector3i dir = current.getDirection();
+        if (dir.getY() != 0) {
+            return false;
+        }
+        BlockStateInterface bsi = new BlockStateInterface(ctx);
+        int needed = current instanceof MovementDiagonal ? 3 : 4;
+        for (int i = pathPosition; i <= pathPosition + needed; i++) {
+            if (i >= path.length() - 1) {
+                return false;
+            }
+            IMovement m = path.movements().get(i);
+            if (!m.getDirection().equals(dir) || !(m instanceof Movement)) {
+                return false;
+            }
+            if (!((Movement) m).toBreak(bsi).isEmpty() || !((Movement) m).toPlace(bsi).isEmpty()) {
+                return false;
+            }
+            BetterBlockPos d = m.getDest();
+            if (!MovementHelper.canWalkThrough(bsi, d.x, d.y + 2, d.z) || MovementHelper.isWater(bsi.get0(d.x, d.y, d.z))) {
+                return false;
+            }
+        }
+        BetterBlockPos src = current.getSrc();
+        if (!MovementHelper.canWalkThrough(bsi, src.x, src.y + 2, src.z)) {
+            return false;
+        }
+        // Stay on the line: veering sideways at 0.4 blocks/tick would clip a corner.
+        Vector3d pos = ctx.player().getPositionVec();
+        double lx = pos.x - (src.x + 0.5), lz = pos.z - (src.z + 0.5);
+        double side = Math.abs(lx * dir.getZ() - lz * dir.getX()) / Math.sqrt(dir.getX() * dir.getX() + dir.getZ() * dir.getZ());
+        return side < 0.25;
     }
 
     private Tuple<Vector3d, BlockPos> overrideFall(MovementFall movement) {
