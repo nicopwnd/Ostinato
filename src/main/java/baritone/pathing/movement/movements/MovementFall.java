@@ -188,6 +188,13 @@ public class MovementFall extends Movement {
     private MovementState boatFall(MovementState state) {
         Entity v = ctx.player().getRidingEntity();
         if (v instanceof BoatEntity) {
+            if (!BoatUtil.isDriver(ctx.player())) {
+                // Someone else got in first and steers: get out and don't ride their boat off the cliff.
+                boatRide = false;
+                logDebug("boat fall: not the driver, getting out");
+                state.setInput(Input.SNEAK, true);
+                return state.setStatus(MovementStatus.UNREACHABLE);
+            }
             boatRide = true;
             BoatUtil.restore(ctx);
             if (v.isOnGround() && Math.abs(v.getPosY() - dest.getY()) < 0.7) {
@@ -223,7 +230,7 @@ public class MovementFall extends Movement {
         }
         Entity boat = null;
         for (Entity e : ctx.entities()) {
-            if (e instanceof BoatEntity && e.getPassengers().isEmpty() && ctx.player().getDistance(e) < 3
+            if (BoatUtil.free(e) && ctx.player().getDistance(e) < 3
                     && (boat == null || ctx.player().getDistance(e) < ctx.player().getDistance(boat))) boat = e;
         }
         if (boat != null) {

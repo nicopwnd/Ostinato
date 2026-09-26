@@ -215,11 +215,12 @@ public class MovementDescend extends Movement {
                 res.cost = tentativeCost + context.placeBucketCost();
                 return true;
             }
-            if (context.hasBoat && unprotectedFallHeight <= context.maxFallHeightBoat + 1 && !BOAT_BREAK_HEIGHTS.contains(y - newY - 1)) {
+            boolean boatThere = context.freeBoatAt(x, y, z);
+            if ((context.hasBoat || boatThere) && unprotectedFallHeight <= context.maxFallHeightBoat + 1 && !BOAT_BREAK_HEIGHTS.contains(y - newY - 1)) {
                 res.x = destX;
                 res.y = newY + 1;
                 res.z = destZ;
-                res.cost = tentativeCost + context.boatFallCost();
+                res.cost = tentativeCost + (boatThere ? context.boardBoatFallCost() : context.boatFallCost());
                 return true;
             }
             return false;

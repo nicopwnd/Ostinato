@@ -60,6 +60,8 @@ public class CalculationContext {
     public final ToolSet toolSet;
     public final boolean hasWaterBucket;
     public final boolean hasBoat;
+    /** Free boats already out in the world (block longs); boarding one skips placing our own. */
+    public final java.util.Set<Long> freeBoats;
     public final int maxFallHeightBoat;
     public final boolean aquaAffinity;
     public final boolean hasThrowaway;
@@ -105,6 +107,8 @@ public class CalculationContext {
         this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && PlayerInventory.isHotbar(player.inventory.getSlotFor(STACK_BUCKET_WATER)) && world.getDimensionKey() != World.THE_NETHER;
         this.hasBoat = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
                 && BoatUtil.hasBoat(player.inventory.mainInventory);
+        this.freeBoats = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
+                ? BoatUtil.freeBoats(world, player, 64) : java.util.Collections.emptySet();
         this.maxFallHeightBoat = Baritone.settings().maxFallHeightBoat.value;
         this.canSprint = Baritone.settings().allowSprint.value && player.getFoodStats().getFoodLevel() > 6;
         this.placeBlockCost = Baritone.settings().blockPlacementPenalty.value;
@@ -184,6 +188,20 @@ public class CalculationContext {
             return COST_INF;
         }
         return 1;
+    }
+
+    /** A free boat at feet level on (x,y,z) or right beside it, ready to board at a cliff top. */
+    public boolean freeBoatAt(int x, int y, int z) {
+        if (freeBoats.isEmpty()) return false;
+        for (int[] d : new int[][]{{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+            if (freeBoats.contains(BlockPos.pack(x + d[0], y, z + d[1]))) return true;
+        }
+        return false;
+    }
+
+    /** Board a boat that's already there and drive off: no placing, and we still pick it up after. */
+    public double boardBoatFallCost() {
+        return 60;
     }
 
     /** Place, board, drive off, then break and pick the boat back up. */

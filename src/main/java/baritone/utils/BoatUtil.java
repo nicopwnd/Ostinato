@@ -1,7 +1,15 @@
 package baritone.utils;
 
 import baritone.api.utils.IPlayerContext;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.BoatEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.container.ClickType;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.item.BoatItem;
 import net.minecraft.util.NonNullList;
 import net.minecraft.item.ItemStack;
@@ -46,5 +54,26 @@ public final class BoatUtil {
             ctx.playerController().windowClick(ctx.player().container.windowId, borrowed[0], borrowed[1], ClickType.SWAP, ctx.player());
         }
         borrowed = null;
+    }
+
+    /** A boat nobody sits in: whoever boards first drives it, so only these are ours to take. */
+    public static boolean free(Entity e) {
+        return e instanceof BoatEntity && e.isAlive() && e.getPassengers().isEmpty();
+    }
+
+    /** True if we sit in a boat and are its first passenger, the one that steers. */
+    public static boolean isDriver(PlayerEntity p) {
+        Entity v = p.getRidingEntity();
+        return v instanceof BoatEntity && v.getControllingPassenger() == p;
+    }
+
+    /** Block positions (as longs) of free boats within r of the player, snapshot for path costs. */
+    public static Set<Long> freeBoats(World w, PlayerEntity p, double r) {
+        Set<Long> out = new HashSet<>();
+        if (w == null || p == null || !(w instanceof net.minecraft.client.world.ClientWorld)) return out;
+        for (Entity e : ((net.minecraft.client.world.ClientWorld) w).getAllEntities()) {
+            if (free(e) && e.getDistance(p) < r) out.add(new BlockPos(e.getPosX(), e.getPosY() + 0.1, e.getPosZ()).toLong());
+        }
+        return out;
     }
 }
