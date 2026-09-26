@@ -17,6 +17,7 @@
 
 package baritone.pathing.movement;
 
+import baritone.utils.BoatUtil;
 import baritone.Baritone;
 import baritone.altoclef.AltoClefSettings;
 import baritone.api.IBaritone;
@@ -103,7 +104,7 @@ public class CalculationContext {
         this.hasThrowaway = !AltoClefSettings.getInstance().isInteractionPaused() && Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
         this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && PlayerInventory.isHotbar(player.inventory.getSlotFor(STACK_BUCKET_WATER)) && world.getDimensionKey() != World.THE_NETHER;
         this.hasBoat = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
-                && java.util.stream.IntStream.range(0, 9).anyMatch(i -> player.inventory.mainInventory.get(i).getItem() instanceof net.minecraft.item.BoatItem);
+                && BoatUtil.hasBoat(player.inventory.mainInventory);
         this.maxFallHeightBoat = Baritone.settings().maxFallHeightBoat.value;
         this.canSprint = Baritone.settings().allowSprint.value && player.getFoodStats().getFoodLevel() > 6;
         this.placeBlockCost = Baritone.settings().blockPlacementPenalty.value;

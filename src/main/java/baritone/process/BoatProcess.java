@@ -1,5 +1,6 @@
 package baritone.process;
 
+import baritone.utils.BoatUtil;
 import baritone.Baritone;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
@@ -62,6 +63,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             return true;
         }
         if (ctx.player().getRidingEntity() instanceof BoatEntity) {
+            BoatUtil.restore(ctx);
             if (MovementFall.boatRide) return false;
             // Seated by someone else, a relog, or a boat fall that just landed: sail if there's somewhere to go.
             Goal g = currentGoal();
@@ -76,7 +78,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             }
             return false;
         }
-        if (ctx.player().ticksExisted - lastCheck < 40 || boatSlot() < 0) {
+        if (ctx.player().ticksExisted - lastCheck < 40 || !BoatUtil.hasBoat(ctx.player().inventory.mainInventory)) {
             return false;
         }
         lastCheck = ctx.player().ticksExisted;
@@ -112,13 +114,6 @@ public final class BoatProcess extends BaritoneProcessHelper {
         return g != null ? g : baritone.getPathingBehavior().getGoal();
     }
 
-    /** Hotbar slot holding a boat, or -1. */
-    private int boatSlot() {
-        for (int i = 0; i < 9; i++) {
-            if (ctx.player().inventory.mainInventory.get(i).getItem() instanceof BoatItem) return i;
-        }
-        return -1;
-    }
 
     // ---- planning --------------------------------------------------------------------------
 
@@ -264,7 +259,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             }
             case PLACE: {
                 if (findBoat(4) != null) { enter(Phase.MOUNT); return pause(); }
-                int slot = boatSlot();
+                int slot = BoatUtil.hotbarBoat(ctx);
                 if (slot < 0 || phaseTicks > 100) return abort("could not place the boat (" + Minecraft.getInstance().objectMouseOver + " eye " + ctx.player().getPosYEye() + ")");
                 ctx.player().inventory.currentItem = slot;
                 if (surfacing()) {

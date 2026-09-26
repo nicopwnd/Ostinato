@@ -17,6 +17,7 @@
 
 package baritone.pathing.movement.movements;
 
+import baritone.utils.BoatUtil;
 import baritone.altoclef.AltoClefSettings;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
@@ -187,6 +188,7 @@ public class MovementFall extends Movement {
         Entity v = ctx.player().getRidingEntity();
         if (v instanceof BoatEntity) {
             boatRide = true;
+            BoatUtil.restore(ctx);
             if (v.isOnGround() && Math.abs(v.getPosY() - dest.getY()) < 0.7) {
                 boatRide = false;
                 return state.setStatus(MovementStatus.SUCCESS);
@@ -220,10 +222,7 @@ public class MovementFall extends Movement {
             if (boatTicks % 4 == 3) Minecraft.getInstance().playerController.interactWithEntity(ctx.player(), boat, Hand.MAIN_HAND);
             return state;
         }
-        int slot = -1;
-        for (int i = 0; i < 9; i++) {
-            if (ctx.player().inventory.mainInventory.get(i).getItem() instanceof BoatItem) slot = i;
-        }
+        int slot = BoatUtil.hotbarBoat(ctx);
         if (slot < 0) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
