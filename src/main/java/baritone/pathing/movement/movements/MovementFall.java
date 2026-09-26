@@ -207,7 +207,7 @@ public class MovementFall extends Movement {
             return state.setTarget(new MovementTarget(new Rotation(want, 10), true));
         }
         boatRide = false;
-        if (!ctx.playerFeet().equals(src) || boatTicks++ > 120) {
+        if (ctx.playerFeet().distanceSq(src) > 2 || boatTicks++ > 160) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
         Entity boat = null;
@@ -228,9 +228,26 @@ public class MovementFall extends Movement {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
         ctx.player().inventory.currentItem = slot;
-        // Boats only go on a block top with room: the one we're standing on.
-        state.setTarget(new MovementTarget(new Rotation(ctx.playerRotations().getYaw(), 90), true));
-        if (boatTicks % 5 == 4) Minecraft.getInstance().playerController.processRightClick(ctx.player(), ctx.world(), Hand.MAIN_HAND);
+        // Boats can't overlap us. With headroom, jump and place underneath at the top of the jump;
+        // in a 1-2 high space, back off src and place on its far half instead.
+        if (ctx.playerFeet().equals(src) && MovementHelper.canWalkThrough(ctx, src.up(2)) && MovementHelper.canWalkThrough(ctx, src.up(3))) {
+            state.setTarget(new MovementTarget(new Rotation(ctx.playerRotations().getYaw(), 90), true));
+            if (ctx.player().isOnGround()) {
+                state.setInput(Input.JUMP, true);
+            } else if (ctx.player().getPosY() - src.getY() > 0.7) {
+                Minecraft.getInstance().playerController.processRightClick(ctx.player(), ctx.world(), Hand.MAIN_HAND);
+            }
+            return state;
+        }
+        double dx = Math.signum(dest.getX() - src.getX()), dz = Math.signum(dest.getZ() - src.getZ());
+        Vector3d aim = new Vector3d(src.getX() + 0.5 + dx * 0.35, src.getY(), src.getZ() + 0.5 + dz * 0.35);
+        state.setTarget(new MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), aim, ctx.playerRotations()), true));
+        double back = (src.getX() + 0.5 - ctx.player().getPosX()) * dx + (src.getZ() + 0.5 - ctx.player().getPosZ()) * dz;
+        if (back < 0.8) {
+            state.setInput(Input.MOVE_BACK, true);
+        } else if (boatTicks % 5 == 4) {
+            Minecraft.getInstance().playerController.processRightClick(ctx.player(), ctx.world(), Hand.MAIN_HAND);
+        }
         return state;
     }
 
