@@ -30,6 +30,9 @@ public final class AirProcess extends BaritoneProcessHelper {
     private int depth;
     /** Built once per surfacing: a fresh Goal each tick would look like a goal change and restart the search. */
     private Goal goal;
+    private Goal col;
+    private int colDist;
+    private static final int NONE = Integer.MIN_VALUE;
 
     public AirProcess(Baritone baritone) {
         super(baritone);
@@ -41,15 +44,22 @@ public final class AirProcess extends BaritoneProcessHelper {
             return active = false;
         }
         int air = ctx.player().getAir(), max = ctx.player().getMaxAir();
-        if (!active && ctx.player().isInWater() && ctx.player().ticksExisted % 10 == 0) depth = findSurfaceY() - ctx.playerFeet().getY();
+        if (!active && ctx.player().isInWater() && ctx.player().ticksExisted % 20 == 0) {
+            // Blocks to the nearest breathable spot: open surface straight up, or a bubble column.
+            int surface = findSurfaceY();
+            int sd = surface == NONE ? Integer.MAX_VALUE : surface - ctx.playerFeet().getY();
+            col = columnGoal(sd);
+            depth = Math.min(sd, colDist);
+            if (depth == Integer.MAX_VALUE) depth = 48; // no air in reach: keep a big reserve
+        }
         if (!active && ctx.player().isInWater() && air < Math.max(max / 3, depth * 6)) {
-            // Deep dives need a bigger reserve: ~1.5x the straight swim up (paths detour around hulls).
+            // ~1.5x the straight swim (4 ticks/block): paths detour around hulls and walls.
             active = true;
             surfaceY = findSurfaceY();
-            goal = surfaceGoal(surfaceY);
-            Goal col = columnGoal(surfaceY - ctx.playerFeet().getY());
-            if (col != null) goal = col;
-            logDebug("Low on air (" + air + "), surfacing to y=" + surfaceY);
+            Goal c = columnGoal(surfaceY == NONE ? Integer.MAX_VALUE : surfaceY - ctx.playerFeet().getY());
+            goal = c != null ? c : surfaceGoal(surfaceY == NONE ? ctx.playerFeet().getY() + 64 : surfaceY);
+            if (c != null) logDebug("Low on air (" + air + "), heading to a bubble column");
+            else logDebug("Low on air (" + air + "), surfacing to y=" + surfaceY);
         } else if (active && air >= max) {
             active = false;
         }
@@ -59,13 +69,15 @@ public final class AirProcess extends BaritoneProcessHelper {
     /** Top of the water nearby: highest y over a 9x9 area whose block is water with a non-water block above. */
     private int findSurfaceY() {
         BlockPos feet = ctx.playerFeet();
-        int best = feet.getY();
+        int best = NONE;
         for (int dx = -4; dx <= 4; dx++) {
             for (int dz = -4; dz <= 4; dz++) {
                 for (int y = feet.getY(); y < feet.getY() + 64 && y < 255; y++) {
                     BlockPos p = new BlockPos(feet.getX() + dx, y, feet.getZ() + dz);
-                    if (!MovementHelper.isWater(ctx.world().getBlockState(p))) {
-                        if (y - 1 > best && MovementHelper.isWater(ctx.world().getBlockState(p.down()))) best = y - 1;
+                    BlockState st = ctx.world().getBlockState(p);
+                    if (!MovementHelper.isWater(st)) {
+                        // a roof (glass, ice, a hull) is not a surface: there must be air to breathe
+                        if (y - 1 > best && st.getCollisionShape(ctx.world(), p).isEmpty() && st.getFluidState().isEmpty()) best = y - 1;
                         break;
                     }
                 }
@@ -80,22 +92,24 @@ public final class AirProcess extends BaritoneProcessHelper {
      */
     private Goal columnGoal(int surfaceDist) {
         BlockPos feet = ctx.playerFeet();
-        boolean openAbove = surfaceDist > 0 || !ctx.world().getBlockState(feet.up(2)).getMaterial().blocksMovement();
-        int best = openAbove ? surfaceDist + 2 : Integer.MAX_VALUE;
+        int best = surfaceDist == Integer.MAX_VALUE ? Integer.MAX_VALUE : surfaceDist + 2;
+        colDist = Integer.MAX_VALUE;
         Set<BlockPos> cells = new HashSet<>();
-        for (int dx = -12; dx <= 12; dx++) {
-            for (int dz = -12; dz <= 12; dz++) {
+        for (int dx = -32; dx <= 32; dx++) {
+            for (int dz = -32; dz <= 32; dz++) {
                 for (int dy = -8; dy <= 8; dy++) {
                     BlockPos p = feet.add(dx, dy, dz);
                     if (column(p) && column(p.up())) {
                         int d = Math.abs(dx) + Math.abs(dy) + Math.abs(dz);
-                        if (d < best) cells.add(p.toImmutable());
+                        if (d < best) {
+                            cells.add(p.toImmutable());
+                            colDist = Math.min(colDist, d);
+                        }
                     }
                 }
             }
         }
         if (cells.isEmpty()) return null;
-        logDebug("Using a bubble column for air (" + cells.size() + " cells)");
         return new Goal() {
             @Override
             public boolean isInGoal(int x, int y, int z) {
