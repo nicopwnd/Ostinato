@@ -204,12 +204,14 @@ public class MovementFall extends Movement {
             if (Math.abs(diff) < 50) state.setInput(Input.MOVE_FORWARD, true);
             if (boatTicks++ > 200) {
                 boatRide = false;
-                return state.setStatus(MovementStatus.UNREACHABLE);
+                logDebug("boat fall: stuck riding at edge " + ctx.player().getPositionVec() + " ticks=" + boatTicks);
+            return state.setStatus(MovementStatus.UNREACHABLE);
             }
             return state.setTarget(new MovementTarget(new Rotation(want, 10), true));
         }
         boatRide = false;
         if (ctx.playerFeet().distanceSq(src) > 2 || boatTicks++ > 160) {
+            logDebug("boat fall: couldn't place/mount " + ctx.player().getPositionVec() + " ticks=" + boatTicks);
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
         Entity boat = null;
@@ -224,6 +226,7 @@ public class MovementFall extends Movement {
         }
         int slot = BoatUtil.hotbarBoat(ctx);
         if (slot < 0) {
+            logDebug("boat fall: no boat " + ctx.player().getPositionVec() + " ticks=" + boatTicks);
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
         ctx.player().inventory.currentItem = slot;
