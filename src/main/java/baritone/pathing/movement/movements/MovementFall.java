@@ -119,6 +119,7 @@ public class MovementFall extends Movement {
         boolean isWater = destState.getFluidState().getFluid() instanceof WaterFluid;
         if (!isWater && willPlaceBucket() && !playerFeet.equals(dest) && !AltoClefSettings.getInstance().shouldNotPlaceBucketButStillFall()) {
             if (!PlayerInventory.isHotbar(ctx.player().inventory.getSlotFor(STACK_BUCKET_WATER)) || ctx.world().getDimensionKey() == World.THE_NETHER) {
+                logDebug("fall: needs a water bucket, boatMode=" + boatMode);
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
 

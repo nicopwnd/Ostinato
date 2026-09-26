@@ -263,6 +263,7 @@ public abstract class Movement implements IMovement, MovementHelper {
         if (somethingInTheWay) {
             // There's a block or blocks that we can't walk through, but we have no target rotation to reach any
             // So don't return true, actually set state to unreachable
+            logDebug(getClass().getSimpleName() + ": can't reach a block to break");
             state.setStatus(MovementStatus.UNREACHABLE);
             return true;
         }
