@@ -77,7 +77,7 @@ public final class AirProcess extends BaritoneProcessHelper {
                     BlockState st = ctx.world().getBlockState(p);
                     if (!MovementHelper.isWater(st)) {
                         // a roof (glass, ice, a hull) is not a surface: there must be air to breathe
-                        if (y - 1 > best && st.getCollisionShape(ctx.world(), p).isEmpty() && st.getFluidState().isEmpty()) best = y - 1;
+                        if (y - 1 > best && y > feet.getY() && st.getCollisionShape(ctx.world(), p).isEmpty() && st.getFluidState().isEmpty()) best = y - 1;
                         break;
                     }
                 }
