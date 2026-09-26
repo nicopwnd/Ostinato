@@ -55,7 +55,7 @@ public class PlayerMovementInput extends ClientInput {
             leftImpulse--;
         }
 
-        boolean sneaking = handler.isInputForcedDown(Input.SNEAK);
+        boolean sneaking = handler.isInputForcedDown(Input.SNEAK) || handler.onMagma();
         if (sneaking) {
             leftImpulse *= 0.3D;
             forwardImpulse *= 0.3D;

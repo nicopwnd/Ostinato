@@ -173,6 +173,8 @@ public abstract class Movement implements IMovement, MovementHelper {
         boolean deep = MovementHelper.isWater(ctx, feet)
                 && (MovementHelper.isWater(ctx, feet.above()) || MovementHelper.isWater(ctx, feet.below()));
         if (!deep) return false;
+        // Swimming into a step face (a stream down stairs): stop swimming and let JUMP climb it.
+        if (p.horizontalCollision && dest.y >= feet.getY()) return false;
         // Climbing out onto land needs JUMP against the bank: leave that to the normal path.
         if (!MovementHelper.isWater(ctx, dest) && !MovementHelper.isWater(ctx, dest.below())
                 && dest.y >= feet.getY()) return false;

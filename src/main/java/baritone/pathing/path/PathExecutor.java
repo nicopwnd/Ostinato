@@ -197,8 +197,9 @@ public class PathExecutor implements IPathExecutor, Helper {
             // do this only once, when the movement starts, and deliberately get the cost as cached when this path was calculated, not the cost as it is right now
             currentMovementOriginalCostEstimate = movement.getCost();
             for (int i = 1; i < Baritone.settings().costVerificationLookahead.value && pathPosition + i < path.length() - 1; i++) {
-                if (((Movement) path.movements().get(pathPosition + i)).calculateCost(behavior.secretInternalGetCalculationContext()) >= ActionCosts.COST_INF && canCancel) {
-                    logDebug("Something has changed in the world and a future movement has become impossible. Cancelling.");
+                Movement future = (Movement) path.movements().get(pathPosition + i);
+                if (future.calculateCost(behavior.secretInternalGetCalculationContext()) >= ActionCosts.COST_INF && canCancel) {
+                    logDebug("Something has changed in the world and a future movement has become impossible. Cancelling. " + future.getClass().getSimpleName() + " " + future.getSrc() + " -> " + future.getDest() + " srcState=" + ctx.world().getBlockState(future.getSrc()) + " destState=" + ctx.world().getBlockState(future.getDest()) + " destUp=" + ctx.world().getBlockState(future.getDest().above()) + " player=" + ctx.playerFeet());
                     cancel();
                     return true;
                 }
@@ -245,7 +246,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 // as you break the blocks required, the remaining cost goes down, to the point where
                 // ticksOnCurrent is greater than recalculateCost + 100
                 // this is why we cache cost at the beginning, and don't recalculate for this comparison every tick
-                logDebug("This movement has taken too long (" + ticksOnCurrent + " ticks, expected " + currentMovementOriginalCostEstimate + "). Cancelling.");
+                logDebug("This movement has taken too long (" + ticksOnCurrent + " ticks, expected " + currentMovementOriginalCostEstimate + ") " + movement.getClass().getSimpleName() + " " + movement.getSrc() + "->" + movement.getDest() + ". Cancelling.");
                 cancel();
                 return true;
             }
@@ -373,6 +374,9 @@ public class PathExecutor implements IPathExecutor, Helper {
 
         // if the movement requested sprinting, then we're done
         if (requested) {
+            if (shouldSprintJump(current)) {
+                behavior.baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+            }
             return true;
         }
 
@@ -390,7 +394,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                         // this is true if the next movement does not ascend or descends and goes into the same cardinal direction (N-NE-E-SE-S-SW-W-NW) as the descend
                         // in that case current.getDirection() is e.g. (0, -1, 1) and next.getDirection() is e.g. (0, 0, 3) so the cross product of (0, 0, 1) and (0, 0, 3) is taken, which is (0, 0, 0) because the vectors are colinear (don't form a plane)
                         // since movements in exactly the opposite direction (e.g. descend (0, -1, 1) and traverse (0, 0, -1)) would also pass this check we also have to rule out that case
-                        // we can do that by adding the directions because traverse is always 1 long like descend and parkour can't jump through current.getSrc().down()
+                        // we can do that by adding the directions because traverse is always 1 long like descend and parkour can't jump through current.getSrc().below()
                         boolean sameFlatDirection = !current.getDirection().above().offset(next.getDirection()).equals(BlockPos.ZERO)
                                 && current.getDirection().above().cross(next.getDirection()).equals(BlockPos.ZERO); // here's why you learn maths in school
                         if (sameFlatDirection && !couldPlaceInstead) {
@@ -432,7 +436,7 @@ public class PathExecutor implements IPathExecutor, Helper {
 
                     return true;
                 }
-                //logDebug("Turning off sprinting " + movement + " " + next + " " + movement.getDirection() + " " + next.getDirection().down() + " " + next.getDirection().down().equals(movement.getDirection()));
+                //logDebug("Turning off sprinting " + movement + " " + next + " " + movement.getDirection() + " " + next.getDirection().below() + " " + next.getDirection().below().equals(movement.getDirection()));
             }
         }
         if (current instanceof MovementAscend && pathPosition != 0) {
@@ -473,6 +477,54 @@ public class PathExecutor implements IPathExecutor, Helper {
             }
         }
         return false;
+    }
+
+    /**
+     * Sprint-jump on a straight, flat, already-clear run: a sprint jump covers ~4 blocks, so we need
+     * that many more same-direction flat moves with open air two above their floor (the jump peaks ~1.25 up).
+     */
+    private boolean shouldSprintJump(IMovement current) {
+        if (!Baritone.settings().sprintJump.value || !(current instanceof MovementTraverse || current instanceof MovementDiagonal)) {
+            return false;
+        }
+        if (!ctx.player().onGround() || ctx.player().isInWater() || ctx.player().isInLava() || ctx.player().isShiftKeyDown()) {
+            return false;
+        }
+        Vec3 motion = ctx.player().getDeltaMovement();
+        if (motion.x * motion.x + motion.z * motion.z < 0.2 * 0.2) {
+            return false; // accelerate first; jumping from a standstill is slower than walking
+        }
+        Vec3i dir = current.getDirection();
+        if (dir.getY() != 0) {
+            return false;
+        }
+        BlockStateInterface bsi = new BlockStateInterface(ctx);
+        int needed = current instanceof MovementDiagonal ? 3 : 4;
+        for (int i = pathPosition; i <= pathPosition + needed; i++) {
+            if (i >= path.length() - 1) {
+                return false;
+            }
+            IMovement m = path.movements().get(i);
+            if (!m.getDirection().equals(dir) || !(m instanceof Movement)) {
+                return false;
+            }
+            if (!((Movement) m).toBreak(bsi).isEmpty() || !((Movement) m).toPlace(bsi).isEmpty()) {
+                return false;
+            }
+            BetterBlockPos d = m.getDest();
+            if (!MovementHelper.canWalkThrough(bsi, d.x, d.y + 2, d.z) || MovementHelper.isWater(bsi.get0(d.x, d.y, d.z))) {
+                return false;
+            }
+        }
+        BetterBlockPos src = current.getSrc();
+        if (!MovementHelper.canWalkThrough(bsi, src.x, src.y + 2, src.z)) {
+            return false;
+        }
+        // Stay on the line: veering sideways at 0.4 blocks/tick would clip a corner.
+        Vec3 pos = ctx.player().position();
+        double lx = pos.x - (src.x + 0.5), lz = pos.z - (src.z + 0.5);
+        double side = Math.abs(lx * dir.getZ() - lz * dir.getX()) / Math.sqrt(dir.getX() * dir.getX() + dir.getZ() * dir.getZ());
+        return side < 0.25;
     }
 
     private Tuple<Vec3, BlockPos> overrideFall(MovementFall movement) {

@@ -379,6 +379,11 @@ public final class Settings {
     public final Setting<Boolean> sprintAscends = new Setting<>(true);
 
     /**
+     * Jump while sprinting down long straight flat runs (~30% faster than plain sprinting)
+     */
+    public final Setting<Boolean> sprintJump = new Setting<>(true);
+
+    /**
      * If we overshoot a traverse and end up one block beyond the destination, mark it as successful anyway.
      * <p>
      * This helps with speed exceeding 20m/s
