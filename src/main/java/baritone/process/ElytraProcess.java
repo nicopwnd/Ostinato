@@ -224,7 +224,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                     // don't be active when the user logs back in
                     this.onLostControl();
                     if (ctx.world() instanceof ClientLevel clientLevel) {
-                        clientLevel.disconnect(Component.literal("[Baritone] Arrived at goal!"));
+                        clientLevel.disconnect();
                     }
                     return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
                 }
@@ -496,7 +496,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             return true;
         }
 
-        NonNullList<ItemStack> inv = ctx.player().getInventory().getNonEquipmentItems();
+        NonNullList<ItemStack> inv = ctx.player().getInventory().items;
         int qty = 0;
         for (int i = 0; i < 36; i++) {
             if (ElytraBehavior.isFireworks(inv.get(i))) {
@@ -513,7 +513,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     }
 
     private int fireworkCount() {
-        NonNullList<ItemStack> inv = ctx.player().getInventory().getNonEquipmentItems();
+        NonNullList<ItemStack> inv = ctx.player().getInventory().items;
         int qty = 0;
         for (int i = 0; i < 36; i++) {
             if (ElytraBehavior.isFireworks(inv.get(i))) {

@@ -8,6 +8,7 @@
     "defaultRequire": 1
   },
   "client": [
+    "MixinBlockStateBase",
     "MixinChatComponent",
     "MixinChunkArray",
     "MixinClientChunkProvider",
@@ -25,11 +26,11 @@
     "MixinNetworkManager",
     "MixinPalettedContainer",
     "MixinPalettedContainer$Data",
+    "MixinPlayer",
     "MixinPlayerController",
-    "MixinRenderPipelines",
-    "MixinRenderType",
     "MixinScreen",
-    "MixinWorldRenderer"
+    "MixinWorldRenderer",
+    "MixinVec3i"
   ],
   "mixins": [
   ]
