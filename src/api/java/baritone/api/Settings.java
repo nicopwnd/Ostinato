@@ -389,6 +389,16 @@ public final class Settings {
     public final Setting<Boolean> allowBoats = new Setting<>(true);
 
     /**
+     * Ride a boat off drops too high to fall safely (place it at the top, get in, drive off the edge)
+     */
+    public final Setting<Boolean> allowBoatFall = new Setting<>(true);
+
+    /**
+     * How far a boat can fall onto land with us in it
+     */
+    public final Setting<Integer> maxFallHeightBoat = new Setting<>(64);
+
+    /**
      * If we overshoot a traverse and end up one block beyond the destination, mark it as successful anyway.
      * <p>
      * This helps with speed exceeding 20m/s

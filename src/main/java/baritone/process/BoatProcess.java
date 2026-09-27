@@ -1,6 +1,8 @@
 package baritone.process;
 
 import baritone.Baritone;
+import baritone.pathing.movement.movements.MovementFall;
+import baritone.utils.BoatUtil;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalNear;
@@ -61,15 +63,34 @@ public final class BoatProcess extends BaritoneProcessHelper {
             return true;
         }
         if (ctx.player().getVehicle() instanceof AbstractBoat) {
-            // Seated by someone else (or a relog): sail if there's somewhere to go.
+            BoatUtil.restore(ctx);
+            if (MovementFall.boatRideClaimed(ctx.player().tickCount)) return false;
+            if (!BoatUtil.isDriver(ctx.player())) {
+                // A passenger can't steer: get out and leave the boat to its driver.
+                target = currentGoal();
+                boat = null;
+                return enter(Phase.EXIT);
+            }
+            // Seated by someone else, a relog, or a boat fall that just landed: sail if there's somewhere to go.
             Goal g = currentGoal();
+            boat = ctx.player().getVehicle();
             if (g != null && plan(g, ctx.playerFeet(), true)) {
-                boat = ctx.player().getVehicle();
                 return enter(Phase.SAIL);
+            }
+            if (!boat.isInWater()) {
+                // Aground: get out and take the boat with us.
+                logDebug("Boat: seated aground with nowhere to sail, getting out");
+                target = g;
+                return enter(Phase.EXIT);
             }
             return false;
         }
-        if (ctx.player().tickCount - lastCheck < 40 || boatSlot() < 0) {
+        if (ctx.player().tickCount - lastCheck < 40) {
+            return false;
+        }
+        boolean own = BoatUtil.hasBoat(ctx.player().getInventory().getNonEquipmentItems());
+        Entity found = floatingBoat();
+        if (!own && found == null) {
             return false;
         }
         lastCheck = ctx.player().tickCount;
@@ -81,7 +102,30 @@ public final class BoatProcess extends BaritoneProcessHelper {
         if (g.isInGoal(feet)) {
             return false;
         }
-        return plan(g, feet, false) && enter(Phase.APPROACH);
+        // A free boat already afloat nearby: sail from it if that beats placing ours (or we have none),
+        // counting the walk/swim over to it against the crossing's gain.
+        if (found != null) {
+            BlockPos at = BlockPos.containing(found.getX(), found.getY() + 0.1, found.getZ());
+            double walk = ctx.player().distanceTo(found);
+            // With our own boat, only detour to a found one that's close; placing ours costs about that much.
+            if ((!own || walk < 8) && plan(g, at, false, walk)) {
+                boat = found;
+                logDebug("Boat: using a boat already afloat " + Math.round(walk) + " blocks away");
+                return enter(Phase.MOUNT);
+            }
+            if (!own) return false;
+        }
+        return plan(g, feet, false, 0) && enter(Phase.APPROACH);
+    }
+
+    /** Nearest free boat sitting on water within reach of a short walk or swim. */
+    private Entity floatingBoat() {
+        Entity best = null;
+        for (Entity e : ctx.entities()) {
+            if (BoatUtil.free(e) && e.isInWater() && ctx.player().distanceTo(e) < 16
+                    && (best == null || ctx.player().distanceTo(e) < ctx.player().distanceTo(best))) best = e;
+        }
+        return best;
     }
 
     private boolean enter(Phase p) {
@@ -105,13 +149,6 @@ public final class BoatProcess extends BaritoneProcessHelper {
         return g != null ? g : baritone.getPathingBehavior().getGoal();
     }
 
-    /** Hotbar slot holding a boat, or -1. */
-    private int boatSlot() {
-        for (int i = 0; i < 9; i++) {
-            if (ctx.player().getInventory().getNonEquipmentItems().get(i).getItem() instanceof BoatItem) return i;
-        }
-        return -1;
-    }
 
     // ---- planning --------------------------------------------------------------------------
 
@@ -155,6 +192,11 @@ public final class BoatProcess extends BaritoneProcessHelper {
      * Accept only when the crossing gains at least MIN_GAIN blocks toward the goal.
      */
     private boolean plan(Goal g, BlockPos feet, boolean aboard) {
+        return plan(g, feet, aboard, 0);
+    }
+
+    /** extra: blocks spent reaching the start (e.g. walking to a found boat), taken off the gain. */
+    private boolean plan(Goal g, BlockPos feet, boolean aboard, double extra) {
         BlockPos start = null;
         search:
         for (int r = 0; r <= 3; r++) {
@@ -176,7 +218,8 @@ public final class BoatProcess extends BaritoneProcessHelper {
         open.add(new double[]{0, start.getX(), start.getZ()});
         long best = s;
         double bestH = flatDist(g, start.getX(), y, start.getZ());
-        double startH = flatDist(g, feet.getX(), feet.getY(), feet.getZ());
+        BlockPos me = ctx.playerFeet();
+        double startH = flatDist(g, me.getX(), me.getY(), me.getZ()) - extra;
         while (!open.isEmpty() && dist.size() < MAX_CELLS) {
             double[] c = open.poll();
             int cx = (int) c[1], cz = (int) c[2];
@@ -257,7 +300,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             }
             case PLACE: {
                 if (findBoat(4) != null) { enter(Phase.MOUNT); return pause(); }
-                int slot = boatSlot();
+                int slot = BoatUtil.hotbarBoat(ctx);
                 if (slot < 0 || phaseTicks > 100) return abort("could not place the boat (" + Minecraft.getInstance().hitResult + " eye " + ctx.player().getEyeY() + ")");
                 ctx.player().getInventory().setSelectedSlot(slot);
                 if (surfacing()) {
@@ -320,6 +363,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
     private PathingCommand sail() {
         if (!(ctx.player().getVehicle() instanceof AbstractBoat)) return abort("fell out of the boat");
         boat = ctx.player().getVehicle();
+        if (!BoatUtil.isDriver(ctx.player())) { enter(Phase.EXIT); return pause(); }
         double bx = boat.getX(), bz = boat.getZ();
         // Advance past cells we've reached, then aim at the farthest one in clear sight.
         int nearest = routeIdx;
@@ -365,7 +409,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
     private Entity findBoat(double r) {
         Entity best = null;
         for (Entity e : ctx.entities()) {
-            if (e instanceof AbstractBoat && e.getPassengers().isEmpty() && ctx.player().distanceTo(e) < r
+            if (BoatUtil.free(e) && ctx.player().distanceTo(e) < r
                     && (best == null || ctx.player().distanceTo(e) < ctx.player().distanceTo(best))) best = e;
         }
         return best;
