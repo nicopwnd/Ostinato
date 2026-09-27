@@ -26,11 +26,16 @@ import baritone.api.pathing.goals.GoalGetToBlock;
 import baritone.api.process.IBuilderProcess;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
+import baritone.api.schematic.AbstractSchematic;
 import baritone.api.schematic.FillSchematic;
 import baritone.api.schematic.ISchematic;
 import baritone.api.schematic.IStaticSchematic;
+import baritone.api.schematic.MaskSchematic;
 import baritone.api.schematic.SubstituteSchematic;
 import baritone.api.schematic.format.ISchematicFormat;
+import baritone.api.schematic.partition.PartitionPlan;
+import baritone.api.schematic.partition.RegionPart;
+import baritone.api.schematic.partition.SchematicCells;
 import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.pathing.movement.CalculationContext;
@@ -121,6 +126,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     private Vector3i schemSize;
     private boolean fromAltoclefFinished;
     private Map<BlockPos, HistoryInfo> blockBreakHistory = new HashMap<>();
+    private RegionGuard regionGuard; // set by buildRegion when buildRegionProtectForeign is on, else null
 
     private void pushState() {
         stateStack.clear();
@@ -140,6 +146,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         stateStack.push(this.schemSize);
         stateStack.push(this.fromAltoclefFinished);
         stateStack.push(this.fromAltoclef);
+        stateStack.push(this.regionGuard);
     }
 
     @Override
@@ -162,16 +169,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         this.name = name;
         this.schematic = schematic;
         this.realSchematic = null;
+        this.regionGuard = null; // a plain build is not restricted; buildRegion sets this after calling build
         boolean buildingSelectionSchematic = schematic instanceof SelectionSchematic;
         if (!Baritone.settings().buildSubstitutes.value.isEmpty()) {
             this.schematic = new SubstituteSchematic(this.schematic, Baritone.settings().buildSubstitutes.value);
         }
-        if (Baritone.settings().buildSchematicMirror.value != net.minecraft.util.Mirror.NONE) {
-            this.schematic = new baritone.api.schematic.MirroredSchematic(this.schematic, Baritone.settings().buildSchematicMirror.value);
-        }
-        if (Baritone.settings().buildSchematicRotation.value != net.minecraft.util.Rotation.NONE) {
-            this.schematic = new baritone.api.schematic.RotatedSchematic(this.schematic, Baritone.settings().buildSchematicRotation.value);
-        }
+        this.schematic = orient(this.schematic);
         int x = origin.getX();
         int y = origin.getY();
         int z = origin.getZ();
@@ -237,6 +240,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             logDebug("ERROR in BuildProcess: No state present to pop");
             return;
         }
+        this.regionGuard = (RegionGuard) stateStack.pop();
         this.fromAltoclef = (boolean) stateStack.pop();
         this.fromAltoclefFinished = (boolean) stateStack.pop();
         this.schemSize = (Vector3i) stateStack.pop();
@@ -295,21 +299,60 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         return paused;
     }
 
+    /** buildSchematicMirror then buildSchematicRotation, exactly as {@link #build(String, ISchematic, Vector3i)} applies them. */
+    private static ISchematic orient(ISchematic schematic) {
+        if (Baritone.settings().buildSchematicMirror.value != net.minecraft.util.Mirror.NONE) {
+            schematic = new baritone.api.schematic.MirroredSchematic(schematic, Baritone.settings().buildSchematicMirror.value);
+        }
+        if (Baritone.settings().buildSchematicRotation.value != net.minecraft.util.Rotation.NONE) {
+            schematic = new baritone.api.schematic.RotatedSchematic(schematic, Baritone.settings().buildSchematicRotation.value);
+        }
+        return schematic;
+    }
+
     @Override
     public boolean build(String name, File schematic, Vector3i origin) {
+        ISchematic parsed = load(schematic, origin);
+        if (parsed == null) {
+            return false;
+        }
+        build(name, parsed, origin);
+        return true;
+    }
+
+    /** Parses a schematic file and applies mapArtMode / buildOnlySelection. Null if it can't be read. */
+    private ISchematic load(File schematic, Vector3i origin) {
         Optional<ISchematicFormat> format = SchematicSystem.INSTANCE.getByFile(schematic);
         if (!format.isPresent()) {
-            return false;
+            return null;
         }
         ISchematic parsed;
         try {
             parsed = format.get().parse(new FileInputStream(schematic));
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
+        }
+        return applyMapArtAndSelection(origin, (IStaticSchematic) parsed);
+    }
+
+    @Override
+    public void buildRegion(String name, ISchematic schematic, Vector3i origin, int regionIndex, PartitionPlan plan, RegionPart part) {
+        SchematicCells.requireFits(schematic, plan);
+        build(name, MaskSchematic.create(schematic, plan.regionMask(regionIndex, part)), origin);
+        if (Baritone.settings().buildRegionProtectForeign.value) {
+            // the whole region (seams included) is ours even when only building one part of it
+            this.regionGuard = new RegionGuard(plan, regionIndex, this.origin);
+        }
+    }
+
+    @Override
+    public boolean buildRegion(String name, File schematic, Vector3i origin, int regionIndex, PartitionPlan plan) {
+        ISchematic parsed = load(schematic, origin);
+        if (parsed == null) {
             return false;
         }
-        parsed = applyMapArtAndSelection(origin, (IStaticSchematic) parsed);
-        build(name, parsed, origin);
+        buildRegion(name, parsed, origin, regionIndex, plan, RegionPart.WHOLE);
         return true;
     }
 
@@ -1182,6 +1225,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         schemSize = null;
         fromAltoclef = false;
         active = false;
+        regionGuard = null;
         blockBreakHistory.clear();
     }
 
@@ -1288,6 +1332,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
         private final List<BlockState> placeable;
         private final ISchematic schematic;
+        private final RegionGuard regionGuard;
         private final int originX;
         private final int originY;
         private final int originZ;
@@ -1296,12 +1341,19 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             super(BuilderProcess.this.baritone, true); // wew lad
             this.placeable = approxPlaceable(9);
             this.schematic = BuilderProcess.this.schematic;
+            this.regionGuard = BuilderProcess.this.regionGuard;
             this.originX = origin.getX();
             this.originY = origin.getY();
             this.originZ = origin.getZ();
 
             this.jumpPenalty += 10;
             this.backtrackCostFavoringCoefficient = 1;
+        }
+
+        @Override
+        public boolean isPossiblyProtected(int x, int y, int z) {
+            // buildRegion + buildRegionProtectForeign: other bots' regions are off limits for breaking and placing
+            return super.isPossiblyProtected(x, y, z) || (regionGuard != null && regionGuard.isForeign(x, y, z));
         }
 
         private BlockState getSchematic(int x, int y, int z, BlockState current) {
@@ -1392,6 +1444,36 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
         public String getPropertyValue() {
             return this.propertyValue;
+        }
+    }
+
+    /**
+     * World positions inside the whole schematic but outside this bot's region, with the same mirror/rotation and origin
+     * the builder uses, so they line up with the masked schematic being built.
+     */
+    private static final class RegionGuard {
+
+        private final ISchematic footprint;
+        private final ISchematic owned;
+        private final int originX, originY, originZ;
+
+        RegionGuard(PartitionPlan plan, int regionIndex, Vector3i origin) {
+            ISchematic box = new AbstractSchematic(plan.widthX(), plan.heightY(), plan.lengthZ()) {
+                @Override
+                public BlockState desiredState(int x, int y, int z, BlockState current, List<BlockState> approxPlaceable) {
+                    return current; // only inSchematic is ever asked
+                }
+            };
+            this.footprint = orient(box);
+            this.owned = orient(MaskSchematic.create(box, plan.regionMask(regionIndex, RegionPart.WHOLE)));
+            this.originX = origin.getX();
+            this.originY = origin.getY();
+            this.originZ = origin.getZ();
+        }
+
+        boolean isForeign(int x, int y, int z) {
+            int rx = x - originX, ry = y - originY, rz = z - originZ;
+            return footprint.inSchematic(rx, ry, rz, null) && !owned.inSchematic(rx, ry, rz, null);
         }
     }
 
