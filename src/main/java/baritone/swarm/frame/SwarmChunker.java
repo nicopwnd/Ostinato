@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Splits one outbound message into frames that each fit a single S1C token.
+ * Splits one outbound message into frames that each fit a single S1C or S2C token.
  * Owns the sender's sequence counter for one epoch: every frame gets the next
  * seq, and the message id is the seq of its first frame. Bodies are split on
  * UTF-8 code-point boundaries. Not related to sigil's own {@code i/n} parts,

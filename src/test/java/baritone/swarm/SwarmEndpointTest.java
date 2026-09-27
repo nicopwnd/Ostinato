@@ -20,6 +20,9 @@ package baritone.swarm;
 
 import baritone.swarm.crypto.SigilCircle;
 import baritone.swarm.crypto.SigilS1C;
+import baritone.swarm.crypto.SigilS2C;
+import baritone.swarm.crypto.SigilCodec;
+import baritone.swarm.crypto.SigilWire;
 import baritone.swarm.frame.SwarmFrame;
 import baritone.swarm.frame.SwarmFrameException;
 import baritone.swarm.frame.SwarmMessage;
@@ -186,6 +189,55 @@ public class SwarmEndpointTest {
         // Opens fine but is not a frame.
         assertEquals(null, b.receiveLine(SigilS1C.sealSingle(TestCircles.alpha(), "just chat", 234)));
         assertEquals(SwarmReject.MALFORMED, b.lastReject());
+    }
+
+    @Test
+    public void defaultWireIsS2AndBothWiresInteroperate() throws Exception {
+        List<String> wire = new ArrayList<>();
+        bus.setInterceptor((from, to, line) -> {
+            wire.add(line);
+            return Collections.singletonList(line);
+        });
+        SwarmConfig.Builder s1 = SwarmConfig.builder();
+        s1.wireVersion = "S1";
+        SwarmEndpoint old = new SwarmEndpoint("botOld", s1.build(), groups, bus.register("botOld"), clock::get);
+        SwarmEndpoint neu = endpoint("botNew");
+        neu.send("alpha", "botOld", "task", TestBodies.make(400));
+        old.send("alpha", "botNew", "ack", "ok");
+        List<SwarmMessage> atOld = old.poll();
+        List<SwarmMessage> atNew = neu.poll();
+        assertEquals(1, atOld.size());
+        assertEquals(TestBodies.make(400), atOld.get(0).body());
+        assertEquals(1, atNew.size());
+        assertEquals("ok", atNew.get(0).body());
+        for (int i = 0; i < wire.size() - 1; i++) {
+            assertTrue(wire.get(i), wire.get(i).startsWith("S2C."));
+        }
+        assertTrue(wire.get(wire.size() - 1).startsWith("S1C."));
+    }
+
+    @Test
+    public void s2SpecificRejections() throws Exception {
+        SwarmEndpoint b = endpoint("botB");
+        // sigil's own S2 multi-part fragments look like single tokens on the wire, but are refused after opening
+        List<String> parts = SigilS2C.seal(TestCircles.alpha(), TestBodies.make(400), "", 234);
+        assertTrue(parts.size() > 1);
+        for (String part : parts) {
+            assertTrue(SwarmTransport.isSealed(part));
+            assertEquals(null, b.receiveLine(part));
+            assertEquals(SwarmReject.UNSEALED, b.lastReject());
+        }
+        String claimsBeta = new SwarmFrame("beta", "botA", "botB", 1, 1, 0, 1, 1, 1, "cmd", "stop").encode();
+        assertEquals(null, b.receiveLine(SigilCodec.sealSingle(SigilWire.S2, TestCircles.alpha(), claimsBeta, 234)));
+        assertEquals(SwarmReject.WRONG_GROUP, b.lastReject());
+        String ok = new SwarmFrame("alpha", "botA", "botB", 1, 1, 0, 1, 1, 1, "cmd", "stop").encode();
+        assertEquals(null, b.receiveLine(SigilCodec.sealSingle(SigilWire.S2, TestCircles.alphaWrongPass(), ok, 234)));
+        assertEquals(SwarmReject.UNSEALED, b.lastReject());
+        SwarmMessage m = b.receiveLine(SigilCodec.sealSingle(SigilWire.S2, TestCircles.alpha(), ok, 234));
+        assertEquals("stop", m.body());
+        // the same frame again under the other wire is still a replay (same sender/epoch/seq)
+        assertEquals(null, b.receiveLine(SigilS1C.sealSingle(TestCircles.alpha(), ok, 234)));
+        assertEquals(SwarmReject.REPLAY, b.lastReject());
     }
 
     @Test

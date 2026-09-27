@@ -1693,8 +1693,15 @@ public final class Settings {
     public final Setting<String> movementBackend = new Setting<>("baritone");
 
     /**
+     * Swarm messaging: SIGIL wire format used to seal frames, {@code S2} (sigil's default since 0.4.0)
+     * or {@code S1} (for peers on sigil 0.3 or older). Both are always accepted on receive. Unknown
+     * values fall back to {@code S2}.
+     */
+    public final Setting<String> swarmWireVersion = new Setting<>("S2");
+
+    /**
      * Swarm messaging: longest chat line the server accepts. Every swarm frame is sealed as one
-     * sigil S1C token that fits in this minus {@link #swarmLineReserveChars}. There is no plaintext mode.
+     * sigil token ({@link #swarmWireVersion}) that fits in this minus {@link #swarmLineReserveChars}. There is no plaintext mode.
      */
     public final Setting<Integer> swarmMaxLineChars = new Setting<>(256);
 

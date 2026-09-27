@@ -20,7 +20,7 @@ package baritone.swarm.frame;
 
 /** Why an inbound line or outbound message was refused. Counted per endpoint. */
 public enum SwarmReject {
-    /** Not a single-part S1C token, or no configured circle could open it. */
+    /** Not a single-line S1C/S2C token, or no configured circle could open it. */
     UNSEALED,
     /** Opened, but the plaintext is not a valid swarm frame. */
     MALFORMED,

@@ -19,7 +19,9 @@
 package baritone.swarm;
 
 import baritone.api.Settings;
+import baritone.swarm.crypto.SigilCodec;
 import baritone.swarm.crypto.SigilS1C;
+import baritone.swarm.crypto.SigilWire;
 
 /**
  * Immutable snapshot of the {@code swarm*} {@link Settings}, clamped to safe
@@ -33,6 +35,7 @@ public final class SwarmConfig {
     /** Smallest sealed-line budget allowed (maxLineChars - lineReserveChars); leaves 56 frame bytes. */
     public static final int MIN_SEAL_LINE = 128;
 
+    private final SigilWire wire;
     private final int maxLineChars;
     private final int lineReserveChars;
     private final int maxFrameBytes;
@@ -45,9 +48,10 @@ public final class SwarmConfig {
     private final String localSpoolDir;
 
     private SwarmConfig(Builder b) {
+        this.wire = SigilWire.parse(b.wireVersion);
         this.maxLineChars = clamp(b.maxLineChars, MIN_SEAL_LINE, SigilS1C.MINECRAFT_MAX_LINE);
         this.lineReserveChars = clamp(b.lineReserveChars, 0, this.maxLineChars - MIN_SEAL_LINE);
-        int auto = SigilS1C.maxSingleLinePayloadBytes(this.maxLineChars - this.lineReserveChars);
+        int auto = SigilCodec.maxSingleLinePayloadBytes(this.wire, this.maxLineChars - this.lineReserveChars);
         this.maxFrameBytes = b.maxFrameBytes <= 0 ? auto : Math.min(auto, Math.max(MIN_FRAME_BYTES, b.maxFrameBytes));
         this.maxChunks = clamp(b.maxChunks, 1, 64);
         this.reassemblyTimeoutMs = Math.max(1000L, Math.min(b.reassemblyTimeoutMs, 600_000L));
@@ -73,6 +77,7 @@ public final class SwarmConfig {
     /** Snapshot the current {@code swarm*} settings. */
     public static SwarmConfig fromSettings(Settings s) {
         Builder b = builder();
+        b.wireVersion = s.swarmWireVersion.value;
         b.maxLineChars = s.swarmMaxLineChars.value;
         b.lineReserveChars = s.swarmLineReserveChars.value;
         b.maxFrameBytes = s.swarmMaxFrameBytes.value;
@@ -86,7 +91,9 @@ public final class SwarmConfig {
         return b.build();
     }
 
-    /** Line budget handed to {@link SigilS1C#sealSingle}: max line minus the transport prefix reserve. */
+    /** Wire format frames are sealed in ({@code swarmWireVersion}); both are accepted on receive. */
+    public SigilWire wire() { return wire; }
+    /** Line budget handed to {@link SigilCodec#sealSingle}: max line minus the transport prefix reserve. */
     public int sealLineBudget() { return maxLineChars - lineReserveChars; }
     /** Max bytes of one encoded frame (envelope header plus body). */
     public int maxFrameBytes() { return maxFrameBytes; }
@@ -104,6 +111,7 @@ public final class SwarmConfig {
 
     /** Mutable builder; defaults mirror the {@code swarm*} setting defaults. */
     public static final class Builder {
+        public String wireVersion = "S2";
         public int maxLineChars = 256;
         public int lineReserveChars = 22;
         public int maxFrameBytes = 0;
