@@ -1,5 +1,6 @@
 package baritone.process;
 
+import net.minecraft.world.item.component.SwingAnimation;
 import baritone.Baritone;
 import baritone.pathing.movement.movements.MovementFall;
 import baritone.utils.BoatUtil;
@@ -351,7 +352,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
                 look(boat.getX(), boat.getY() + 0.3, boat.getZ());
                 if (phaseTicks % 4 == 0) {
                     Minecraft.getInstance().gameMode.attack(ctx.player(), boat);
-                    ctx.player().swing(InteractionHand.MAIN_HAND);
+                    ctx.player().swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
                 }
                 return pause();
             }
