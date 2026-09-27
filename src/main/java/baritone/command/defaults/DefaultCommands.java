@@ -68,7 +68,8 @@ public final class DefaultCommands {
                 new CommandAlias(baritone, "home", "Path to your home waypoint", "waypoints goto home"),
                 new SelCommand(baritone),
                 new PickupCommand(baritone),
-                new ElytraCommand(baritone)
+                new ElytraCommand(baritone),
+                new TasksCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);
         commands.add(prc.pauseCommand);
