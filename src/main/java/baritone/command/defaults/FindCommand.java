@@ -25,6 +25,7 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.command.helpers.TabCompleteHelper;
 import baritone.api.utils.BetterBlockPos;
 import baritone.cache.CachedChunk;
+import net.minecraft.core.Registry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.ClickEvent;
@@ -82,8 +83,8 @@ public class FindCommand extends Command {
         baseComponent.setStyle(baseComponent.getStyle()
                 .withColor(ChatFormatting.GRAY)
                 .withInsertion(positionText)
-                .withClickEvent(new ClickEvent.RunCommand(command))
-                .withHoverEvent(new HoverEvent.ShowText(hoverComponent)));
+                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverComponent)));
         return baseComponent;
     }
 

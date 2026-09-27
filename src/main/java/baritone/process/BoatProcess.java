@@ -15,7 +15,7 @@ import baritone.utils.BaritoneProcessHelper;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.vehicle.boat.AbstractBoat;
+import net.minecraft.world.entity.vehicle.AbstractBoat;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BoatItem;
 import net.minecraft.world.InteractionHand;
@@ -93,7 +93,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
         if (ctx.player().tickCount - lastCheck < 40) {
             return false;
         }
-        boolean own = BoatUtil.hasBoat(ctx.player().getInventory().getNonEquipmentItems());
+        boolean own = BoatUtil.hasBoat(ctx.player().getInventory().items);
         Entity found = floatingBoat();
         if (!own && found == null) {
             return false;
@@ -307,7 +307,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
                 if (findBoat(4) != null) { enter(Phase.MOUNT); return pause(); }
                 int slot = BoatUtil.hotbarBoat(ctx);
                 if (slot < 0 || phaseTicks > 100) return abort("could not place the boat (" + Minecraft.getInstance().hitResult + " eye " + ctx.player().getEyeY() + ")");
-                ctx.player().getInventory().setSelectedSlot(slot);
+                ctx.player().getInventory().selected = slot;
                 if (surfacing()) {
                     if (phaseTicks < 15) return pause();
                     // Can't place from under the surface; let the swim carry on and look again shortly.

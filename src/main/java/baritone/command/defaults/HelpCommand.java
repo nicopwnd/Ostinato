@@ -25,16 +25,18 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandNotFoundException;
 import baritone.api.command.helpers.Paginator;
 import baritone.api.command.helpers.TabCompleteHelper;
+
+import java.awt.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static baritone.api.command.IBaritoneChatControl.FORCE_COMMAND_PREFIX;
 
@@ -72,8 +74,8 @@ public class HelpCommand extends Command {
                         component.setStyle(component.getStyle().withColor(ChatFormatting.GRAY));
                         component.append(shortDescComponent);
                         component.setStyle(component.getStyle()
-                                .withHoverEvent(new HoverEvent.ShowText(hoverComponent))
-                                .withClickEvent(new ClickEvent.RunCommand(clickCommand)));
+                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverComponent))
+                                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, clickCommand)));
                         return component;
                     },
                     FORCE_COMMAND_PREFIX + label
@@ -89,7 +91,8 @@ public class HelpCommand extends Command {
             command.getLongDesc().forEach(this::logDirect);
             logDirect("");
             MutableComponent returnComponent = Component.literal("Click to return to the help menu");
-            returnComponent.setStyle(returnComponent.getStyle().withClickEvent(new ClickEvent.RunCommand(
+            returnComponent.setStyle(returnComponent.getStyle().withClickEvent(new ClickEvent(
+                    ClickEvent.Action.RUN_COMMAND,
                     FORCE_COMMAND_PREFIX + label
             )));
             logDirect(returnComponent);

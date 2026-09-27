@@ -112,7 +112,7 @@ public class CalculationContext {
         this.hasThrowaway = !AltoClefSettings.getInstance().isInteractionPaused() && Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
         this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && Inventory.isHotbarSlot(player.getInventory().findSlotMatchingItem(STACK_BUCKET_WATER)) && world.dimension() != Level.NETHER;
         this.hasBoat = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
-                && BoatUtil.hasBoat(player.getInventory().getNonEquipmentItems());
+                && BoatUtil.hasBoat(player.getInventory().items);
         this.freeBoats = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
                 ? BoatUtil.freeBoats(world, player, 64) : java.util.Collections.emptySet();
         this.maxFallHeightBoat = Baritone.settings().maxFallHeightBoat.value;
