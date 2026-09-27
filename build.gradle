@@ -250,9 +250,14 @@ if (getProject().hasProperty("baritone.fabric_build")) {
 
 jar {
     from sourceSets.launch.output, sourceSets.api.output
-    from({ configurations.shade.collect { zipTree(it) } }) { // nether-pathfinder (elytra), BouncyCastle (swarm S2S)
-        // BouncyCastle is a signed jar; its signatures no longer match once repacked (ProGuard refuses the jar)
-        exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/*.EC', 'META-INF/versions/**'
+    from({ configurations.shade.findAll { !it.name.startsWith('bcprov') }.collect { zipTree(it) } }) // nether-pathfinder, for elytra
+    from({ configurations.shade.findAll { it.name.startsWith('bcprov') }.collect { zipTree(it) } }) {
+        // swarm S2S only uses BouncyCastle's lightweight Ed25519 (see SigilEd25519); the rest of the provider is
+        // ~9 MB, and its jar signatures and Java 9+ META-INF/versions classes would break ProGuard once repacked
+        include 'org/bouncycastle/crypto/*.class', 'org/bouncycastle/crypto/digests/**', 'org/bouncycastle/crypto/params/**',
+                'org/bouncycastle/crypto/signers/**', 'org/bouncycastle/math/ec/rfc7748/**',
+                'org/bouncycastle/math/ec/rfc8032/**', 'org/bouncycastle/math/raw/**', 'org/bouncycastle/util/*.class',
+                'org/bouncycastle/util/encoders/**', 'META-INF/LICENSE*'
     }
 
     if (!getProject().hasProperty("baritone.forge_build")) {
