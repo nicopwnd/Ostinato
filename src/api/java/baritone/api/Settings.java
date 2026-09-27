@@ -1666,6 +1666,12 @@ public final class Settings {
      * Mining / schematics / inventory stay on Baritone regardless of this setting. Defaults to
      * {@code baritone} here: TenorClef on 1.16.1 ships the Tungsten jar and drives it itself.
      */
+    /**
+     * Drive plain walking stretches of a path (no breaking, placing, water or big drops) with a physics
+     * look-ahead that picks yaw, sprint and jump each tick, instead of Baritone's per-movement logic.
+     */
+    public final Setting<Boolean> kinematicTravel = new Setting<>(false);
+
     public final Setting<String> movementBackend = new Setting<>("baritone");
 
     // here be dragons

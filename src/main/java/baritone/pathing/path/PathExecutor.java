@@ -28,6 +28,7 @@ import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.behavior.PathingBehavior;
 import baritone.pathing.calc.AbstractNodeCostSearch;
+import baritone.pathing.kinematic.KinematicController;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
@@ -77,10 +78,12 @@ public class PathExecutor implements IPathExecutor, Helper {
     private final IPlayerContext ctx;
 
     private boolean sprintNextTick;
+    private final KinematicController kinematic;
 
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
         this.ctx = behavior.ctx;
+        this.kinematic = new KinematicController(ctx);
         this.path = path;
         this.pathPosition = 0;
     }
@@ -99,6 +102,15 @@ public class PathExecutor implements IPathExecutor, Helper {
             return true; // stop bugging me, I'm done
         }
         Movement movement = (Movement) path.movements().get(pathPosition);
+        int driven = kinematic.tick(behavior.baritone, path, pathPosition);
+        if (driven >= 0) {
+            if (driven != pathPosition) {
+                pathPosition = driven;
+                ticksOnCurrent = 0;
+            }
+            sprintNextTick = true;
+            return false;
+        }
         BetterBlockPos whereAmI = ctx.playerFeet();
         if (sprintJumping && advanceAlongJump(movement, whereAmI)) {
             onTick();
