@@ -46,6 +46,14 @@ public interface SwarmTransport extends Closeable {
     /** Send one sealed line to {@code recipient} or {@link #BROADCAST}. */
     void send(String recipient, String sealedLine) throws IOException;
 
+    /**
+     * Send with the sealing group and a priority. Transports that fan broadcasts out per member
+     * (whisper) or rate-limit (chat) override this; the default ignores both.
+     */
+    default void sendTo(String group, String recipient, String sealedLine, SwarmPriority priority) throws IOException {
+        send(recipient, sealedLine);
+    }
+
     /** Drain lines received since the last call (possibly empty, any order). */
     List<String> receive() throws IOException;
 

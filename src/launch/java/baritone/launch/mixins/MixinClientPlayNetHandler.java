@@ -179,6 +179,35 @@ public class MixinClientPlayNetHandler {
         }
     }
 
+    /**
+     * Swarm: hand received chat text to the swarm link. RETURN is only reached on the game thread
+     * (off-thread calls re-queue and bail out first). Only the text is used; the sender is never
+     * resolved through the world or player list, so an out-of-range sender cannot throw here.
+     * Uses only {@code getChatComponent()}, which exists on 1.16.1.
+     */
+    @Inject(
+            method = "handleChat",
+            at = @At("RETURN")
+    )
+    private void postHandleChat(SChatPacket packet, CallbackInfo ci) {
+        if (!Baritone.settings().swarmEnabled.value) {
+            return;
+        }
+        String text;
+        try {
+            text = packet.getChatComponent().getString();
+        } catch (Throwable t) {
+            return;
+        }
+        for (IBaritone ibaritone : BaritoneAPI.getProvider().getAllBaritones()) {
+            ClientPlayerEntity player = ibaritone.getPlayerContext().player();
+            if (player != null && player.connection == (ClientPlayNetHandler) (Object) this
+                    && ibaritone instanceof Baritone) {
+                ((Baritone) ibaritone).getSwarmBehavior().onIncomingChat(text);
+            }
+        }
+    }
+
     @org.spongepowered.asm.mixin.Unique
     private net.minecraft.entity.Entity keepBoat;
 

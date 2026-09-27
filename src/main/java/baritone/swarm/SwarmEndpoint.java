@@ -28,6 +28,7 @@ import baritone.swarm.frame.SwarmMessage;
 import baritone.swarm.frame.SwarmReassembler;
 import baritone.swarm.frame.SwarmReject;
 import baritone.swarm.frame.SwarmReplayGuard;
+import baritone.swarm.transport.SwarmPriority;
 import baritone.swarm.transport.SwarmTransport;
 
 import java.io.Closeable;
@@ -40,6 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.LongSupplier;
 
 /**
@@ -61,6 +63,7 @@ public final class SwarmEndpoint implements Closeable {
     private final SwarmReassembler reassembler;
     private final Map<SwarmReject, Long> rejects = new EnumMap<>(SwarmReject.class);
     private SwarmReject lastReject;
+    private volatile BiPredicate<String, String> memberCheck = (group, from) -> true;
 
     /**
      * @param groups group id to circle; each group must have its own circle (distinct slug or name)
@@ -99,12 +102,27 @@ public final class SwarmEndpoint implements Closeable {
     public SwarmConfig config() { return cfg; }
 
     /**
+     * Only accept frames whose {@code (group, from)} passes this check (e.g. the roster);
+     * others are counted as {@link SwarmReject#NOT_MEMBER}. Default: accept every sender.
+     */
+    public void setMemberCheck(BiPredicate<String, String> check) {
+        this.memberCheck = check;
+    }
+
+    /** {@link #send(String, String, String, String, SwarmPriority)} at {@link SwarmPriority#NORMAL}. */
+    public long send(String group, String to, String type, String body)
+            throws SwarmFrameException, SigilException, IOException {
+        return send(group, to, type, body, SwarmPriority.NORMAL);
+    }
+
+    /**
      * Frame, seal and send one message.
      *
      * @param to member id or {@link SwarmFrame#BROADCAST}
+     * @param priority outgoing queue priority (rate-limited transports send higher first)
      * @return the message id
      */
-    public long send(String group, String to, String type, String body)
+    public long send(String group, String to, String type, String body, SwarmPriority priority)
             throws SwarmFrameException, SigilException, IOException {
         SigilCircle circle = groups.get(group);
         if (circle == null) {
@@ -116,7 +134,7 @@ public final class SwarmEndpoint implements Closeable {
             lines.add(SigilCodec.sealSingle(cfg.wire(), circle, f.encode(), cfg.sealLineBudget()));
         }
         for (String line : lines) {
-            transport.send(to, line);
+            transport.sendTo(group, to, line, priority);
         }
         return frames.get(0).msgId();
     }
@@ -162,6 +180,9 @@ public final class SwarmEndpoint implements Closeable {
             }
             if (f.from().equals(self)) {
                 throw new SwarmFrameException(SwarmReject.SELF, "own frame");
+            }
+            if (!memberCheck.test(f.group(), f.from())) {
+                throw new SwarmFrameException(SwarmReject.NOT_MEMBER, f.from() + " is not in group " + f.group());
             }
             if (!f.to().equals(self) && !f.to().equals(SwarmFrame.BROADCAST)) {
                 throw new SwarmFrameException(SwarmReject.NOT_FOR_ME, "for " + f.to());

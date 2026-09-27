@@ -76,6 +76,11 @@ public final class SwarmConfig {
 
     /** Snapshot the current {@code swarm*} settings. */
     public static SwarmConfig fromSettings(Settings s) {
+        return builderFromSettings(s).build();
+    }
+
+    /** A builder preloaded from the current {@code swarm*} settings (values are clamped on build). */
+    public static Builder builderFromSettings(Settings s) {
         Builder b = builder();
         b.wireVersion = s.swarmWireVersion.value;
         b.maxLineChars = s.swarmMaxLineChars.value;
@@ -88,7 +93,7 @@ public final class SwarmConfig {
         b.maxClockSkewSec = s.swarmMaxClockSkewSec.value;
         b.maxPeers = s.swarmMaxPeers.value;
         b.localSpoolDir = s.swarmLocalSpoolDir.value;
-        return b.build();
+        return b;
     }
 
     /** Wire format frames are sealed in ({@code swarmWireVersion}); both are accepted on receive. */
