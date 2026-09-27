@@ -834,16 +834,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     private boolean isDefaultState(final BlockState state) {
-        final List<PropertyContainer> propertyContainers = state.getValues().entrySet().stream().map(PROPERTY_ENTRY_TO_STRING_FUNCTION).toList();
-        for (final PropertyContainer container : propertyContainers) {
-            if (container.getPropertyKey().equals("part") && container.getPropertyValue().equals("head")) {
-                return false;
-            }
-            if (container.getPropertyKey().equals("half") && container.getPropertyValue().equals("upper")) {
-                return false;
-            }
-        }
-        return true;
+        // 26.x: getValues() streams Property.Value records instead of returning a map
+        return state.getValues().noneMatch(v -> {
+            String key = v.property().getName();
+            String value = v.valueName();
+            return (key.equals("part") && value.equals("head")) || (key.equals("half") && value.equals("upper"));
+        });
     }
 
 

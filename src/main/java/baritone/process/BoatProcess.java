@@ -331,7 +331,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
                 if (b == null || phaseTicks > 100) return abort("could not board");
                 if (ctx.player().distanceTo(b) > 3) return new PathingCommand(new GoalNear(b.blockPosition(), 1), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
                 look(b.getX(), b.getY() + 0.3, b.getZ());
-                if (phaseTicks % 4 == 3) Minecraft.getInstance().gameMode.interact(ctx.player(), b, InteractionHand.MAIN_HAND);
+                if (phaseTicks % 4 == 3) Minecraft.getInstance().gameMode.interact(ctx.player(), b, new net.minecraft.world.phys.EntityHitResult(b), InteractionHand.MAIN_HAND);
                 return pause();
             }
             case SAIL:
