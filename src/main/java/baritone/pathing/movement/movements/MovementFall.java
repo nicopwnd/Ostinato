@@ -200,8 +200,8 @@ public class MovementFall extends Movement {
     private MovementState boatFall(MovementState state) {
         Entity v = ctx.player().getRidingEntity();
         if (v instanceof BoatEntity) {
-            if (!BoatUtil.isDriver(ctx.player())) {
-                // Someone else got in first and steers: get out and don't ride their boat off the cliff.
+            if (!BoatUtil.isDriver(ctx.player()) || BoatUtil.mobAboard(ctx.player())) {
+                // Someone else got in first (or a mob did: we'd steer, but not with it aboard) and steers: get out and don't ride their boat off the cliff.
                 boatRide = false;
                 logDebug("boat fall: not the driver, getting out");
                 state.setInput(Input.SNEAK, true);

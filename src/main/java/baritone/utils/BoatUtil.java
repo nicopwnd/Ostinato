@@ -67,6 +67,20 @@ public final class BoatUtil {
         return v instanceof BoatEntity && v.getControllingPassenger() == p;
     }
 
+    /**
+     * A mob shares our boat. Vanilla seats a boarding player in front of a mob, so we'd steer it, but
+     * the mob came along uninvited (it hopped in first, or climbed into our seat's spare place):
+     * get out and break the boat, which throws the mob out, rather than ferry it around.
+     */
+    public static boolean mobAboard(PlayerEntity p) {
+        Entity v = p.getRidingEntity();
+        if (!(v instanceof BoatEntity)) return false;
+        for (Entity e : v.getPassengers()) {
+            if (e != p && !(e instanceof PlayerEntity)) return true;
+        }
+        return false;
+    }
+
     /** Block positions (as longs) of free boats within r of the player, snapshot for path costs. */
     public static Set<Long> freeBoats(World w, PlayerEntity p, double r) {
         Set<Long> out = new HashSet<>();
