@@ -160,8 +160,8 @@ public final class OstinatoScreen extends Screen {
         super(new StringTextComponent("Ostinato"));
         Map<String, String> docs = SettingDescriptions.get();
         for (Settings.Setting<?> s : settings.allSettings) {
-            if (s.isJavaOnly()) {
-                continue;
+            if (s.isJavaOnly() || !editable(s)) {
+                continue; // callbacks and other values without a text form cannot be edited here
             }
             Entry e = new Entry(s, docs.get(s.getName().toLowerCase(Locale.ROOT)));
             all.add(e);
@@ -174,6 +174,15 @@ public final class OstinatoScreen extends Screen {
             catHover.put(c, new Anim(0, 18));
         }
         rebuild();
+    }
+
+    private static boolean editable(Settings.Setting<?> s) {
+        try {
+            SettingsUtil.settingDefaultToString(s);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     @Override
