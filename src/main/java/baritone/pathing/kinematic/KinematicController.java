@@ -46,6 +46,7 @@ public final class KinematicController {
     private static final int[] JUMP_OR_NOT = {NEVER, 0};
     // plans are scored at HORIZON but simulated this far so a hop chain that ends in a gap is rejected
     private static final int LOOKAHEAD = 36;
+    private static final double BUMP = 0.12;
     private static final double CORRIDOR = 0.55;
     /** Hand back to Baritone this far before the end of the drivable stretch. */
     private static final double HANDBACK = 1.2;
@@ -187,7 +188,7 @@ public final class KinematicController {
     private double rollout(float yawOffset, int delay, boolean shortAim, double s0) {
         sim.copyFrom(real);
         double s = s0, score = Double.NaN;
-        int ground = 0;
+        int ground = 0, bumps = 0;
         double end = line.get(line.size() - 1)[3];
         int lookahead = longJump ? LOOKAHEAD : HORIZON;
         for (int t = 0; t < lookahead; t++) {
@@ -195,17 +196,20 @@ public final class KinematicController {
             // off long gaps a jump plan jumps once, now; toward one it keeps hopping to carry the speed over
             boolean jump = delay != NEVER && sim.onGround && (longJump ? ground++ >= delay : t == 0);
             sim.tick(aim(sim.x, sim.z, s, shortAim && t < 4) + off, true, true, jump);
+            if (sim.collidedH && t < HORIZON) {
+                bumps++; // grazing a wall or trunk cancels sprint (and the sprint-jump boost) in vanilla
+            }
             double[] pr = project(sim.x, sim.z);
             if (pr[1] > CORRIDOR || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4) {
                 return -1e9;
             }
             s = Math.max(s, pr[0]);
             if (Double.isNaN(score) && s >= end - 0.3) {
-                return s + (HORIZON - t) * 0.3; // reached the end early
+                return s + (HORIZON - t) * 0.3 - BUMP * bumps; // reached the end early
             }
             if (t == HORIZON - 1) {
                 // keep a little credit for speed along the path so it prefers carrying momentum
-                score = s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz);
+                score = s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz) - BUMP * bumps;
             }
             if (t >= HORIZON - 1 && sim.onGround && (delay == NEVER || s >= end - 0.3)) {
                 return score; // on the path with no jump pending: nothing later in this plan can fall in
