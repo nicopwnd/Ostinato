@@ -43,6 +43,12 @@ public final class PlayerSim {
      * One tick with forward held (optionally sprinting/jumping) facing {@code yawDeg}.
      */
     public void tick(float yawDeg, boolean forward, boolean sprint, boolean jump) {
+        tick(yawDeg, forward ? 1 : 0, sprint, jump);
+    }
+
+    /** As above with the forward key's impulse: 1 forward, 0 none, -1 back. */
+    public void tick(float yawDeg, int input, boolean sprint, boolean jump) {
+        boolean forward = input > 0;
         if (Math.abs(vx) < 0.003) vx = 0;
         if (Math.abs(vy) < 0.003) vy = 0;
         if (Math.abs(vz) < 0.003) vz = 0;
@@ -69,8 +75,8 @@ public final class PlayerSim {
         } else {
             speed = sprinting ? 0.026 : 0.02;
         }
-        if (forward) {
-            double f = 0.98 * speed;
+        if (input != 0) {
+            double f = 0.98 * speed * input;
             vx += -sin * f;
             vz += cos * f;
         }

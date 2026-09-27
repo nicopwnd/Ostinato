@@ -289,7 +289,9 @@ public final class KinematicController {
             return mv.getDest().y - mv.getSrc().y <= 1;
         }
         if (mv instanceof MovementParkour) {
-            return mv.getDest().y == mv.getSrc().y; // flat gap jumps; the rollout only accepts jumps that land on the path
+            // flat 2+ block gaps; a sprint jump overshoots a 1 block gap, Baritone walks that one
+            int d = Math.abs(mv.getDest().x - mv.getSrc().x) + Math.abs(mv.getDest().z - mv.getSrc().z);
+            return mv.getDest().y == mv.getSrc().y && d >= 3;
         }
         int drop = mv.getSrc().y - mv.getDest().y;
         return (mv instanceof MovementDescend || mv instanceof MovementFall) && drop >= 1 && drop <= 3;
