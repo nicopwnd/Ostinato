@@ -1008,6 +1008,37 @@ public final class Settings {
     public final Setting<Boolean> buildOnlySelection = new Setting<>(false);
 
     /**
+     * Multi-bot builds: how a schematic is split into one region per bot ({@code IBuilderProcess#buildRegion}).
+     * {@code strips} (full-height strips along one horizontal axis, independent), {@code grid} (full-height columns x rows,
+     * independent) or {@code layers} (Y bands, must be built bottom-up). Cuts balance non-air blocks, not volume.
+     */
+    public final Setting<String> buildPartitionStrategy = new Setting<>("strips");
+
+    /**
+     * Multi-bot builds: horizontal axis that {@code strips} cuts (and {@code grid} cuts into columns first).
+     * {@code auto} (the longer of X and Z), {@code x} or {@code z}. Ignored by {@code layers}.
+     */
+    public final Setting<String> buildPartitionAxis = new Setting<>("auto");
+
+    /**
+     * Multi-bot builds: number of {@code grid} columns along {@link #buildPartitionAxis}. 0 picks it from the schematic's footprint.
+     */
+    public final Setting<Integer> buildPartitionGridColumns = new Setting<>(0);
+
+    /**
+     * Multi-bot builds: thickness in blocks of the seam band on each cut between two regions. Seam blocks still belong to
+     * exactly one region (the lower-index one keeps the extra layer), but can be built separately after the interiors so
+     * neighbouring bots don't work on the same face at once. 0 disables seams.
+     */
+    public final Setting<Integer> buildPartitionSeamWidth = new Setting<>(1);
+
+    /**
+     * Multi-bot builds: while building a region, never break or place (pathing, scaffolding) inside the other regions of
+     * the same schematic, so this bot doesn't trample other bots' work. Blocks outside the schematic are unaffected.
+     */
+    public final Setting<Boolean> buildRegionProtectForeign = new Setting<>(true);
+
+    /**
      * How far to move before repeating the build. 0 to disable repeating on a certain axis, 0,0,0 to disable entirely
      */
     public final Setting<Vector3i> buildRepeat = new Setting<>(new Vector3i(0, 0, 0));
