@@ -334,6 +334,9 @@ public final class AirProcess extends BaritoneProcessHelper {
 
     @Override
     public void onLostControl() {
+        // A caller cancelling every tick must not reset surfacing: that rebuilt the goal and restarted
+        // the search each tick at spd 0 until drowning (TenorClef s326o). Keep it while still short of air.
+        if (active && door == null && goal != null && ctx.player() != null && ctx.player().isInWater() && ctx.player().getAir() < ctx.player().getMaxAir()) return;
         active = false;
         door = null;
     }
