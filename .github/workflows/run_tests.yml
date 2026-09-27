@@ -5,19 +5,18 @@ on:
   push:
   pull_request:
 
-# Ostinato 1.16.1 unit tests are flaky/red on modern GH runners (Gradle 4.9 /
-# ForgeGradle / HTTP maven repos). Non-blocking until a dedicated JDK8 fix.
-# TenorClef gates legacy via its own :1.16.1:compileJava with a staged jar.
+# Blocking: the Gradle 4.9 wrapper jar is now committed (gradle/wrapper), so
+# ./gradlew test actually runs on JDK 8 instead of failing to launch.
+# TenorClef additionally gates legacy via its own :1.16.1:compileJava with a staged jar.
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up JDK 8
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '8'
         distribution: 'temurin'
@@ -26,5 +25,4 @@ jobs:
       run: chmod +x gradlew
       
     - name: Executing tests
-      continue-on-error: true
       run: ./gradlew test
