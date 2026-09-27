@@ -20,13 +20,17 @@ package baritone.command.defaults;
 
 import baritone.Baritone;
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.command.exception.CommandInvalidTypeException;
+import baritone.api.command.datatypes.RelativeBlockPos;
 import baritone.api.command.helpers.TabCompleteHelper;
+import baritone.api.utils.BetterBlockPos;
 import baritone.behavior.SwarmBehavior;
+import baritone.swarm.SwarmBuild;
 import baritone.swarm.SwarmControl;
 
 import java.util.Arrays;
@@ -35,7 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 
-/** {@code #swarm ping [group]}, {@code #swarm status}, {@code #swarm reload}. */
+/** {@code #swarm ping [group]}, {@code #swarm status}, {@code #swarm reload}, {@code #swarm build}, {@code #swarm stop}. */
 public class SwarmCommand extends Command {
 
     public SwarmCommand(IBaritone baritone) {
@@ -81,18 +85,51 @@ public class SwarmCommand extends Command {
                 logDirect("swarm: reloading roster and keyring");
                 return;
             }
+            case "build": {
+                args.requireMin(2);
+                String group = args.getString();
+                String file = args.getString();
+                BetterBlockPos origin = ctx.playerFeet();
+                if (args.has(3)) {
+                    origin = args.getDatatypePost(RelativeBlockPos.INSTANCE, origin);
+                }
+                args.requireMax(0);
+                Settings s = Baritone.settings();
+                try {
+                    running(swarm).start(group, file, origin.x, origin.y, origin.z, s.buildPartitionStrategy.value,
+                            s.buildPartitionAxis.value, s.buildPartitionSeamWidth.value, s.buildPartitionGridColumns.value);
+                } catch (IllegalArgumentException e) {
+                    throw new CommandInvalidStateException(e.getMessage());
+                }
+                return;
+            }
+            case "stop": {
+                args.requireMax(0);
+                running(swarm).stop();
+                logDirect("swarm: build stopped");
+                return;
+            }
             default:
-                throw new CommandInvalidTypeException(args.consumed(), "ping, status or reload");
+                throw new CommandInvalidTypeException(args.consumed(), "ping, status, reload, build or stop");
         }
+    }
+
+    private static SwarmBuild running(SwarmBehavior swarm) throws CommandInvalidStateException {
+        SwarmControl control = swarm.control();
+        if (control == null || control.build() == null) {
+            throw new CommandInvalidStateException("swarm link is not running (" + swarm.state() + ")");
+        }
+        return control.build();
     }
 
     @Override
     public Stream<String> tabComplete(String label, IArgConsumer args) throws CommandException {
         if (args.hasExactlyOne()) {
-            return new TabCompleteHelper().append("ping", "status", "reload").filterPrefix(args.getString()).stream();
+            return new TabCompleteHelper().append("ping", "status", "reload", "build", "stop").filterPrefix(args.getString()).stream();
         }
-        if (args.hasExactly(2) && args.getString().equalsIgnoreCase("ping")) {
+        if (args.hasExactly(2) && (args.peekString().equalsIgnoreCase("ping") || args.peekString().equalsIgnoreCase("build"))) {
             SwarmControl control = baritone instanceof Baritone ? ((Baritone) baritone).getSwarmBehavior().control() : null;
+            args.get();
             List<String> groups = control == null ? Collections.emptyList() : control.myGroups();
             return new TabCompleteHelper().append(groups.stream()).filterPrefix(args.getString()).stream();
         }
@@ -101,7 +138,7 @@ public class SwarmCommand extends Command {
 
     @Override
     public String getShortDesc() {
-        return "Swarm link: ping members and show status";
+        return "Swarm link: ping members, show status, split builds";
     }
 
     @Override
@@ -114,7 +151,10 @@ public class SwarmCommand extends Command {
                 "> swarm status - roster, last-seen times and link health",
                 "> swarm ping - ping every member of each of your groups",
                 "> swarm ping <group> - ping the members of one group",
-                "> swarm reload - reload the roster and keyring"
+                "> swarm reload - reload the roster and keyring",
+                "> swarm build <group> <file> [x y z] - as the group's lead, split a schematic (in the schematics",
+                "  folder) over the group, one region per member, using the buildPartition* settings",
+                "> swarm stop - stop the build job you lead, and your own region"
         );
     }
 }

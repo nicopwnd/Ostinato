@@ -56,6 +56,13 @@ public class SwarmControlTest {
         circles.put("crew", TestCircles.alpha());
     }
 
+    /** These fixtures carry no signets, so they run the unsigned circle wire (S2S is covered by the S2S tests). */
+    public static SwarmConfig unsignedCfg() {
+        SwarmConfig.Builder b = SwarmConfig.builder();
+        b.requireSignedSender = false;
+        return b.build();
+    }
+
     private static SwarmControl.LocalStatus status(String name, String pos, String proc) {
         return new SwarmControl.LocalStatus() {
             @Override
@@ -68,7 +75,7 @@ public class SwarmControlTest {
     }
 
     private SwarmControl control(String name, SwarmTransport t, String proc) throws Exception {
-        SwarmEndpoint e = new SwarmEndpoint(name, SwarmConfig.defaults(), circles, t, clock::get);
+        SwarmEndpoint e = new SwarmEndpoint(name, unsignedCfg(), circles, t, clock::get);
         e.setMemberCheck(roster::isMember);
         return new SwarmControl(roster, e, status(name, "10,64,-20", proc), clock::get, log::add, null);
     }
@@ -121,7 +128,7 @@ public class SwarmControlTest {
         InMemorySwarmBus bus = new InMemorySwarmBus();
         SwarmControl alice = control("Alice", bus.register("Alice"), "idle");
         // Mallory holds the circle key but is not in the roster
-        SwarmEndpoint mallory = new SwarmEndpoint("Mallory", SwarmConfig.defaults(), circles,
+        SwarmEndpoint mallory = new SwarmEndpoint("Mallory", unsignedCfg(), circles,
                 bus.register("Mallory"), clock::get);
         mallory.send("crew", SwarmTransport.BROADCAST, SwarmControl.PING, "ping");
         alice.tick();
@@ -218,7 +225,7 @@ public class SwarmControlTest {
         List<String> sent = new ArrayList<>();
         ChatSwarmTransport aliceChat = new ChatSwarmTransport("Alice", SwarmChannel.WHISPER, "", roster,
                 new SwarmRateLimiter(0.5, 5, false, 64, 0), 256);
-        SwarmEndpoint alice = new SwarmEndpoint("Alice", SwarmConfig.defaults(), circles, aliceChat, clock::get);
+        SwarmEndpoint alice = new SwarmEndpoint("Alice", unsignedCfg(), circles, aliceChat, clock::get);
         alice.send("crew", "Bob", SwarmControl.PING, "ping");
         aliceChat.flush(0, sent::add);
         assertEquals(1, sent.size());

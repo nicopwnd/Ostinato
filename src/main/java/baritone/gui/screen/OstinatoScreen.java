@@ -545,6 +545,12 @@ public final class OstinatoScreen extends Screen {
         }
         // mini status card if there is room
         float cy0 = fy - 36, cx0 = x0 + 7, cx1 = sbx1 - 7;
+        if (settings.swarmEnabled.value && iy + 12 <= cy0 && BaritoneAPI.getProvider().getPrimaryBaritone() instanceof Baritone) {
+            String sw = ((Baritone) BaritoneAPI.getProvider().getPrimaryBaritone()).getSwarmBehavior().summary();
+            boolean up = sw.startsWith("online");
+            GuiDraw.icon(ms, Icons.DOT, cx0 + 6, cy0 - 5, up ? Theme.GREEN : Theme.AMBER, 0.75f);
+            GuiDraw.text(ms, GuiDraw.trim("Swarm " + sw, cx1 - cx0 - 12, 0.5f), cx0 + 11, cy0 - 5.5f, 0.5f, Theme.MUTED, false, false);
+        }
         if (iy + 4 <= cy0) {
             PathStatus st = PathStatus.capture(BaritoneAPI.getProvider().getPrimaryBaritone());
             GuiDraw.roundBorder(ms, cx0, cy0, cx1, fy - 7, 3, 0xFF232A38, 0xFF0F131B);

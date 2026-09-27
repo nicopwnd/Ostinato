@@ -93,7 +93,6 @@ public final class SwarmKeys {
         if (all.isEmpty()) {
             return;
         }
-        Collection<SigilEd25519> pins = new ArrayList<SigilEd25519>(all.values());
-        endpoint.setSigning(all.get(self), pins);
+        endpoint.setSigning(all.get(self), all);
     }
 }

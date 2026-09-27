@@ -28,6 +28,8 @@ public enum SwarmReject {
     WRONG_GROUP,
     /** Our own frame echoed back (broadcast loopback). */
     SELF,
+    /** Signed (S2S) by a pinned signet that belongs to another member than the frame's sender. */
+    WRONG_SIGNER,
     /** Sender is not a member of the group it claims (roster check). */
     NOT_MEMBER,
     /** Addressed to another member. */

@@ -34,7 +34,13 @@ import static org.junit.Assert.fail;
 
 public class SwarmReassemblerTest {
 
-    private static final SwarmConfig CFG = SwarmConfig.defaults();
+    private static final SwarmConfig CFG = unsigned(); // chunking only; the S2S budget is covered in SwarmConfigTest
+
+    private static SwarmConfig unsigned() {
+        SwarmConfig.Builder b = SwarmConfig.builder();
+        b.requireSignedSender = false;
+        return b.build();
+    }
 
     static String body(int chars) {
         StringBuilder b = new StringBuilder();

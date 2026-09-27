@@ -37,9 +37,11 @@ import baritone.swarm.transport.SwarmTransport;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,6 +58,7 @@ import java.util.function.LongSupplier;
  */
 public final class SwarmEndpoint implements Closeable {
 
+    private volatile Map<String, byte[]> signerOf;
     private final String self;
     private final SwarmConfig cfg;
     private final Map<String, SigilCircle> groups;
@@ -107,10 +110,27 @@ public final class SwarmEndpoint implements Closeable {
         this.memberCheck = check;
     }
 
-    /** Local signing key and pinned peer public keys for S2S. */
+    /**
+     * Local signing key and pinned peer public keys for S2S. Any pinned key may sign for any sender; prefer
+     * {@link #setSigning(SigilEd25519, Map)}, which binds each key to its member.
+     */
     public void setSigning(SigilEd25519 local, Collection<SigilEd25519> pinned) {
         this.localSignet = local;
         this.pins = pinned == null ? Collections.<SigilEd25519>emptyList() : new ArrayList<SigilEd25519>(pinned);
+        this.signerOf = null;
+    }
+
+    /**
+     * Local signing key and pinned public keys by member name. An S2S frame is then accepted only when it is
+     * signed by the key pinned for the member it claims to be from, so one member cannot speak as another.
+     */
+    public void setSigning(SigilEd25519 local, Map<String, SigilEd25519> pinnedByMember) {
+        setSigning(local, pinnedByMember.values());
+        Map<String, byte[]> m = new HashMap<String, byte[]>();
+        for (Map.Entry<String, SigilEd25519> e : pinnedByMember.entrySet()) {
+            m.put(e.getKey(), e.getValue().keyid());
+        }
+        this.signerOf = m;
     }
 
     public long send(String group, String to, String type, String body)
@@ -170,12 +190,14 @@ public final class SwarmEndpoint implements Closeable {
         String text;
         SigilCircle circle;
         int total;
+        byte[] signer = null;
         try {
             if (token.startsWith(SigilS2S.VERSION + ".")) {
                 SigilS2S.Opened o = SigilS2S.open(token, keyring, pins);
                 text = o.text;
                 circle = o.circle;
                 total = o.total;
+                signer = o.keyid;
             } else {
                 if (cfg.requireSignedSender()) {
                     return reject(SwarmReject.UNSEALED);
@@ -198,6 +220,10 @@ public final class SwarmEndpoint implements Closeable {
             }
             if (f.from().equals(self)) {
                 throw new SwarmFrameException(SwarmReject.SELF, "own frame");
+            }
+            Map<String, byte[]> owners = signerOf;
+            if (signer != null && owners != null && !Arrays.equals(owners.get(f.from()), signer)) {
+                throw new SwarmFrameException(SwarmReject.WRONG_SIGNER, f.from() + " not signed by its own signet");
             }
             if (!memberCheck.test(f.group(), f.from())) {
                 throw new SwarmFrameException(SwarmReject.NOT_MEMBER, f.from() + " is not in group " + f.group());
