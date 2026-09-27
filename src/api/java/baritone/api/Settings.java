@@ -1008,6 +1008,37 @@ public final class Settings {
     public final Setting<Boolean> buildOnlySelection = new Setting<>(false);
 
     /**
+     * Multi-bot builds: how a schematic is split into one region per bot ({@code IBuilderProcess#buildRegion}).
+     * {@code strips} (full-height strips along one horizontal axis, independent), {@code grid} (full-height columns x rows,
+     * independent) or {@code layers} (Y bands, must be built bottom-up). Cuts balance non-air blocks, not volume.
+     */
+    public final Setting<String> buildPartitionStrategy = new Setting<>("strips");
+
+    /**
+     * Multi-bot builds: horizontal axis that {@code strips} cuts (and {@code grid} cuts into columns first).
+     * {@code auto} (the longer of X and Z), {@code x} or {@code z}. Ignored by {@code layers}.
+     */
+    public final Setting<String> buildPartitionAxis = new Setting<>("auto");
+
+    /**
+     * Multi-bot builds: number of {@code grid} columns along {@link #buildPartitionAxis}. 0 picks it from the schematic's footprint.
+     */
+    public final Setting<Integer> buildPartitionGridColumns = new Setting<>(0);
+
+    /**
+     * Multi-bot builds: thickness in blocks of the seam band on each cut between two regions. Seam blocks still belong to
+     * exactly one region (the lower-index one keeps the extra layer), but can be built separately after the interiors so
+     * neighbouring bots don't work on the same face at once. 0 disables seams.
+     */
+    public final Setting<Integer> buildPartitionSeamWidth = new Setting<>(1);
+
+    /**
+     * Multi-bot builds: while building a region, never break or place (pathing, scaffolding) inside the other regions of
+     * the same schematic, so this bot doesn't trample other bots' work. Blocks outside the schematic are unaffected.
+     */
+    public final Setting<Boolean> buildRegionProtectForeign = new Setting<>(true);
+
+    /**
      * How far to move before repeating the build. 0 to disable repeating on a certain axis, 0,0,0 to disable entirely
      */
     public final Setting<Vector3i> buildRepeat = new Setting<>(new Vector3i(0, 0, 0));
@@ -1670,6 +1701,23 @@ public final class Settings {
     private @interface JavaOnly {}
 
     /**
+     * Drive plain walking stretches of a path (no breaking, placing, water or big drops) with a physics
+     * look-ahead that picks yaw, sprint and jump each tick, instead of Baritone's per-movement logic.
+     */
+    public final Setting<Boolean> kinematicTravel = new Setting<>(false);
+
+    /**
+     * Receives movement failures as (code, evidence), e.g. so a bot can record them in its fault log.
+     * Codes: M01 kinematic stuck, M02 off path, M03 movement timeout, M04 movement failed.
+     */
+    public final Setting<BiConsumer<String, String>> movementFault = new Setting<>((code, evidence) -> {});
+
+    /**
+     * Experimental: drive land stretches with keys found by searching simulated player physics.
+     */
+    public final Setting<Boolean> physicsTravel = new Setting<>(false);
+
+    /**
      * Travel movement backend for goto-style goals ({@code #goto}, custom goals).
      * <ul>
      *   <li>{@code baritone} — classic Baritone pathing</li>
@@ -1679,17 +1727,6 @@ public final class Settings {
      * Mining / schematics / inventory stay on Baritone regardless of this setting. Defaults to
      * {@code baritone} here: TenorClef on 1.16.1 ships the Tungsten jar and drives it itself.
      */
-    /**
-     * Drive plain walking stretches of a path (no breaking, placing, water or big drops) with a physics
-     * look-ahead that picks yaw, sprint and jump each tick, instead of Baritone's per-movement logic.
-     */
-    public final Setting<Boolean> kinematicTravel = new Setting<>(false);
-
-    /**
-     * Experimental: drive land stretches with keys found by searching simulated player physics.
-     */
-    public final Setting<Boolean> physicsTravel = new Setting<>(false);
-
     public final Setting<String> movementBackend = new Setting<>("baritone");
 
     /**
@@ -1787,10 +1824,10 @@ public final class Settings {
     public final Setting<String> swarmChannel = new Setting<>("whisper");
 
     /**
-     * Swarm: command template for {@link #swarmChannel}, using {@code {to}} (whisper only) and
-     * {@code {msg}}, e.g. {@code /tell {to} {msg}} or {@code /w {to} {msg}}. Empty, or a template
-     * missing a placeholder, means the channel default ({@code /msg {to} {msg}},
-     * {@code {msg}}, {@code /teammsg {msg}}).
+     * Swarm: command template for {@link #swarmChannel}, using <code>{to}</code> (whisper only) and
+     * <code>{msg}</code>, e.g. <code>/tell {to} {msg}</code> or <code>/w {to} {msg}</code>. Empty, or a
+     * template missing a placeholder, means the channel default (<code>/msg {to} {msg}</code>,
+     * <code>{msg}</code>, <code>/teammsg {msg}</code>).
      */
     public final Setting<String> swarmCommandTemplate = new Setting<>("");
 
@@ -1820,6 +1857,29 @@ public final class Settings {
      * is dropped for a higher-priority one; otherwise the new line is dropped.
      */
     public final Setting<Integer> swarmSendQueueMax = new Setting<>(64);
+
+    /**
+     * Key that opens the Ostinato settings screen in game, polled every client tick while no screen is open.
+     * Takes a key name such as {@code RCONTROL}, {@code RSHIFT}, {@code F8}, {@code K} or {@code NONE} to disable,
+     * and can be rebound in the screen itself.
+     */
+    public final Setting<String> guiKeybind = new Setting<>("RCONTROL");
+
+    /**
+     * Show the Ostinato path status card (goal, progress, ETA, mover, process) on the HUD while pathing.
+     * Hidden while the debug screen (F3) is open.
+     */
+    public final Setting<Boolean> renderPathHud = new Setting<>(true);
+
+    /**
+     * Where the path status card sits on screen: {@code RIGHT}, {@code LEFT}, {@code TOP_RIGHT} or {@code TOP_LEFT}.
+     */
+    public final Setting<String> pathHudAnchor = new Setting<>("RIGHT");
+
+    /**
+     * Accent color of the Ostinato settings screen and path status card.
+     */
+    public final Setting<Color> guiAccentColor = new Setting<>(new Color(79, 209, 197));
 
     // here be dragons
 

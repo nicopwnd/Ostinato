@@ -29,6 +29,7 @@ import baritone.behavior.*;
 import baritone.cache.WorldProvider;
 import baritone.command.manager.CommandManager;
 import baritone.event.GameEventHandler;
+import baritone.gui.OstinatoGui;
 import baritone.process.*;
 import baritone.selection.SelectionManager;
 import baritone.utils.BlockStateInterface;
@@ -131,6 +132,7 @@ public class Baritone implements IBaritone {
         this.worldProvider = new WorldProvider(this);
         this.selectionManager = new SelectionManager(this);
         this.commandManager = new CommandManager(this);
+        this.gameEventHandler.registerEventListener(new OstinatoGui(this));
     }
 
     public void registerBehavior(IBehavior behavior) {

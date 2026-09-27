@@ -18,6 +18,10 @@
 package baritone.api.process;
 
 import baritone.api.schematic.ISchematic;
+import baritone.api.schematic.MaskSchematic;
+import baritone.api.schematic.partition.PartitionPlan;
+import baritone.api.schematic.partition.RegionPart;
+import baritone.api.schematic.partition.SchematicCells;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.math.BlockPos;
@@ -50,6 +54,47 @@ public interface IBuilderProcess extends IBaritoneProcess {
      * @return Whether or not the schematic was able to load from file
      */
     boolean build(String name, File schematic, Vector3i origin);
+
+    /**
+     * Builds only one region of a partitioned schematic, for several bots building the same schematic at the same
+     * origin. Same as {@code build(name, MaskSchematic.create(schematic, plan.regionMask(regionIndex, part)), origin)},
+     * so the builder skips every cell outside the region, and blocks already correct are skipped as usual (safe to
+     * re-run or re-assign). {@code BuilderProcess} additionally keeps pathing from breaking or placing in the other
+     * regions when {@code buildRegionProtectForeign} is on.
+     * <p>
+     * Every bot must use the same schematic, origin, plan and {@code buildSchematicRotation/Mirror}: the plan is in the
+     * un-rotated schematic's coordinates. For {@link baritone.api.schematic.partition.PartitionStrategy#LAYERS} plans
+     * ({@link PartitionPlan#isOrdered()}) region {@code i} needs regions below it finished first.
+     *
+     * @param name        A user-friendly name for the schematic
+     * @param schematic   The whole schematic, the same one the plan was made from
+     * @param origin      The origin of the whole schematic (shared by all bots)
+     * @param regionIndex Which region of the plan to build
+     * @param plan        From {@link SchematicCells#partition(ISchematic, int)} or
+     *                    {@link baritone.api.schematic.partition.SchematicPartitioner}
+     * @param part        The whole region, only its interior, or only its seam cells
+     * @throws IllegalArgumentException if the plan doesn't fit the schematic's size or the index is out of range
+     */
+    default void buildRegion(String name, ISchematic schematic, Vector3i origin, int regionIndex, PartitionPlan plan, RegionPart part) {
+        SchematicCells.requireFits(schematic, plan);
+        build(name, MaskSchematic.create(schematic, plan.regionMask(regionIndex, part)), origin);
+    }
+
+    /**
+     * Builds the whole of one region, see {@link #buildRegion(String, ISchematic, Vector3i, int, PartitionPlan, RegionPart)}.
+     */
+    default void buildRegion(String name, ISchematic schematic, Vector3i origin, int regionIndex, PartitionPlan plan) {
+        buildRegion(name, schematic, origin, regionIndex, plan, RegionPart.WHOLE);
+    }
+
+    /**
+     * Loads a schematic file and builds the whole of one region of it, see
+     * {@link #buildRegion(String, ISchematic, Vector3i, int, PartitionPlan, RegionPart)}.
+     *
+     * @return Whether or not the schematic was able to load from file
+     * @throws IllegalArgumentException if the plan doesn't fit the schematic's size or the index is out of range
+     */
+    boolean buildRegion(String name, File schematic, Vector3i origin, int regionIndex, PartitionPlan plan);
 
     @Deprecated
     default boolean build(String schematicFile, BlockPos origin) {

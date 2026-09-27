@@ -115,6 +115,7 @@ public final class KinematicController {
             } else {
                 recenters = 0;
                 cooldown = 60;
+                Baritone.settings().movementFault.value.accept("M01", "kinematic stuck at " + ctx.playerFeet() + ", handing back to Baritone");
                 return -1;
             }
         }
