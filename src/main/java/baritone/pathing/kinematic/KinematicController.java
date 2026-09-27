@@ -51,6 +51,8 @@ public final class KinematicController {
     /** No-progress watchdog: when the sim predicts progress the real world blocks, back off to Baritone. */
     private double lastX, lastZ;
     private int stuckTicks, cooldown;
+    /** Ticks left walking straight back onto the path line after the hitbox caught a corner beside it. */
+    private int recenter, recenters;
 
     public KinematicController(IPlayerContext ctx) {
         this.ctx = ctx;
@@ -96,10 +98,29 @@ public final class KinematicController {
         stuckTicks = moved < 0.0025 ? stuckTicks + 1 : 0;
         if (stuckTicks > 20) {
             stuckTicks = 0;
-            cooldown = 60;
-            return -1;
+            // usually the box drifted off the line and snags a block in the next column; Baritone
+            // can't free that either, so first step back onto the line, then give up to Baritone
+            if (recenters++ < 2) {
+                recenter = 8;
+            } else {
+                recenters = 0;
+                cooldown = 60;
+                return -1;
+            }
         }
         int newPos = syncPosition(path, pathPosition);
+        if (newPos > pathPosition) {
+            recenters = 0;
+        }
+        if (recenter > 0) {
+            recenter--;
+            double[] c = pointAt(here[0]);
+            float yaw = (float) Math.toDegrees(Math.atan2(-(c[0] - real.x), c[2] - real.z));
+            baritone.getLookBehavior().updateTarget(new Rotation(yaw, 0), false);
+            baritone.getInputOverrideHandler().clearAllKeys();
+            baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, here[1] > 0.05);
+            return newPos;
+        }
 
         float best = Float.NaN;
         boolean bestJump = false;
@@ -279,13 +300,14 @@ public final class KinematicController {
         return line.get(line.size() - 1)[1];
     }
 
-    /** Advance past moves whose destination the player already stands in (at floor height, so mid-jump counts). */
+    /** Advance past moves whose destination the player already stands in (on the ground at its floor, or near it mid-jump;
+     * standing a floor below an ascend's destination must not skip the ascend). */
     private int syncPosition(IPath path, int pathPosition) {
         int fx = PlayerSim.floor(real.x), fz = PlayerSim.floor(real.z);
         int fy = PlayerSim.floor(real.y + 1e-3);
         for (int i = lastMove; i >= pathPosition; i--) {
             BetterBlockPos d = path.movements().get(i).getDest();
-            if (d.x == fx && d.z == fz && fy >= d.y - 1 && fy <= d.y + 1) {
+            if (d.x == fx && d.z == fz && (real.onGround ? fy == d.y : fy >= d.y - 1 && fy <= d.y + 1)) {
                 return i + 1;
             }
         }
