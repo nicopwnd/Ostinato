@@ -24,6 +24,7 @@ import baritone.api.pathing.movement.ActionCosts;
 import baritone.cache.WorldData;
 import baritone.pathing.precompute.PrecomputedData;
 import baritone.utils.BlockStateInterface;
+import baritone.utils.BoatUtil;
 import baritone.utils.ToolSet;
 import baritone.utils.pathing.BetterWorldBorder;
 import net.minecraft.client.player.LocalPlayer;
@@ -61,6 +62,11 @@ public class CalculationContext {
     public final BlockStateInterface bsi;
     public final ToolSet toolSet;
     public final boolean hasWaterBucket;
+    public final boolean hasBoat;
+    /** Free boats already out in the world (block longs); boarding one skips placing our own. */
+    public final java.util.Set<Long> freeBoats;
+    public final int maxFallHeightBoat;
+    public final boolean aquaAffinity;
     public final boolean hasThrowaway;
     public final boolean canSprint;
     protected final double placeBlockCost; // protected because you should call the function instead
@@ -102,8 +108,14 @@ public class CalculationContext {
         this.worldData = (WorldData) baritone.getPlayerContext().worldData();
         this.bsi = new BlockStateInterface(baritone.getPlayerContext(), forUseOnAnotherThread);
         this.toolSet = new ToolSet(player);
+        this.aquaAffinity = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.SUBMERGED_MINING_SPEED) > 0.5;
         this.hasThrowaway = !AltoClefSettings.getInstance().isInteractionPaused() && Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
         this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value && Inventory.isHotbarSlot(player.getInventory().findSlotMatchingItem(STACK_BUCKET_WATER)) && world.dimension() != Level.NETHER;
+        this.hasBoat = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
+                && BoatUtil.hasBoat(player.getInventory().getNonEquipmentItems());
+        this.freeBoats = Baritone.settings().allowBoats.value && Baritone.settings().allowBoatFall.value && !AltoClefSettings.getInstance().isInteractionPaused()
+                ? BoatUtil.freeBoats(world, player, 64) : java.util.Collections.emptySet();
+        this.maxFallHeightBoat = Baritone.settings().maxFallHeightBoat.value;
         this.canSprint = Baritone.settings().allowSprint.value && player.getFoodData().getFoodLevel() > 6;
         this.placeBlockCost = Baritone.settings().blockPlacementPenalty.value;
         this.allowBreak = !AltoClefSettings.getInstance().isInteractionPaused() && Baritone.settings().allowBreak.value;
@@ -216,6 +228,25 @@ public class CalculationContext {
             return COST_INF;
         }
         return 1;
+    }
+
+    /** A free boat at feet level on (x,y,z) or right beside it, ready to board at a cliff top. */
+    public boolean freeBoatAt(int x, int y, int z) {
+        if (freeBoats.isEmpty()) return false;
+        for (int[] d : new int[][]{{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+            if (freeBoats.contains(BlockPos.asLong(x + d[0], y, z + d[1]))) return true;
+        }
+        return false;
+    }
+
+    /** Board a boat that's already there and drive off: no placing, and we still pick it up after. */
+    public double boardBoatFallCost() {
+        return 60;
+    }
+
+    /** Place, board, drive off, then break and pick the boat back up. */
+    public double boatFallCost() {
+        return 100 + placeBlockCost;
     }
 
     public double placeBucketCost() {

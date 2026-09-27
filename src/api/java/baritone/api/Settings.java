@@ -339,6 +339,12 @@ public final class Settings {
     public final Setting<Boolean> avoidUpdatingFallingBlocks = new Setting<>(true);
 
     /**
+     * Never stand on sand, gravel or concrete powder that rests on a block without collision
+     * (air, an open fence gate, a sign...), since it can drop out from under the player
+     */
+    public final Setting<Boolean> pitfallAvoidance = new Setting<>(true);
+
+    /**
      * Enables some more advanced vine features. They're honestly just gimmicks and won't ever be needed in real
      * pathing scenarios. And they can cause Baritone to get trapped indefinitely in a strange scenario.
      * <p>
@@ -377,6 +383,26 @@ public final class Settings {
      * Sprint and jump a block early on ascends wherever possible
      */
     public final Setting<Boolean> sprintAscends = new Setting<>(true);
+
+    /**
+     * Jump while sprinting down long straight flat runs (~30% faster than plain sprinting)
+     */
+    public final Setting<Boolean> sprintJump = new Setting<>(false);
+
+    /**
+     * Place and ride a boat across large bodies of water when it is faster than swimming
+     */
+    public final Setting<Boolean> allowBoats = new Setting<>(true);
+
+    /**
+     * Ride a boat off drops too high to fall safely (place it at the top, get in, drive off the edge)
+     */
+    public final Setting<Boolean> allowBoatFall = new Setting<>(true);
+
+    /**
+     * How far a boat can fall onto land with us in it
+     */
+    public final Setting<Integer> maxFallHeightBoat = new Setting<>(64);
 
     /**
      * If we overshoot a traverse and end up one block beyond the destination, mark it as successful anyway.
@@ -1524,6 +1550,22 @@ public final class Settings {
     public final Setting<Integer> elytraMinFireworksBeforeLanding = new Setting<>(5);
 
     /**
+     * With an elytra and no fireworks, glide straight toward the goal (descending) instead of refusing
+     * or emergency landing, when the goal is within gliding range of the current height.
+     */
+    public final Setting<Boolean> elytraGlideWithoutFireworks = new Setting<>(true);
+
+    /**
+     * Blocks forward per block of height lost when judging whether a rocket-free glide reaches the goal.
+     */
+    public final Setting<Double> elytraGlideRatio = new Setting<>(8.0);
+
+    /**
+     * Pitch held while gliding without fireworks (positive looks down); a few degrees down keeps speed.
+     */
+    public final Setting<Float> elytraGlidePitch = new Setting<>(6.0f);
+
+    /**
      * Automatically land when elytra is almost out of durability, or almost out of fireworks
      */
     public final Setting<Boolean> elytraAllowEmergencyLand = new Setting<>(true);
@@ -1669,6 +1711,11 @@ public final class Settings {
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.FIELD)
     private @interface JavaOnly {}
+
+    /**
+     * Drive plain walking stretches of a path with a physics look-ahead controller instead of per-movement logic
+     */
+    public final Setting<Boolean> kinematicTravel = new Setting<>(false);
 
     
     /**

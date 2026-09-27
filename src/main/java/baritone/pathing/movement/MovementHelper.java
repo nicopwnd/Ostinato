@@ -433,6 +433,9 @@ public interface MovementHelper extends ActionCosts, Helper {
         if (block == Blocks.END_PORTAL && AltoClefSettings.getInstance().isCanWalkOnEndPortal()) {
             return YES;
         }
+        if (block instanceof FallingBlock && Baritone.settings().pitfallAvoidance.value) {
+            return MAYBE; // depends on what it rests on, see canWalkOnPosition
+        }
         if (isBlockNormalCube(state) && (block != Blocks.MAGMA_BLOCK || Baritone.settings().allowWalkOnMagmaBlocks.value) && block != Blocks.BUBBLE_COLUMN && block != Blocks.HONEY_BLOCK) {
             return YES;
         }
@@ -491,6 +494,11 @@ public interface MovementHelper extends ActionCosts, Helper {
             return isWater(upState) ^ Baritone.settings().assumeWalkOnWater.value;
         }
 
+        if (block instanceof FallingBlock) {
+            // pitfall: sand/gravel/concrete powder resting on something without collision (air, open gate, sign...) drops out from under us
+            BlockPos.MutableBlockPos below = bsi.isPassableBlockPos.set(x, y - 1, z);
+            return isBlockNormalCube(state) && !bsi.get0(x, y - 1, z).getCollisionShape(bsi.access, below).isEmpty();
+        }
         if (MovementHelper.isLava(state) && !MovementHelper.isFlowing(x, y, z, state, bsi) && Baritone.settings().assumeWalkOnLava.value) { // if we get here it means that assumeWalkOnLava must be true, so put it last
             return true;
         }
@@ -899,5 +907,32 @@ public interface MovementHelper extends ActionCosts, Helper {
             }
         }
         return blocks;
+    }
+
+    /**
+     * Crossing water at the surface: sprint and swim instead of bobbing. Swimming only starts with
+     * the eyes under water, so dip in with the head pitched down; once in the swim pose, keep level,
+     * about a block under the path drawn over the surface.
+     */
+    static void surfaceSwim(IPlayerContext ctx, MovementState state) {
+        state.setInput(Input.SPRINT, true);
+        state.setInput(Input.JUMP, false);
+        float yaw = state.getTarget().getRotation().map(Rotation::getYaw).orElse(ctx.playerRotations().getYaw());
+        float pitch;
+        if (!ctx.player().isSwimming()) {
+            pitch = 35;
+        } else if (!ctx.player().isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
+            pitch = 6; // breaching: nose back under or the swim pose drops
+        } else {
+            // two blocks of water over the head: drifted too deep, ease back up
+            pitch = isWater(ctx.world().getBlockState(BlockPos.containing(ctx.player().getX(), ctx.player().getEyeY() + 1, ctx.player().getZ()))) ? -12 : 0;
+        }
+        state.setTarget(new MovementState.MovementTarget(new Rotation(yaw, pitch), true));
+    }
+
+    /** Swimming a surface path puts the feet a block under it; that still counts as there. */
+    static boolean atSwum(IPlayerContext ctx, BlockPos dest) {
+        BlockPos f = ctx.playerFeet();
+        return f.equals(dest) || (ctx.player().isSwimming() && f.equals(dest.below()));
     }
 }

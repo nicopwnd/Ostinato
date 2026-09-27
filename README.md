@@ -66,6 +66,26 @@ choose it with `#set movementBackend tungsten`. If Tungsten is absent, the curre
 fallback is Baritone. Backend selection should be visible in logs; treat unexpected
 fallback as a configuration issue worth reporting.
 
+## Movement features
+
+Beyond upstream Baritone, Ostinato adds:
+
+- **Kinematic travel** (`#set kinematicTravel true`, off by default): plain walking
+  stretches of a path (traverse, diagonal, 1-block ascend, drops up to 3 blocks) are
+  driven by a per-tick physics look-ahead. The controller simulates a set of yaw and jump
+  choices with a copy of vanilla player movement, then presses the keys of the one that
+  gets furthest along the path while staying on it. Anything it cannot model (breaking,
+  placing, water, ladders, parkour) goes back to Baritone. This setting is experimental
+  and is being benchmarked with TenorClef's PathBench.
+- **Pitfall avoidance** (`pitfallAvoidance`, on by default): the pathfinder never
+  stands on sand, gravel or concrete powder resting on a block without collision (air,
+  an open fence gate, a sign...), since it can drop out from under the player.
+- **Water and air**: swimming, surface travel, and air management that uses bubble and
+  magma columns.
+- **Boats and elytra**: boat travel, including handling boats occupied by mobs, plus
+  elytra gliding with rocket-free descent.
+- **Sprint-jumping** on land.
+
 ## Development documentation
 
 - [Porting and upstream notes](docs/PORTING.md)
