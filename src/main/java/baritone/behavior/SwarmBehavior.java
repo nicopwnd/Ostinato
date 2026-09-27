@@ -1,21 +1,3 @@
-/*
- * This file is part of Baritone.
- *
- * Baritone is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Baritone is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-
 package baritone.behavior;
 
 import baritone.Baritone;
@@ -44,14 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Runs the swarm link in game when {@code swarmEnabled}: loads the roster and keyring off the
- * game thread (PBKDF2 is slow), polls received chat tokens every tick, and sends queued sealed
- * lines through the rate limiter. Received chat reaches it through {@link #onIncomingChat}.
- */
+/** Runs the swarm link when swarmEnabled. */
 public final class SwarmBehavior extends Behavior implements Helper {
 
-    /** Built link, or {@code null}. Only touched on the game thread. */
     private static final class Link {
         final String self;
         final ChatSwarmTransport transport;
@@ -78,7 +55,6 @@ public final class SwarmBehavior extends Behavior implements Helper {
         try {
             tick(event);
         } catch (Throwable t) {
-            // the swarm link must never take the game down
             failure = "tick failed: " + t;
             stop();
         }
@@ -151,7 +127,8 @@ public final class SwarmBehavior extends Behavior implements Helper {
                     throw new IllegalStateException("no roster at " + rp);
                 }
                 SwarmRoster roster = SwarmRoster.parse(new String(Files.readAllBytes(rp), StandardCharsets.UTF_8));
-                Map<String, SigilCircle> circles = SwarmKeys.circlesFor(roster, self, SwarmKeys.sigilHome(home, env));
+                Path sigilHome = SwarmKeys.sigilHome(home, env);
+                Map<String, SigilCircle> circles = SwarmKeys.circlesFor(roster, self, sigilHome);
                 SwarmRateLimiter limiter = new SwarmRateLimiter(rate, burst, unsafe, queueMax, nowMs());
                 ChatSwarmTransport transport = new ChatSwarmTransport(self, channel, template, roster, limiter,
                         cfg.maxLineChars);
@@ -162,6 +139,7 @@ public final class SwarmBehavior extends Behavior implements Helper {
                 SwarmEndpoint endpoint = new SwarmEndpoint(self, cfg.build(), circles, transport,
                         System::currentTimeMillis);
                 endpoint.setMemberCheck(roster::isMember);
+                SwarmKeys.bindSigning(endpoint, self, sigilHome);
                 SwarmControl control = new SwarmControl(roster, endpoint, new Status(), System::currentTimeMillis,
                         this::logDirect, () -> "queued " + limiter.queued() + ", sent " + limiter.sent() + ", dropped "
                         + limiter.dropped() + ", too long " + transport.tooLong() + String.format(", rate %.2f/s burst %d",
@@ -188,16 +166,11 @@ public final class SwarmBehavior extends Behavior implements Helper {
         link = null;
     }
 
-    /** Drop the link and any load error so the next tick reloads roster and keyring. */
     public void reload() {
         stop();
         failure = null;
     }
 
-    /**
-     * One received chat line, flattened to plain text. Called on the game thread from the chat
-     * packet handler. Only the text is used; the sender is never looked up in the world.
-     */
     public void onIncomingChat(String text) {
         try {
             Link l = link;
@@ -205,16 +178,13 @@ public final class SwarmBehavior extends Behavior implements Helper {
                 l.transport.onChat(text);
             }
         } catch (Throwable t) {
-            // never break chat handling
         }
     }
 
-    /** The running control surface, or {@code null}. */
     public SwarmControl control() {
         return link == null ? null : link.control;
     }
 
-    /** Why the link is not running, or {@code null}. */
     public String state() {
         if (link != null) {
             return null;
