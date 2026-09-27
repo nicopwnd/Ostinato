@@ -46,6 +46,9 @@ public final class KinematicController {
     private final PlayerSim sim;
     private final List<double[]> line = new ArrayList<>(); // x, y, z, arc length
     private int lastMove;
+    /** No-progress watchdog: when the sim predicts progress the real world blocks, back off to Baritone. */
+    private double lastX, lastZ;
+    private int stuckTicks, cooldown;
 
     public KinematicController(IPlayerContext ctx) {
         this.ctx = ctx;
@@ -58,7 +61,11 @@ public final class KinematicController {
      */
     public int tick(Baritone baritone, IPath path, int pathPosition) {
         if (!Baritone.settings().kinematicTravel.value || ctx.player().isInWater() || ctx.player().isInLava()
-                || ctx.player().onClimbable() || ctx.player().isFallFlying()) {
+                || ctx.player().onClimbable() || ctx.player().isFallFlying() || ctx.player().isPassenger()) {
+            return -1;
+        }
+        if (cooldown > 0) {
+            cooldown--;
             return -1;
         }
         world.reset();
@@ -78,6 +85,15 @@ public final class KinematicController {
         // at the end of the whole path drive onto the goal block instead of handing back early
         double handback = lastMove == path.movements().size() - 1 ? 0.3 : HANDBACK;
         if (here[1] > CORRIDOR + 0.35 || end - here[0] < handback) {
+            return -1;
+        }
+        double moved = (real.x - lastX) * (real.x - lastX) + (real.z - lastZ) * (real.z - lastZ);
+        lastX = real.x;
+        lastZ = real.z;
+        stuckTicks = moved < 0.0025 ? stuckTicks + 1 : 0;
+        if (stuckTicks > 20) {
+            stuckTicks = 0;
+            cooldown = 60;
             return -1;
         }
         int newPos = syncPosition(path, pathPosition);
