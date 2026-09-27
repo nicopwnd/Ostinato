@@ -23,38 +23,21 @@ import java.io.IOException;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * Moves sealed swarm lines between members. Transports only ever carry
- * single-line S1C or S2C tokens; there is no plaintext mode, and {@link #requireSealed}
- * refuses anything else before it leaves the process.
- */
+/** Moves sealed swarm lines. Only S1C / S2C / S2S tokens; no plaintext mode. */
 public interface SwarmTransport extends Closeable {
 
-    /** Recipient meaning "every other member". */
     String BROADCAST = "*";
 
-    /**
-     * One circle token without visible fragment fields: {@code S1C.<slug>.<b64>} or
-     * {@code S2C.<slug>.<b64>}. (An S2 multi-part header is inside the blob; the endpoint
-     * refuses those after opening.)
-     */
-    Pattern SEALED_LINE = Pattern.compile("S[12]C\\.[a-z0-9]{4}\\.[A-Za-z0-9_-]{38,}");
+    Pattern SEALED_LINE = Pattern.compile("S(?:1C|2C|2S)\\.[a-z0-9]{4}\\.[A-Za-z0-9_-]{38,}");
 
-    /** This member's id on the transport. */
     String selfId();
 
-    /** Send one sealed line to {@code recipient} or {@link #BROADCAST}. */
     void send(String recipient, String sealedLine) throws IOException;
 
-    /**
-     * Send with the sealing group and a priority. Transports that fan broadcasts out per member
-     * (whisper) or rate-limit (chat) override this; the default ignores both.
-     */
     default void sendTo(String group, String recipient, String sealedLine, SwarmPriority priority) throws IOException {
         send(recipient, sealedLine);
     }
 
-    /** Drain lines received since the last call (possibly empty, any order). */
     List<String> receive() throws IOException;
 
     static boolean isSealed(String line) {
@@ -63,7 +46,7 @@ public interface SwarmTransport extends Closeable {
 
     static void requireSealed(String line) {
         if (!isSealed(line)) {
-            throw new IllegalArgumentException("swarm transports only carry single S1C/S2C tokens");
+            throw new IllegalArgumentException("swarm transports only carry single S1C/S2C/S2S tokens");
         }
     }
 }

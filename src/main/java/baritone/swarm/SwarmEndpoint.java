@@ -20,7 +20,10 @@ package baritone.swarm;
 
 import baritone.swarm.crypto.SigilCircle;
 import baritone.swarm.crypto.SigilCodec;
+import baritone.swarm.crypto.SigilEd25519;
 import baritone.swarm.crypto.SigilException;
+import baritone.swarm.crypto.SigilS2S;
+import baritone.swarm.crypto.SigilWire;
 import baritone.swarm.frame.SwarmChunker;
 import baritone.swarm.frame.SwarmFrame;
 import baritone.swarm.frame.SwarmFrameException;
@@ -34,6 +37,7 @@ import baritone.swarm.transport.SwarmTransport;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -46,9 +50,9 @@ import java.util.function.LongSupplier;
 
 /**
  * One swarm member: frames, seals, sends, and on the way in opens, checks and
- * reassembles. Every frame is sealed as exactly one S1C or S2C token ({@code swarmWireVersion}) under the circle
- * of the group it names; inbound frames must name the group whose circle opened
- * them. Rejections are counted, never thrown, on the receive path.
+ * reassembles. Frames are sealed as one S1C, S2C or S2S token under the group's
+ * circle. When {@link SwarmConfig#requireSignedSender()} is true, outbound uses
+ * S2S and inbound unsigned tokens are refused.
  */
 public final class SwarmEndpoint implements Closeable {
 
@@ -64,11 +68,9 @@ public final class SwarmEndpoint implements Closeable {
     private final Map<SwarmReject, Long> rejects = new EnumMap<>(SwarmReject.class);
     private SwarmReject lastReject;
     private volatile BiPredicate<String, String> memberCheck = (group, from) -> true;
+    private volatile SigilEd25519 localSignet;
+    private volatile Collection<SigilEd25519> pins = Collections.emptyList();
 
-    /**
-     * @param groups group id to circle; each group must have its own circle (distinct slug or name)
-     * @param clockMs millisecond clock; the epoch is its value in seconds at construction
-     */
     public SwarmEndpoint(String selfId, SwarmConfig cfg, Map<String, SigilCircle> groups, SwarmTransport transport,
                          LongSupplier clockMs) throws SwarmFrameException {
         if (!selfId.equals(transport.selfId())) {
@@ -101,27 +103,21 @@ public final class SwarmEndpoint implements Closeable {
     public long epoch() { return chunker.epoch(); }
     public SwarmConfig config() { return cfg; }
 
-    /**
-     * Only accept frames whose {@code (group, from)} passes this check (e.g. the roster);
-     * others are counted as {@link SwarmReject#NOT_MEMBER}. Default: accept every sender.
-     */
     public void setMemberCheck(BiPredicate<String, String> check) {
         this.memberCheck = check;
     }
 
-    /** {@link #send(String, String, String, String, SwarmPriority)} at {@link SwarmPriority#NORMAL}. */
+    /** Local signing key and pinned peer public keys for S2S. */
+    public void setSigning(SigilEd25519 local, Collection<SigilEd25519> pinned) {
+        this.localSignet = local;
+        this.pins = pinned == null ? Collections.<SigilEd25519>emptyList() : new ArrayList<SigilEd25519>(pinned);
+    }
+
     public long send(String group, String to, String type, String body)
             throws SwarmFrameException, SigilException, IOException {
         return send(group, to, type, body, SwarmPriority.NORMAL);
     }
 
-    /**
-     * Frame, seal and send one message.
-     *
-     * @param to member id or {@link SwarmFrame#BROADCAST}
-     * @param priority outgoing queue priority (rate-limited transports send higher first)
-     * @return the message id
-     */
     public long send(String group, String to, String type, String body, SwarmPriority priority)
             throws SwarmFrameException, SigilException, IOException {
         SigilCircle circle = groups.get(group);
@@ -130,8 +126,15 @@ public final class SwarmEndpoint implements Closeable {
         }
         List<SwarmFrame> frames = chunker.chunk(group, to, type, body, clockMs.getAsLong() / 1000L);
         List<String> lines = new ArrayList<>(frames.size());
-        for (SwarmFrame f : frames) { // seal everything first so a failure sends nothing
-            lines.add(SigilCodec.sealSingle(cfg.wire(), circle, f.encode(), cfg.sealLineBudget()));
+        boolean signed = signedOut();
+        if (signed && localSignet == null) {
+            throw new SigilException("S2S send needs a local signet (setSigning).");
+        }
+        for (SwarmFrame f : frames) {
+            String enc = f.encode();
+            lines.add(signed
+                    ? SigilS2S.sealSingle(circle, localSignet, enc, cfg.sealLineBudget())
+                    : SigilCodec.sealSingle(cfg.wire(), circle, enc, cfg.sealLineBudget()));
         }
         for (String line : lines) {
             transport.sendTo(group, to, line, priority);
@@ -139,7 +142,10 @@ public final class SwarmEndpoint implements Closeable {
         return frames.get(0).msgId();
     }
 
-    /** Drain the transport, expire stale partial messages, and return completed messages. */
+    private boolean signedOut() {
+        return cfg.requireSignedSender() || cfg.wire() == SigilWire.S2S;
+    }
+
     public List<SwarmMessage> poll() throws IOException {
         List<SwarmMessage> out = new ArrayList<>();
         for (String line : transport.receive()) {
@@ -155,27 +161,39 @@ public final class SwarmEndpoint implements Closeable {
         return out;
     }
 
-    /** Process one inbound line. @return a completed message, or {@code null} (incomplete or rejected) */
     public SwarmMessage receiveLine(String line) {
         long now = clockMs.getAsLong();
         String token = line == null ? null : line.trim();
         if (!SwarmTransport.isSealed(token)) {
             return reject(SwarmReject.UNSEALED);
         }
-        SigilCodec.Opened opened;
         String text;
+        SigilCircle circle;
+        int total;
         try {
-            opened = SigilCodec.open(token, keyring);
-            text = opened.text();
+            if (token.startsWith(SigilS2S.VERSION + ".")) {
+                SigilS2S.Opened o = SigilS2S.open(token, keyring, pins);
+                text = o.text;
+                circle = o.circle;
+                total = o.total;
+            } else {
+                if (cfg.requireSignedSender()) {
+                    return reject(SwarmReject.UNSEALED);
+                }
+                SigilCodec.Opened o = SigilCodec.open(token, keyring);
+                text = o.text();
+                circle = o.circle();
+                total = o.total();
+            }
         } catch (SigilException e) {
             return reject(SwarmReject.UNSEALED);
         }
-        if (opened.total() != 1) { // sigil's own multi-part fragments are never swarm frames
+        if (total != 1) {
             return reject(SwarmReject.UNSEALED);
         }
         try {
             SwarmFrame f = SwarmFrame.decode(text);
-            if (groups.get(f.group()) != opened.circle()) {
+            if (groups.get(f.group()) != circle) {
                 throw new SwarmFrameException(SwarmReject.WRONG_GROUP, "group " + f.group() + " under another circle");
             }
             if (f.from().equals(self)) {
@@ -212,7 +230,6 @@ public final class SwarmEndpoint implements Closeable {
         return new EnumMap<>(rejects);
     }
 
-    /** Most recent rejection reason, or {@code null}. */
     public synchronized SwarmReject lastReject() {
         return lastReject;
     }
