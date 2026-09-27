@@ -71,6 +71,11 @@ public final class BoatProcess extends BaritoneProcessHelper {
                 boat = null;
                 return enter(Phase.EXIT);
             }
+            if (BoatUtil.mobAboard(ctx.player())) {
+                target = currentGoal();
+                boat = ctx.player().getVehicle();
+                return enter(Phase.EXIT);
+            }
             // Seated by someone else, a relog, or a boat fall that just landed: sail if there's somewhere to go.
             Goal g = currentGoal();
             boat = ctx.player().getVehicle();
@@ -318,7 +323,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
             case MOUNT: {
                 if (ctx.player().getVehicle() instanceof AbstractBoat) {
                     boat = ctx.player().getVehicle();
-                    enter(Phase.SAIL);
+                    enter(BoatUtil.mobAboard(ctx.player()) ? Phase.EXIT : Phase.SAIL);
                     return pause();
                 }
                 surfacing();
@@ -363,7 +368,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
     private PathingCommand sail() {
         if (!(ctx.player().getVehicle() instanceof AbstractBoat)) return abort("fell out of the boat");
         boat = ctx.player().getVehicle();
-        if (!BoatUtil.isDriver(ctx.player())) { enter(Phase.EXIT); return pause(); }
+        if (!BoatUtil.isDriver(ctx.player()) || BoatUtil.mobAboard(ctx.player())) { enter(Phase.EXIT); return pause(); }
         double bx = boat.getX(), bz = boat.getZ();
         // Advance past cells we've reached, then aim at the farthest one in clear sight.
         int nearest = routeIdx;

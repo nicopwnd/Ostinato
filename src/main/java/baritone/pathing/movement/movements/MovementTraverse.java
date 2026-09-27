@@ -272,7 +272,7 @@ public class MovementTraverse extends Movement {
         }
 
         if (isTheBridgeBlockThere) {
-            if (feet.equals(dest)) {
+            if (feet.equals(dest) || (swim && MovementHelper.atSwum(ctx, dest))) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
             if (Baritone.settings().overshootTraverse.value && (feet.equals(dest.offset(getDirection())) || feet.equals(dest.offset(getDirection()).offset(getDirection())))) {
@@ -298,8 +298,7 @@ public class MovementTraverse extends Movement {
             }
             MovementHelper.moveTowards(ctx, state, positionsToBreak[0]);
             if (swim) {
-                state.setTarget(new MovementState.MovementTarget(
-                        new Rotation(state.getTarget().getRotation().get().getYaw(), -30), true));
+                MovementHelper.surfaceSwim(ctx, state);
             }
             return state;
         } else {

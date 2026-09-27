@@ -267,7 +267,9 @@ public class MovementDiagonal extends Movement {
             return state;
         }
 
-        if (ctx.playerFeet().equals(dest)) {
+        boolean swim = Baritone.settings().swimInWater.value && MovementHelper.isLiquid(ctx, src) && MovementHelper.isLiquid(ctx, dest)
+                && MovementHelper.isLiquid(ctx, src.below()) && MovementHelper.isLiquid(ctx, dest.below());
+        if (ctx.playerFeet().equals(dest) || (swim && MovementHelper.atSwum(ctx, dest))) {
             return state.setStatus(MovementStatus.SUCCESS);
         } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above()))) {
             return state.setStatus(MovementStatus.UNREACHABLE);
@@ -280,10 +282,8 @@ public class MovementDiagonal extends Movement {
         }
         state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && MovementHelper.steppingOnBlocks(ctx).stream().anyMatch(block -> ctx.world().getBlockState(block).is(Blocks.MAGMA_BLOCK)));
         MovementHelper.moveTowards(ctx, state, dest);
-        if (ctx.player().isSwimming() && Baritone.settings().swimInWater.value) {
-            state.setInput(Input.SPRINT, true);
-            state.setTarget(new MovementState.MovementTarget(
-                    new Rotation(state.getTarget().getRotation().get().getYaw(), -30), true));
+        if (swim || (ctx.player().isSwimming() && Baritone.settings().swimInWater.value)) {
+            MovementHelper.surfaceSwim(ctx, state);
         }
         return state;
     }

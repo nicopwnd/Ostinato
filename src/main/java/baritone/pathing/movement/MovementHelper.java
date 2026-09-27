@@ -900,4 +900,31 @@ public interface MovementHelper extends ActionCosts, Helper {
         }
         return blocks;
     }
+
+    /**
+     * Crossing water at the surface: sprint and swim instead of bobbing. Swimming only starts with
+     * the eyes under water, so dip in with the head pitched down; once in the swim pose, keep level,
+     * about a block under the path drawn over the surface.
+     */
+    static void surfaceSwim(IPlayerContext ctx, MovementState state) {
+        state.setInput(Input.SPRINT, true);
+        state.setInput(Input.JUMP, false);
+        float yaw = state.getTarget().getRotation().map(Rotation::getYaw).orElse(ctx.playerRotations().getYaw());
+        float pitch;
+        if (!ctx.player().isSwimming()) {
+            pitch = 35;
+        } else if (!ctx.player().isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
+            pitch = 6; // breaching: nose back under or the swim pose drops
+        } else {
+            // two blocks of water over the head: drifted too deep, ease back up
+            pitch = isWater(ctx.world().getBlockState(BlockPos.containing(ctx.player().getX(), ctx.player().getEyeY() + 1, ctx.player().getZ()))) ? -12 : 0;
+        }
+        state.setTarget(new MovementState.MovementTarget(new Rotation(yaw, pitch), true));
+    }
+
+    /** Swimming a surface path puts the feet a block under it; that still counts as there. */
+    static boolean atSwum(IPlayerContext ctx, BlockPos dest) {
+        BlockPos f = ctx.playerFeet();
+        return f.equals(dest) || (ctx.player().isSwimming() && f.equals(dest.below()));
+    }
 }
