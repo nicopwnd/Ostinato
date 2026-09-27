@@ -234,6 +234,8 @@ public class SettingsUtil {
         LONG(Long.class, Long::parseLong),
         STRING(String.class, String::new),
         DIRECTION(Direction.class, Direction::byName),
+        MIRROR(net.minecraft.util.Mirror.class, net.minecraft.util.Mirror::valueOf, net.minecraft.util.Mirror::name),
+        ROTATION(net.minecraft.util.Rotation.class, net.minecraft.util.Rotation::valueOf, net.minecraft.util.Rotation::name),
         COLOR(
                 Color.class,
                 str -> new Color(Integer.parseInt(str.split(",")[0]), Integer.parseInt(str.split(",")[1]), Integer.parseInt(str.split(",")[2])),

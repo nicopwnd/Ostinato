@@ -56,6 +56,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         this.processor = new AimProcessor(baritone.getPlayerContext());
     }
 
+    private final java.util.ArrayDeque<Float> smoothYawBuffer = new java.util.ArrayDeque<>();
+
     @Override
     public void updateTarget(Rotation rotation, boolean blockInteract) {
         this.target = new Target(rotation, blockInteract);
@@ -94,6 +96,13 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 break;
             }
             case POST: {
+                this.smoothYawBuffer.addLast(this.target.rotation.getYaw());
+                while (this.smoothYawBuffer.size() > Baritone.settings().smoothLookTicks.value) {
+                    this.smoothYawBuffer.removeFirst();
+                }
+                if (this.target.mode == Target.Mode.CLIENT && Baritone.settings().smoothLook.value) {
+                    ctx.player().rotationYaw = (float) this.smoothYawBuffer.stream().mapToDouble(d -> d).average().orElse(ctx.player().rotationYaw);
+                }
                 // Reset the player's rotations back to their original values
                 if (this.prevRotation != null) {
                     ctx.player().rotationYaw = this.prevRotation.getYaw();

@@ -104,6 +104,11 @@ public final class GameEventHandler implements IEventBus, Helper {
     }
 
     @Override
+    public void onBlockChange(BlockChangeEvent event) {
+        listeners.forEach(l -> l.onBlockChange(event));
+    }
+
+    @Override
     public final void onRenderPass(RenderEvent event) {
         listeners.forEach(l -> l.onRenderPass(event));
     }

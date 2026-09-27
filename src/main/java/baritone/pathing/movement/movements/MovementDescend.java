@@ -18,6 +18,7 @@
 package baritone.pathing.movement.movements;
 
 import baritone.altoclef.AltoClefSettings;
+import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.pathing.movement.MovementStatus;
 import baritone.api.utils.BetterBlockPos;
@@ -260,6 +261,9 @@ public class MovementDescend extends Movement {
         double x = ctx.player().getPositionVec().x - (src.getX() + 0.5);
         double z = ctx.player().getPositionVec().z - (src.getZ() + 0.5);
         double fromStart = Math.sqrt(x * x + z * z);
+
+        state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && ctx.world().getBlockState(ctx.playerFeet().down()).getBlock() == Blocks.MAGMA_BLOCK);
+
         if (!playerFeet.equals(dest) || ab > 0.25) {
             if (numTicks++ < 20 && fromStart < 1.25) {
                 MovementHelper.moveTowards(ctx, state, fakeDest);

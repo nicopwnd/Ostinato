@@ -175,9 +175,19 @@ repositories {
     maven {
         url = 'https://www.dogforce-games.com/maven/'
     }
+    maven {
+        name = 'babbaj-repo'
+        url = 'https://babbaj.github.io/maven/'
+    }
+}
+
+configurations {
+    shade
+    compile.extendsFrom shade
 }
 
 dependencies {
+    shade 'dev.babbaj:nether-pathfinder:1.6'
     if (getProject().hasProperty("baritone.fabric_build")) {
         minecraft "com.mojang:minecraft:1.16.5"
         mappings fileTree(dir: "./build/volderyarn", include: "**.jar")
@@ -240,6 +250,7 @@ if (getProject().hasProperty("baritone.fabric_build")) {
 
 jar {
     from sourceSets.launch.output, sourceSets.api.output
+    from { configurations.shade.collect { zipTree(it) } } // nether-pathfinder, for elytra
 
     if (!getProject().hasProperty("baritone.forge_build")) {
         exclude "**/BaritoneForgeModXD.class"

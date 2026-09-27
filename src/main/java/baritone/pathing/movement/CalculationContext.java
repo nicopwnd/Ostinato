@@ -72,6 +72,7 @@ public class CalculationContext {
     public final boolean allowParkour;
     public final boolean allowParkourPlace;
     public final boolean allowJumpAt256;
+    public final boolean allowWalkOnMagmaBlocks;
     public final boolean allowParkourAscend;
     public final boolean assumeWalkOnWater;
     public final int frostWalker;
@@ -116,7 +117,8 @@ public class CalculationContext {
         this.allowBreakAnyway = new ArrayList<>(Baritone.settings().allowBreakAnyway.value);
         this.allowParkour = Baritone.settings().allowParkour.value;
         this.allowParkourPlace = Baritone.settings().allowParkourPlace.value;
-        this.allowJumpAt256 = Baritone.settings().allowJumpAt256.value;
+        this.allowJumpAt256 = Baritone.settings().allowJumpAt256.value || Baritone.settings().allowJumpAtBuildLimit.value;
+        this.allowWalkOnMagmaBlocks = Baritone.settings().allowWalkOnMagmaBlocks.value;
         this.allowParkourAscend = Baritone.settings().allowParkourAscend.value;
         this.assumeWalkOnWater = Baritone.settings().assumeWalkOnWater.value;
         this.frostWalker = EnchantmentHelper.getMaxEnchantmentLevel(Enchantments.FROST_WALKER, baritone.getPlayerContext().player());
@@ -169,6 +171,12 @@ public class CalculationContext {
             return COST_INF;
         }
         if (!worldBorder.canPlaceAt(x, z)) {
+            return COST_INF;
+        }
+        if (!Baritone.settings().allowPlaceInFluidsSource.value && current.getFluidState().isSource()) {
+            return COST_INF;
+        }
+        if (!Baritone.settings().allowPlaceInFluidsFlow.value && !current.getFluidState().isEmpty() && !current.getFluidState().isSource()) {
             return COST_INF;
         }
         if (AltoClefSettings.getInstance().shouldAvoidPlacingAt(x, y, z)) {

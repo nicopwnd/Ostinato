@@ -36,6 +36,13 @@ public interface IFollowProcess extends IBaritoneProcess {
     void follow(Predicate<Entity> filter);
 
     /**
+     * Try to pick up any items matching this predicate
+     *
+     * @param filter the predicate
+     */
+    void pickup(Predicate<net.minecraft.item.ItemStack> filter);
+
+    /**
      * @return The entities that are currently being followed. null if not currently following, empty if nothing matches the predicate
      */
     List<Entity> following();

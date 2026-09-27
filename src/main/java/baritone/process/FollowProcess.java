@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 public final class FollowProcess extends BaritoneProcessHelper implements IFollowProcess {
 
     private Predicate<Entity> filter;
+    private boolean into; // walk straight into the target, regardless of settings
     private List<Entity> cache;
 
     public FollowProcess(Baritone baritone) {
@@ -56,11 +57,14 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
 
     private Goal towards(Entity following) {
         BlockPos pos;
-        if (Baritone.settings().followOffsetDistance.value == 0) {
+        if (Baritone.settings().followOffsetDistance.value == 0 || into) {
             pos = following.getPosition();
         } else {
             GoalXZ g = GoalXZ.fromDirection(following.getPositionVec(), Baritone.settings().followOffsetDirection.value, Baritone.settings().followOffsetDistance.value);
             pos = new BlockPos(g.getX(), following.getPositionVec().y, g.getZ());
+        }
+        if (into) {
+            return new baritone.api.pathing.goals.GoalBlock(pos);
         }
         return new GoalNear(pos, Baritone.settings().followRadius.value);
     }
@@ -74,6 +78,10 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
             return false;
         }
         if (entity.equals(ctx.player())) {
+            return false;
+        }
+        int maxDist = Baritone.settings().followTargetMaxDistance.value;
+        if (maxDist != 0 && entity.getDistanceSq(ctx.player()) > maxDist * maxDist) {
             return false;
         }
         return ctx.entitiesStream().anyMatch(entity::equals);
@@ -110,6 +118,13 @@ public final class FollowProcess extends BaritoneProcessHelper implements IFollo
     @Override
     public void follow(Predicate<Entity> filter) {
         this.filter = filter;
+        this.into = false;
+    }
+
+    @Override
+    public void pickup(Predicate<net.minecraft.item.ItemStack> filter) {
+        this.filter = e -> e instanceof net.minecraft.entity.item.ItemEntity && filter.test(((net.minecraft.entity.item.ItemEntity) e).getItem());
+        this.into = true;
     }
 
     @Override

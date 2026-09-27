@@ -20,7 +20,9 @@ package baritone.launch.mixins;
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
+import baritone.api.event.events.BlockChangeEvent;
 import baritone.api.event.events.ChunkEvent;
+import baritone.api.utils.Pair;
 import baritone.api.event.events.type.EventState;
 import baritone.cache.CachedChunk;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
@@ -118,6 +120,15 @@ public class MixinClientPlayNetHandler {
             at = @At("RETURN")
     )
     private void postHandleBlockChange(SChangeBlockPacket packetIn, CallbackInfo ci) {
+        for (IBaritone ibaritone : BaritoneAPI.getProvider().getAllBaritones()) {
+            ClientPlayerEntity player = ibaritone.getPlayerContext().player();
+            if (player != null && player.connection == (ClientPlayNetHandler) (Object) this) {
+                ibaritone.getGameEventHandler().onBlockChange(new BlockChangeEvent(
+                        new ChunkPos(packetIn.getPos()),
+                        java.util.Collections.singletonList(new Pair<>(packetIn.getPos(), packetIn.getState()))
+                ));
+            }
+        }
         if (!Baritone.settings().repackOnAnyBlockChange.value) {
             return;
         }
