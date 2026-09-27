@@ -60,6 +60,9 @@ public class SwarmConfigTest {
     @Test
     public void autoFrameBudgetIsExactlyTheSingleLineLimit() throws Exception {
         for (SigilWire wire : SigilWire.values()) {
+            if (wire == SigilWire.S2S) {
+                continue; // signed: needs a signet, budget covered by the S2S tests
+            }
             for (int line : Arrays.asList(96, 150, 234, 256)) {
                 int n = SigilCodec.maxSingleLinePayloadBytes(wire, line);
                 String fits = repeat('a', n);

@@ -91,6 +91,7 @@ public final class SwarmControl {
     private final Supplier<String> linkSummary;
     private final Map<String, Peer> peers = new LinkedHashMap<>();
     private final Map<Long, Long> pingsSent = new HashMap<>();
+    private SwarmBuild build;
     private long ignored;
     private long sendFailures;
 
@@ -108,6 +109,15 @@ public final class SwarmControl {
     }
 
     public SwarmEndpoint endpoint() { return endpoint; }
+
+    /** Enable coordinated region builds, handing orders to {@code builder}. */
+    public synchronized SwarmBuild enableBuild(SwarmBuild.RegionBuilder builder) {
+        build = new SwarmBuild(roster, endpoint, builder, clockMs, log);
+        return build;
+    }
+
+    /** Region build coordinator, or {@code null} if not enabled. */
+    public SwarmBuild build() { return build; }
 
     /** Number of roster groups this member is in. */
     public int groupCount() {
@@ -169,6 +179,9 @@ public final class SwarmControl {
         for (SwarmMessage m : msgs) {
             handle(m);
         }
+        if (build != null) {
+            build.tick();
+        }
     }
 
     private void handle(SwarmMessage m) {
@@ -203,7 +216,9 @@ public final class SwarmControl {
                         + (p.rttMs >= 0 && sent != null ? ", " + p.rttMs + " ms" : ""));
                 break;
             default:
-                ignored++;
+                if (build == null || !build.handle(m)) {
+                    ignored++;
+                }
         }
     }
 
@@ -237,6 +252,27 @@ public final class SwarmControl {
 
     private void prunePings(long now) {
         pingsSent.values().removeIf(t -> now - t > PING_TTL_MS);
+    }
+
+    /** Other members across our groups. */
+    public synchronized int peerCount() {
+        java.util.Set<String> all = new java.util.HashSet<>();
+        for (SwarmRoster.Group g : roster.groupsOf(endpoint.selfId())) {
+            all.addAll(g.members());
+        }
+        all.remove(endpoint.selfId());
+        return all.size();
+    }
+
+    /** Other members we have had an authenticated message from. */
+    public synchronized int seenCount() {
+        int n = 0;
+        for (Peer p : peers.values()) {
+            if (p.lastSeenMs >= 0 && roster.groupsOf(p.name).stream().anyMatch(g -> g.has(endpoint.selfId()))) {
+                n++;
+            }
+        }
+        return n;
     }
 
     public synchronized Peer peer(String name) {
@@ -273,6 +309,9 @@ public final class SwarmControl {
                 }
                 out.add(b.toString());
             }
+        }
+        if (build != null) {
+            out.addAll(build.statusLines());
         }
         StringBuilder r = new StringBuilder("link: pending " + endpoint.pendingMessages());
         if (sendFailures > 0) {

@@ -19,6 +19,7 @@
 package baritone.swarm.transport;
 
 import baritone.swarm.SwarmConfig;
+import baritone.swarm.SwarmControlTest;
 import baritone.swarm.SwarmEndpoint;
 import baritone.swarm.TestCircles;
 import baritone.swarm.crypto.SigilCircle;
@@ -53,7 +54,7 @@ public class LocalSpoolTransportTest {
 
     private SwarmEndpoint endpoint(Path root, String id) throws Exception {
         Map<String, SigilCircle> groups = Collections.singletonMap("alpha", TestCircles.alpha());
-        return new SwarmEndpoint(id, SwarmConfig.defaults(), groups, new LocalSpoolTransport(root, id), clock::get);
+        return new SwarmEndpoint(id, SwarmControlTest.unsignedCfg(), groups, new LocalSpoolTransport(root, id), clock::get);
     }
 
     private static List<Path> files(Path root) throws Exception {

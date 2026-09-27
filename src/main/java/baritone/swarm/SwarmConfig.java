@@ -91,6 +91,7 @@ public final class SwarmConfig {
         b.maxClockSkewSec = s.swarmMaxClockSkewSec.value;
         b.maxPeers = s.swarmMaxPeers.value;
         b.localSpoolDir = s.swarmLocalSpoolDir.value;
+        b.requireSignedSender = s.swarmRequireSignedSender.value;
         return b;
     }
 

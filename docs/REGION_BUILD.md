@@ -2,7 +2,7 @@
 
 Split one schematic across N bots that all build it at the same origin. No networking here; the swarm layer
 (later slice) only has to hand each bot `(schematic file, origin, regionIndex, plan settings)`. Every bot computes
-the same plan locally, since partitioning is deterministic.
+the same plan locally, since partitioning is deterministic. `#swarm build` (below) is that swarm layer.
 
 ```java
 ISchematic schem = ...;                                        // same file on every bot, un-rotated
@@ -62,3 +62,13 @@ saved/restored with the AltoClef state stack. It does not touch the global `Alto
 - Throwaway scaffolding placed in the bot's own region air is cleared by the builder as usual (those cells want air).
 - Protection only covers break/place during this bot's pathing; it cannot stop another bot, or a player, from changing
   blocks.
+
+## Over the swarm link (`#swarm build`)
+The group's lead (roster `lead=`) runs `#swarm build <group> <file> [x y z]` (origin defaults to its feet). The file must
+be a plain name in every bot's `schematics` folder. Each member, in roster order, gets region `i` of `n` with the lead's
+`buildPartition*` values carried in the order, so members' own settings do not matter. The lead builds its own region.
+- Orders (`BUILD`), status (`BSTAT`: building / done / failed + reason) and `BSTOP` are sealed swarm messages. Members
+  only accept orders and stops from the roster lead, as authenticated by the envelope.
+- `layers` is enforced: band `i + 1` is sent only when band `i` reports done. `strips`/`grid` start together.
+- An order with no answer after 60 s is sent once more. `#swarm status` shows each region's state; `#swarm stop` stops
+  the job everywhere. Code: `baritone.swarm.SwarmBuild`, tests: `SwarmBuildTest`.

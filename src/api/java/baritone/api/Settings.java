@@ -1805,6 +1805,12 @@ public final class Settings {
     public final Setting<Boolean> swarmEnabled = new Setting<>(false);
 
     /**
+     * Swarm: only accept messages signed by a pinned member signet (S2S), and sign what we send. Needs
+     * {@code signet-*.json} records in the sigil home. Off accepts unsigned circle messages (S1C/S2C).
+     */
+    public final Setting<Boolean> swarmRequireSignedSender = new Setting<>(true);
+
+    /**
      * Swarm: roster file, relative to the {@code baritone} directory unless absolute. Lines look like
      * {@code group builders circle=my-circle members=Alice,Bob lead=Alice}. It holds names only,
      * never keys or passphrases.

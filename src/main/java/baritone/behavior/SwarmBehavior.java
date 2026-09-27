@@ -4,8 +4,16 @@ import baritone.Baritone;
 import baritone.api.Settings;
 import baritone.api.event.events.TickEvent;
 import baritone.api.process.IBaritoneProcess;
+import baritone.api.schematic.ISchematic;
+import baritone.api.schematic.format.ISchematicFormat;
+import baritone.api.schematic.partition.PartitionAxis;
+import baritone.api.schematic.partition.PartitionPlan;
+import baritone.api.schematic.partition.PartitionStrategy;
+import baritone.api.schematic.partition.SchematicCells;
+import baritone.utils.schematic.SchematicSystem;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.Helper;
+import baritone.swarm.SwarmBuild;
 import baritone.swarm.SwarmConfig;
 import baritone.swarm.SwarmControl;
 import baritone.swarm.SwarmEndpoint;
@@ -16,7 +24,11 @@ import baritone.swarm.transport.ChatSwarmTransport;
 import baritone.swarm.transport.SwarmChannel;
 import baritone.swarm.transport.SwarmRateLimiter;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
+import net.minecraft.util.math.vector.Vector3i;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +36,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /** Runs the swarm link when swarmEnabled. */
@@ -45,6 +58,8 @@ public final class SwarmBehavior extends Behavior implements Helper {
     private CompletableFuture<Link> loading;
     private String loadingFor;
     private String failure;
+    /** swarm* setting values the link was started with; a change (e.g. from the GUI) restarts it. */
+    private String startedWith;
 
     public SwarmBehavior(Baritone baritone) {
         super(baritone);
@@ -73,6 +88,13 @@ public final class SwarmBehavior extends Behavior implements Helper {
             return;
         }
         String self = ctx.player().getGameProfile().getName();
+        String settings = settingsKey(s);
+        if (startedWith != null && !startedWith.equals(settings)) {
+            stop();
+            failure = null;
+            startedWith = null;
+            logDirect("swarm: settings changed, restarting the link");
+        }
         if (link != null && !link.self.equals(self)) {
             stop();
         }
@@ -95,6 +117,7 @@ public final class SwarmBehavior extends Behavior implements Helper {
         }
         if (link == null) {
             if (failure == null) {
+                startedWith = settings;
                 start(self, s);
             }
             return;
@@ -144,6 +167,7 @@ public final class SwarmBehavior extends Behavior implements Helper {
                         this::logDirect, () -> "queued " + limiter.queued() + ", sent " + limiter.sent() + ", dropped "
                         + limiter.dropped() + ", too long " + transport.tooLong() + String.format(", rate %.2f/s burst %d",
                         limiter.rate(), limiter.burst()));
+                control.enableBuild(new Regions());
                 return new Link(self, transport, control);
             } catch (RuntimeException e) {
                 throw e;
@@ -151,6 +175,16 @@ public final class SwarmBehavior extends Behavior implements Helper {
                 throw new IllegalStateException(e.getMessage(), e);
             }
         });
+    }
+
+    static String settingsKey(Settings s) {
+        StringBuilder b = new StringBuilder();
+        for (Settings.Setting<?> setting : s.allSettings) {
+            if (setting.getName().startsWith("swarm") && setting != s.swarmEnabled) {
+                b.append(setting.getName()).append('=').append(setting.value).append('\n');
+            }
+        }
+        return b.toString();
     }
 
     private static long nowMs() {
@@ -164,6 +198,7 @@ public final class SwarmBehavior extends Behavior implements Helper {
         loading = null;
         loadingFor = null;
         link = null;
+        startedWith = null;
     }
 
     public void reload() {
@@ -198,10 +233,62 @@ public final class SwarmBehavior extends Behavior implements Helper {
         return failure != null ? "not started: " + failure : "waiting for a world";
     }
 
+    /** One short line for the settings screen: {@code online, 2/3 seen} or why the link is down. */
+    public String summary() {
+        Link l = link;
+        return l == null ? state() : "online as " + l.self + ", " + l.control.seenCount() + "/"
+                + l.control.peerCount() + " seen";
+    }
+
     public List<String> statusLines() {
         Link l = link;
         return l == null ? Collections.singletonList("swarm: " + state()) : l.control.statusLines();
     }
+
+    /** Builds one region of a file in the schematics folder, as ordered over the link. */
+    private final class Regions implements SwarmBuild.RegionBuilder {
+        @Override
+        public void start(SwarmBuild.Order o) throws Exception {
+            File file = new File(new File(ctx.minecraft().gameDir, "schematics"), o.file);
+            if (!file.isFile()) {
+                throw new IllegalStateException("no schematic " + o.file);
+            }
+            Optional<ISchematicFormat> format = SchematicSystem.INSTANCE.getByFile(file);
+            if (!format.isPresent()) {
+                throw new IllegalStateException("unknown schematic format " + o.file);
+            }
+            ISchematic schematic;
+            try (InputStream in = new FileInputStream(file)) {
+                schematic = format.get().parse(in);
+            }
+            PartitionPlan plan = SchematicCells.partition(schematic, o.count, PartitionStrategy.parse(o.strategy),
+                    o.seam, PartitionAxis.parse(o.axis), o.columns);
+            // commands and chat handlers may run off the game thread; the builder is driven from ticks
+            pendingStart = true;
+            ctx.minecraft().execute(() -> {
+                try {
+                    baritone.getBuilderProcess().buildRegion(o.file + "#" + o.index, schematic,
+                            new Vector3i(o.x, o.y, o.z), o.index, plan);
+                } catch (RuntimeException e) {
+                    logDirect("swarm: region build did not start: " + e.getMessage());
+                } finally {
+                    pendingStart = false;
+                }
+            });
+        }
+
+        @Override
+        public boolean busy() {
+            return pendingStart || baritone.getBuilderProcess().isActive();
+        }
+
+        @Override
+        public void cancel() {
+            ctx.minecraft().execute(() -> baritone.getBuilderProcess().onLostControl());
+        }
+    }
+
+    private volatile boolean pendingStart;
 
     private final class Status implements SwarmControl.LocalStatus {
         @Override
