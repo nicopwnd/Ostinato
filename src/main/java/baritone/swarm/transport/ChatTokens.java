@@ -24,27 +24,23 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Finds swarm-capable SIGIL tokens ({@code S1C.<slug>.<b64>} / {@code S2C.<slug>.<b64>}) in a
- * received chat line, whatever the server wraps around them: vanilla whispers
- * ({@code "Steve whispers to you: ..."}), {@code <Steve> ...}, plugin formats such as
- * {@code [Steve -> me] ...} or {@code From Steve: ...}, and {@code §} colour codes. The sender
- * name in the wrapper is ignored: the authenticated sender is the one inside the envelope.
+ * Finds swarm-capable SIGIL tokens ({@code S1C/S2C/S2S.<slug>.<b64>}) in a
+ * received chat line. Wrapper nicks are ignored.
  */
 public final class ChatTokens {
 
-    /** At most this many tokens are taken from one chat line. */
     public static final int MAX_PER_LINE = 4;
 
     private static final Pattern FORMATTING = Pattern.compile("\u00a7.?");
     private static final Pattern TOKEN = Pattern.compile(
-            "(?<![A-Za-z0-9_.\\-])S[12]C\\.[a-z0-9]{4}\\.[A-Za-z0-9_-]{38,}"
+            "(?<![A-Za-z0-9_.\\-])S(?:1C|2C|2S)\\.[a-z0-9]{4}\\.[A-Za-z0-9_-]{38,}"
                     + "(?=$|[\\s,;:!?)\\]}\"'>]|\\.(?:\\s|$))");
 
     private ChatTokens() {}
 
     public static List<String> extract(String chatLine) {
         List<String> out = new ArrayList<>();
-        if (chatLine == null || chatLine.indexOf('C') < 0) {
+        if (chatLine == null || chatLine.indexOf('S') < 0) {
             return out;
         }
         Matcher m = TOKEN.matcher(FORMATTING.matcher(chatLine).replaceAll(""));
