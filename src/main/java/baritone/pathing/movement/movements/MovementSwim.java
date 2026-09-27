@@ -31,6 +31,8 @@ import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.block.BlockState;
+import net.minecraft.util.Direction;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Vector3d;
 
 import java.util.Set;
@@ -123,6 +125,11 @@ public class MovementSwim extends Movement {
         return !f.isSource() && !f.get(net.minecraft.fluid.FlowingFluid.FALLING) && !water(c, x, y - 1, z);
     }
 
+    private boolean falling(BlockPos p) {
+        net.minecraft.fluid.FluidState f = ctx.world().getFluidState(p);
+        return MovementHelper.isWater(ctx, p) && (f.isSource() || f.get(net.minecraft.fluid.FlowingFluid.FALLING));
+    }
+
     private static boolean current(CalculationContext c, int x, int y, int z) {
         net.minecraft.fluid.FluidState f = c.get(x, y, z).getFluidState();
         return !f.isSource() && !f.get(net.minecraft.fluid.FlowingFluid.FALLING);
@@ -131,6 +138,12 @@ public class MovementSwim extends Movement {
     public static double cost(CalculationContext c, int x, int y, int z, int dx, int dy, int dz) {
         if (!Baritone.settings().swimInWater.value) return COST_INF;
         int tx = x + dx, ty = y + dy, tz = z + dz;
+        if (dy == 1 && Math.abs(dx) + Math.abs(dz) == 1 && water(c, x, y, z) && MovementHelper.canWalkOn(c.bsi, tx, y, tz)
+                && headroom(c, tx, ty, tz) && headroom(c, tx, ty + 1, tz) && headroom(c, x, ty, z) && headroom(c, x, ty + 1, z)) {
+            // Up a step out of water (a stream down stairs): pushing into the edge while jumping takes
+            // vanilla's climb-out boost, far quicker than rising against the falling water first.
+            return SWIM_ONE_BLOCK_COST * 1.5;
+        }
         // A stream down steps is wading depth: walk it (ascend/traverse), there's nothing to swim in.
         // Rising into sideways-flowing water fights the current: take the step as an ascend instead.
         if (dy > 0 && ((water(c, x, y, z) && shallow(c, x, y, z)) || ((dx != 0 || dz != 0) && water(c, tx, ty, tz) && current(c, tx, ty, tz)))) return COST_INF;
@@ -196,6 +209,37 @@ public class MovementSwim extends Movement {
         }
         if (!playerInValidPosition() && !MovementHelper.isWater(ctx, feet)) {
             return state.setStatus(MovementStatus.UNREACHABLE);
+        }
+        if (!vertical && dest.y > src.y && MovementHelper.isWater(ctx, dest)) {
+            // Up a stream: the swim pose, once started, lasts while any of us is in water and follows the
+            // look vector at sprint speed, far faster than bobbing up each step against the fall.
+            // It only starts with the eyes under, so sink for it first.
+            // Swim thrust follows yaw alone; pitch sets the climb. Look steeply up and let yaw carry us over.
+            Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), new Vector3d(dest.x + 0.5, dest.y + 1, dest.z + 0.5), ctx.playerRotations());
+            r = new Rotation(r.getYaw(), -75);
+            state.setTarget(new MovementState.MovementTarget(r, false));
+            state.setInput(Input.MOVE_FORWARD, true);
+            state.setInput(Input.SPRINT, true);
+            // Looking up only steers the swim pose upward while jumping (or with water overhead).
+            state.setInput(Input.JUMP, true);
+            if (!ctx.player().isSwimming() && !ctx.player().areEyesInFluid(net.minecraft.tags.FluidTags.WATER)) {
+                state.setInput(Input.SNEAK, true);
+            }
+            return state;
+        }
+        if (vertical && dest.y > src.y && falling(dest) && falling(dest.up()) && ctx.player().areEyesInFluid(net.minecraft.tags.FluidTags.WATER)) {
+            // Up a waterfall: sprint-swim looking straight up, pressed into a side wall so forward thrust
+            // can't carry us out of the column.
+            for (Direction d : Direction.Plane.HORIZONTAL) {
+                BlockPos w = feet.offset(d);
+                if (!ctx.world().getBlockState(w).getCollisionShape(ctx.world(), w).isEmpty()) {
+                    state.setTarget(new MovementState.MovementTarget(new Rotation(d.getHorizontalAngle(), -85), false));
+                    state.setInput(Input.MOVE_FORWARD, true);
+                    state.setInput(Input.SPRINT, true);
+                    state.setInput(Input.JUMP, true);
+                    return state;
+                }
+            }
         }
         if (vertical || horiz < 0.35) {
             // Sink (or rise) in place: sneak/jump, nudge toward the column centre if drifting.
