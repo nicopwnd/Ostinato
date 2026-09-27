@@ -20,17 +20,17 @@ package baritone.swarm.crypto;
 
 import java.util.Locale;
 
-/** Which SIGIL wire format to emit. Both are always accepted when opening. */
+/** Which SIGIL wire format to emit. S1 and S2C stay accepted when opening. */
 public enum SigilWire {
     /** {@code S1C.<slug>[.z][.i/n].<blob>} (sigil 0.3 and older). */
     S1,
     /** {@code S2C.<slug>.<blob>}: sigil's default since 0.4.0. */
-    S2;
+    S2,
+    /** {@code S2S.<slug>.<blob>}: signed circle, sigil 0.5.0. */
+    S2S;
 
-    /** The wire sigil emits by default. */
     public static final SigilWire DEFAULT = S2;
 
-    /** Parse {@code "S1"}/{@code "S2"} (case-insensitive); anything else gives {@link #DEFAULT}. */
     public static SigilWire parse(String s) {
         if (s != null) {
             String t = s.trim().toUpperCase(Locale.ROOT);
@@ -39,6 +39,9 @@ public enum SigilWire {
             }
             if (t.equals("S2")) {
                 return S2;
+            }
+            if (t.equals("S2S")) {
+                return S2S;
             }
         }
         return DEFAULT;
