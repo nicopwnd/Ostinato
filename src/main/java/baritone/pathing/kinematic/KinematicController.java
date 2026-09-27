@@ -15,6 +15,8 @@ import baritone.pathing.movement.movements.MovementFall;
 import baritone.pathing.movement.movements.MovementTraverse;
 import baritone.utils.BlockStateInterface;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.core.BlockPos;
@@ -46,6 +48,9 @@ public final class KinematicController {
     private final PlayerSim sim;
     private final List<double[]> line = new ArrayList<>(); // x, y, z, arc length
     private int lastMove;
+    /** No-progress watchdog: when the sim predicts progress the real world blocks, back off to Baritone. */
+    private double lastX, lastZ;
+    private int stuckTicks, cooldown;
 
     public KinematicController(IPlayerContext ctx) {
         this.ctx = ctx;
@@ -58,7 +63,11 @@ public final class KinematicController {
      */
     public int tick(Baritone baritone, IPath path, int pathPosition) {
         if (!Baritone.settings().kinematicTravel.value || ctx.player().isInWater() || ctx.player().isInLava()
-                || ctx.player().onClimbable() || ctx.player().isFallFlying()) {
+                || ctx.player().onClimbable() || ctx.player().isFallFlying() || ctx.player().isPassenger()) {
+            return -1;
+        }
+        if (cooldown > 0) {
+            cooldown--;
             return -1;
         }
         world.reset();
@@ -78,6 +87,15 @@ public final class KinematicController {
         // at the end of the whole path drive onto the goal block instead of handing back early
         double handback = lastMove == path.movements().size() - 1 ? 0.3 : HANDBACK;
         if (here[1] > CORRIDOR + 0.35 || end - here[0] < handback) {
+            return -1;
+        }
+        double moved = (real.x - lastX) * (real.x - lastX) + (real.z - lastZ) * (real.z - lastZ);
+        lastX = real.x;
+        lastZ = real.z;
+        stuckTicks = moved < 0.0025 ? stuckTicks + 1 : 0;
+        if (stuckTicks > 20) {
+            stuckTicks = 0;
+            cooldown = 60;
             return -1;
         }
         int newPos = syncPosition(path, pathPosition);
@@ -122,6 +140,9 @@ public final class KinematicController {
             if (sim.y < floorAt(pr[0]) - 0.4) {
                 return -1e9;
             }
+            if (hazard(sim.x, sim.y, sim.z)) {
+                return -1e9;
+            }
             if (s >= line.get(line.size() - 1)[3] - 0.3) {
                 return s + (HORIZON - t) * 0.3; // reached the end early
             }
@@ -130,7 +151,7 @@ public final class KinematicController {
         for (int t = 0; t < 12 && !sim.onGround; t++) {
             sim.tick(aim(sim.x, sim.z, s), true, true, false);
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4) {
+            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z)) {
                 return -1e9;
             }
         }
@@ -228,6 +249,25 @@ public final class KinematicController {
     }
 
     /** Lowest floor the player may be at around arc length s (an ascend/descend switches floors mid-segment). */
+    // Lava, fire, magma or cactus under or inside the player box. TenorClef s320t: a rollout inside the 0.55
+    // corridor carried the player into lava beside the path while building a bucket portal.
+    private boolean hazard(double x, double y, double z) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (double dx = -0.3; dx <= 0.31; dx += 0.6) {
+            for (double dz = -0.3; dz <= 0.31; dz += 0.6) {
+                int bx = PlayerSim.floor(x + dx), bz = PlayerSim.floor(z + dz), by = PlayerSim.floor(y);
+                for (int yy = by - 1; yy <= by + 1; yy++) {
+                    Block b = ctx.world().getBlockState(p.set(bx, yy, bz)).getBlock();
+                    if (b == Blocks.LAVA || b == Blocks.FIRE || b == Blocks.SOUL_FIRE || b == Blocks.CACTUS
+                            || (yy == by - 1 && b == Blocks.MAGMA_BLOCK)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     private double floorAt(double s) {
         for (int i = 0; i + 1 < line.size(); i++) {
             double[] a = line.get(i), b = line.get(i + 1);
