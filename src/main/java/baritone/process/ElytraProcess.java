@@ -46,6 +46,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
+import net.minecraft.util.Mth;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -87,6 +88,8 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
     private int landingColumnHeight = SHORT_LANDING_COLUMN_HEIGHT;
     private Set<BetterBlockPos> badLandingSpots = new HashSet<>();
     private LandingSearchState landingSearchState;
+    /** Gliding without fireworks: steered directly, no path solver (which assumes boosts to hold height). */
+    private boolean glided;
 
     @Override
     public void onLostControl() {
@@ -100,6 +103,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
         this.landingSearchState = null;
         this.reachedGoal = false;
         this.goal = null;
+        this.glided = false;
         destroyBehaviorAsync();
         if (destroyNpf) {
             destroyNpfContextAsync();
@@ -173,6 +177,16 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             onLostControl();
             logDirect(AUTO_JUMP_FAILURE_MSG);
             return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
+        }
+
+        if (this.glided && !ctx.player().isFallFlying() && (ctx.player().onGround() || ctx.player().isInWater())) {
+            logDirect("Glide finished");
+            baritone.getInputOverrideHandler().clearAllKeys();
+            this.onLostControl();
+            return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        }
+        if (ctx.player().isFallFlying() && canGlide()) {
+            return tickGlide();
         }
 
         boolean safetyLanding = false;
@@ -334,7 +348,7 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
             }
             baritone.getInputOverrideHandler().clearAllKeys();
             // TODO 1.21.5: replace `ctx.player().getDeltaMovement().y < -0.377` with `ctx.player().fallDistance > 1.0f`
-            if (ctx.player().getDeltaMovement().y < -0.377) {
+            if (ctx.player().getDeltaMovement().y < -0.377 && ctx.player().tickCount % 2 == 0) {
                 baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
             }
         }
@@ -489,10 +503,76 @@ public class ElytraProcess extends BaritoneProcessHelper implements IBaritonePro
                 qty += inv.get(i).getCount();
             }
         }
+        if (qty == 0 && canGlide()) {
+            return false;
+        }
         if (qty <= Baritone.settings().elytraMinFireworksBeforeLanding.value) {
             return true;
         }
         return false;
+    }
+
+    private int fireworkCount() {
+        NonNullList<ItemStack> inv = ctx.player().getInventory().getNonEquipmentItems();
+        int qty = 0;
+        for (int i = 0; i < 36; i++) {
+            if (ElytraBehavior.isFireworks(inv.get(i))) {
+                qty += inv.get(i).getCount();
+            }
+        }
+        return qty;
+    }
+
+    /** No fireworks, but the goal is within gliding range of our height (or we already committed to gliding). */
+    private boolean canGlide() {
+        if (!Baritone.settings().elytraGlideWithoutFireworks.value || this.behavior == null || fireworkCount() > 0) {
+            return false;
+        }
+        if (this.glided) {
+            return true;
+        }
+        BetterBlockPos d = this.behavior.destination;
+        Vec3 p = ctx.player().position();
+        int groundY = ctx.world().getHeight(Heightmap.Types.MOTION_BLOCKING, d.x, d.z);
+        if (groundY <= ctx.world().getMinY()) {
+            groundY = 64; // unloaded: assume sea level
+        }
+        return Math.hypot(d.x + 0.5 - p.x, d.z + 0.5 - p.z) <= (p.y - groundY) * Baritone.settings().elytraGlideRatio.value;
+    }
+
+    /**
+     * Rocket-free descent: face the goal at a shallow glide pitch, pull up over rising ground ahead,
+     * and circle down once over the goal with height to spare.
+     */
+    private PathingCommand tickGlide() {
+        if (!this.glided) {
+            logDirect("No fireworks: gliding to the goal");
+            this.glided = true;
+        }
+        BetterBlockPos d = this.behavior.destination;
+        Vec3 p = ctx.player().position();
+        double dx = d.x + 0.5 - p.x, dz = d.z + 0.5 - p.z, hd = Math.hypot(dx, dz);
+        int destGround = ctx.world().getHeight(Heightmap.Types.MOTION_BLOCKING, d.x, d.z);
+        double surplus = p.y - destGround - hd / Baritone.settings().elytraGlideRatio.value;
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90);
+        if (hd < 24 && surplus > 12) {
+            yaw += 75; // spiral down over the goal instead of overshooting
+        }
+        float pitch = Baritone.settings().elytraGlidePitch.value;
+        Vec3 v = ctx.player().getDeltaMovement();
+        double hs = Math.hypot(v.x, v.z);
+        if (hs > 0.05) {
+            for (int ahead = 4; ahead <= 16; ahead += 4) {
+                int ax = Mth.floor(p.x + v.x / hs * ahead), az = Mth.floor(p.z + v.z / hs * ahead);
+                if (ctx.world().getHeight(Heightmap.Types.MOTION_BLOCKING, ax, az) >= p.y - 1 && hs > 0.4) {
+                    pitch = -20; // trade speed for height to clear the rise
+                    break;
+                }
+            }
+        }
+        baritone.getInputOverrideHandler().clearAllKeys();
+        baritone.getLookBehavior().updateTarget(new Rotation(yaw, pitch), false);
+        return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
     }
 
     @Override
