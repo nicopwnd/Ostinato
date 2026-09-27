@@ -1,0 +1,118 @@
+/*
+ * This file is part of Baritone.
+ *
+ * Baritone is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
+package baritone.pathing.physics;
+
+import baritone.Baritone;
+import baritone.api.pathing.calc.IPath;
+import baritone.api.utils.BetterBlockPos;
+import baritone.api.utils.IPlayerContext;
+import baritone.api.utils.Rotation;
+import baritone.api.utils.input.Input;
+import baritone.pathing.kinematic.ClientWorld;
+import baritone.pathing.kinematic.PlayerSim;
+import baritone.pathing.movement.Movement;
+import baritone.pathing.movement.movements.MovementAscend;
+import baritone.pathing.movement.movements.MovementDescend;
+import baritone.pathing.movement.movements.MovementDiagonal;
+import baritone.pathing.movement.movements.MovementFall;
+import baritone.pathing.movement.movements.MovementParkour;
+import baritone.pathing.movement.movements.MovementTraverse;
+import net.minecraft.util.math.vector.Vector3d;
+
+import java.util.List;
+
+/**
+ * Drives land stretches of Baritone's path with keys planned by {@link PhysicsPathfinder}.
+ * Plans to a waypoint a few movements ahead, replays the plan while the real player tracks the
+ * simulated one, and re-plans on drift. Baritone keeps block-level control everywhere else.
+ */
+public final class PhysicsTravel {
+
+    private static final int LOOKAHEAD = 6;
+    private static final double DRIFT = 0.1;
+    private static final int NODE_BUDGET = 1500;
+
+    private final IPlayerContext ctx;
+    private final ClientWorld world;
+    private final PlayerSim real, predicted;
+    private final PhysicsPathfinder finder;
+    private List<PhysicsPathfinder.Action> plan;
+    private int step, target = -1, cooldown;
+
+    public PhysicsTravel(IPlayerContext ctx) {
+        this.ctx = ctx;
+        this.world = new ClientWorld(ctx);
+        this.real = new PlayerSim(world);
+        this.predicted = new PlayerSim(world);
+        this.finder = new PhysicsPathfinder(world, NODE_BUDGET);
+    }
+
+    /** @return the path position to continue from if this drove the tick, or -1 to let Baritone run it */
+    public int tick(Baritone baritone, IPath path, int pathPosition) {
+        if (!Baritone.settings().physicsTravel.value || ctx.player().isInWater() || ctx.player().isInLava()
+                || ctx.player().isOnLadder() || ctx.player().isElytraFlying() || ctx.player().isPassenger()) {
+            return drop();
+        }
+        if (cooldown > 0) {
+            cooldown--;
+            return drop();
+        }
+        world.reset();
+        Vector3d p = ctx.player().getPositionVec();
+        Vector3d m = ctx.player().getMotion();
+        real.x = p.x; real.y = p.y; real.z = p.z;
+        real.vx = m.x; real.vy = m.y; real.vz = m.z;
+        real.onGround = ctx.player().isOnGround();
+        real.sprinting = ctx.player().isSprinting();
+        real.collidedH = ctx.player().collidedHorizontally;
+
+        int end = pathPosition;
+        List<?> moves = path.movements();
+        while (end < moves.size() && end - pathPosition < LOOKAHEAD && land((Movement) moves.get(end))) end++;
+        if (end == pathPosition) return drop();
+        BetterBlockPos goal = path.positions().get(end);
+
+        boolean drifted = plan != null && step > 0
+                && Math.abs(predicted.x - real.x) + Math.abs(predicted.y - real.y) + Math.abs(predicted.z - real.z) > DRIFT;
+        if (plan == null || step >= plan.size() || drifted || end != target) {
+            target = end;
+            step = 0;
+            plan = finder.plan(real, goal.x + 0.5, goal.y, goal.z + 0.5, 0.35);
+            if (plan == null || plan.isEmpty()) {
+                cooldown = 20;
+                return drop();
+            }
+        }
+        PhysicsPathfinder.Action a = plan.get(step++);
+        predicted.copyFrom(real);
+        predicted.tick(a.yaw, a.forward, a.sprint, a.jump);
+        baritone.getLookBehavior().updateTarget(new Rotation(a.yaw, 0), false);
+        baritone.getInputOverrideHandler().clearAllKeys();
+        baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, a.forward);
+        baritone.getInputOverrideHandler().setInputForceState(Input.SPRINT, a.sprint);
+        baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, a.jump);
+
+        BetterBlockPos feet = ctx.playerFeet();
+        for (int i = end; i > pathPosition; i--) {
+            if (path.positions().get(i).equals(feet)) return Math.min(i, moves.size() - 1);
+        }
+        return pathPosition;
+    }
+
+    private int drop() {
+        plan = null;
+        target = -1;
+        return -1;
+    }
+
+    private static boolean land(Movement m) {
+        return m instanceof MovementTraverse || m instanceof MovementAscend || m instanceof MovementDescend
+                || m instanceof MovementDiagonal || m instanceof MovementFall || m instanceof MovementParkour;
+    }
+}

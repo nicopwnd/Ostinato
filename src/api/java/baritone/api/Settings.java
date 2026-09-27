@@ -1685,6 +1685,11 @@ public final class Settings {
      */
     public final Setting<Boolean> kinematicTravel = new Setting<>(false);
 
+    /**
+     * Experimental: drive land stretches with keys found by searching simulated player physics.
+     */
+    public final Setting<Boolean> physicsTravel = new Setting<>(false);
+
     public final Setting<String> movementBackend = new Setting<>("baritone");
 
     // here be dragons

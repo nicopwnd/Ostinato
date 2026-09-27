@@ -29,6 +29,7 @@ import baritone.api.utils.input.Input;
 import baritone.behavior.PathingBehavior;
 import baritone.pathing.calc.AbstractNodeCostSearch;
 import baritone.pathing.kinematic.KinematicController;
+import baritone.pathing.physics.PhysicsTravel;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
@@ -79,11 +80,13 @@ public class PathExecutor implements IPathExecutor, Helper {
 
     private boolean sprintNextTick;
     private final KinematicController kinematic;
+    private final PhysicsTravel physics;
 
     public PathExecutor(PathingBehavior behavior, IPath path) {
         this.behavior = behavior;
         this.ctx = behavior.ctx;
         this.kinematic = new KinematicController(ctx);
+        this.physics = new PhysicsTravel(ctx);
         this.path = path;
         this.pathPosition = 0;
     }
@@ -102,7 +105,8 @@ public class PathExecutor implements IPathExecutor, Helper {
             return true; // stop bugging me, I'm done
         }
         Movement movement = (Movement) path.movements().get(pathPosition);
-        int driven = kinematic.tick(behavior.baritone, path, pathPosition);
+        int driven = physics.tick(behavior.baritone, path, pathPosition);
+        if (driven < 0) driven = kinematic.tick(behavior.baritone, path, pathPosition);
         if (driven >= 0) {
             if (driven != pathPosition) {
                 pathPosition = driven;
