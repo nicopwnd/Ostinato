@@ -1717,6 +1717,12 @@ public final class Settings {
     public final Setting<Boolean> kinematicTravel = new Setting<>(false);
 
     /**
+     * Receives movement failures as (code, evidence), e.g. so a bot can record them in its fault log.
+     * Codes: M01 kinematic stuck, M02 off path, M03 movement timeout, M04 movement failed.
+     */
+    public final Setting<BiConsumer<String, String>> movementFault = new Setting<>((code, evidence) -> {});
+
+    /**
      * Experimental: drive land stretches with keys found by searching simulated player physics.
      */
     public final Setting<Boolean> physicsTravel = new Setting<>(false);

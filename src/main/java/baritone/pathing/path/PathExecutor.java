@@ -153,6 +153,7 @@ public class PathExecutor implements IPathExecutor, Helper {
             System.out.println("FAR AWAY FROM PATH FOR " + ticksAway + " TICKS. Current distance: " + status.getA() + ". Threshold: " + MAX_DIST_FROM_PATH);
             if (ticksAway > MAX_TICKS_AWAY) {
                 logDebug("Too far away from path for too long, cancelling path");
+                Baritone.settings().movementFault.value.accept("M02", "off path for too long at " + ctx.playerFeet());
                 cancel();
                 return false;
             }
@@ -161,6 +162,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         }
         if (possiblyOffPath(status, MAX_MAX_DIST_FROM_PATH)) { // ok, stop right away, we're way too far.
             logDebug("too far from path");
+            Baritone.settings().movementFault.value.accept("M02", "too far from path at " + ctx.playerFeet());
             cancel();
             return false;
         }
@@ -247,6 +249,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         MovementStatus movementStatus = movement.update();
         if (movementStatus == UNREACHABLE || movementStatus == FAILED) {
             logDebug("Movement returns status " + movementStatus);
+            Baritone.settings().movementFault.value.accept("M04", movement.getClass().getSimpleName() + " " + movementStatus + " at " + ctx.playerFeet());
             cancel();
             return true;
         }
@@ -268,6 +271,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 // ticksOnCurrent is greater than recalculateCost + 100
                 // this is why we cache cost at the beginning, and don't recalculate for this comparison every tick
                 logDebug("This movement has taken too long (" + ticksOnCurrent + " ticks, expected " + currentMovementOriginalCostEstimate + ") " + movement.getClass().getSimpleName() + " " + movement.getSrc() + "->" + movement.getDest() + ". Cancelling.");
+                Baritone.settings().movementFault.value.accept("M03", movement.getClass().getSimpleName() + " " + movement.getSrc() + "->" + movement.getDest() + " took " + ticksOnCurrent + " ticks");
                 cancel();
                 return true;
             }
