@@ -288,6 +288,13 @@ public class MovementParkour extends Movement {
                 // but i did it anyway
                 return state.setStatus(MovementStatus.SUCCESS);
             }
+            // any parkour landing still carrying momentum past the centre (or sliding on ice): brake toward the centre before succeeding
+            double off = (ctx.player().getPositionVec().x - (dest.x + 0.5)) * direction.getXOffset() + (ctx.player().getPositionVec().z - (dest.z + 0.5)) * direction.getZOffset();
+            double v = ctx.player().getMotion().x * direction.getXOffset() + ctx.player().getMotion().z * direction.getZOffset();
+            if (off > 0.2 && v > 0.05) {
+                state.setInput(Input.SPRINT, false);
+                return state;
+            }
             if (ctx.player().getPositionVec().y - ctx.playerFeet().getY() < 0.094) { // lilypads
                 state.setStatus(MovementStatus.SUCCESS);
             }
