@@ -85,6 +85,20 @@ public final class SigilS1C {
     }
 
     /**
+     * Largest UTF-8 plaintext (in bytes) that {@link #sealSingle} accepts for
+     * {@code maxLine}, using the same single-line rule as {@link #chunkPlain}
+     * (circle slugs are always 4 characters).
+     */
+    public static int maxSingleLinePayloadBytes(int maxLine) {
+        int room = Math.max(32, maxLine - (12 + 4));
+        int n = 0;
+        while (SigilB64.encodedLength(NONCE_LEN + n + 1 + TAG_LEN) <= room) {
+            n++;
+        }
+        return n;
+    }
+
+    /**
      * TEST HOOK (package-private): seal with caller-supplied nonces so the
      * output can be compared byte-for-byte with recorded sigil vectors. The
      * public API always draws nonces from {@link SecureRandom}.
