@@ -11,6 +11,7 @@ import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.movements.MovementAscend;
 import baritone.pathing.movement.movements.MovementDescend;
 import baritone.pathing.movement.movements.MovementDiagonal;
+import baritone.pathing.movement.movements.MovementFall;
 import baritone.pathing.movement.movements.MovementTraverse;
 import baritone.utils.BlockStateInterface;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -74,7 +75,9 @@ public final class KinematicController {
 
         double[] here = project(real.x, real.z);
         double end = line.get(line.size() - 1)[3];
-        if (here[1] > CORRIDOR + 0.35 || end - here[0] < HANDBACK) {
+        // at the end of the whole path drive onto the goal block instead of handing back early
+        double handback = lastMove == path.movements().size() - 1 ? 0.3 : HANDBACK;
+        if (here[1] > CORRIDOR + 0.35 || end - here[0] < handback) {
             return -1;
         }
         int newPos = syncPosition(path, pathPosition);
@@ -123,6 +126,17 @@ public final class KinematicController {
                 return s + (HORIZON - t) * 0.3; // reached the end early
             }
         }
+        // still airborne (drop or jump): make sure it lands on the path rather than in a gap
+        for (int t = 0; t < 12 && !sim.onGround; t++) {
+            sim.tick(aim(sim.x, sim.z, s), true, true, false);
+            double[] pr = project(sim.x, sim.z);
+            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4) {
+                return -1e9;
+            }
+        }
+        if (!sim.onGround) {
+            return -1e9;
+        }
         // keep a little credit for speed along the path so it prefers carrying momentum
         return s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz);
     }
@@ -168,7 +182,8 @@ public final class KinematicController {
         if (mv instanceof MovementTraverse || mv instanceof MovementDiagonal || mv instanceof MovementAscend) {
             return mv.getDest().y - mv.getSrc().y <= 1;
         }
-        return mv instanceof MovementDescend && mv.getSrc().y - mv.getDest().y == 1;
+        int drop = mv.getSrc().y - mv.getDest().y;
+        return (mv instanceof MovementDescend || mv instanceof MovementFall) && drop >= 1 && drop <= 3;
     }
 
     private void add(BetterBlockPos b) {
