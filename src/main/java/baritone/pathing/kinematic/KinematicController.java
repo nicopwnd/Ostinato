@@ -123,22 +123,31 @@ public final class KinematicController {
         }
 
         float best = Float.NaN;
-        boolean bestJump = false;
+        boolean bestJump = false, bestShort = false;
         double bestScore = -1e9;
         for (int j = 0; j < (real.onGround ? 2 : 1); j++) {
             for (float off : YAW_OFFSETS) {
-                double score = rollout(off, j == 1, here[0]);
+                double score = rollout(off, j == 1, false, here[0]);
                 if (score > bestScore + 1e-6) {
                     bestScore = score;
                     best = off;
                     bestJump = j == 1;
+                    bestShort = false;
                 }
+            }
+            // steering at the line right beside the player first: gets the box off a corner it snagged on
+            double score = rollout(0, j == 1, true, here[0]);
+            if (score > bestScore + 1e-6) {
+                bestScore = score;
+                best = 0;
+                bestJump = j == 1;
+                bestShort = true;
             }
         }
         if (bestScore <= here[0] + 0.05) {
             return -1; // nothing makes progress safely; Baritone knows how to recover
         }
-        float yaw = aim(real.x, real.z, here[0]) + best;
+        float yaw = aim(real.x, real.z, here[0], bestShort) + best;
         baritone.getLookBehavior().updateTarget(new Rotation(yaw, 0), false);
         baritone.getInputOverrideHandler().clearAllKeys();
         baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
@@ -148,12 +157,12 @@ public final class KinematicController {
     }
 
     /** Score = arc progress at the end of the horizon; -inf if the player leaves the corridor or drops below the path. */
-    private double rollout(float yawOffset, boolean jump, double s0) {
+    private double rollout(float yawOffset, boolean jump, boolean shortAim, double s0) {
         sim.copyFrom(real);
         double s = s0;
         for (int t = 0; t < HORIZON; t++) {
             float off = t < 4 ? yawOffset : 0;
-            sim.tick(aim(sim.x, sim.z, s) + off, true, true, jump && t == 0);
+            sim.tick(aim(sim.x, sim.z, s, shortAim && t < 4) + off, true, true, jump && t == 0);
             double[] pr = project(sim.x, sim.z);
             if (pr[1] > CORRIDOR) {
                 return -1e9;
@@ -171,7 +180,7 @@ public final class KinematicController {
         }
         // still airborne (drop or jump): make sure it lands on the path rather than in a gap
         for (int t = 0; t < 12 && !sim.onGround; t++) {
-            sim.tick(aim(sim.x, sim.z, s), true, true, false);
+            sim.tick(aim(sim.x, sim.z, s, false), true, true, false);
             double[] pr = project(sim.x, sim.z);
             if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z)) {
                 return -1e9;
@@ -203,8 +212,8 @@ public final class KinematicController {
         return false;
     }
 
-    private float aim(double x, double z, double s) {
-        double[] tgt = pointAt(s + 1.6);
+    private float aim(double x, double z, double s, boolean shortAim) {
+        double[] tgt = pointAt(s + (shortAim ? 0.4 : 1.6));
         return (float) Math.toDegrees(Math.atan2(-(tgt[0] - x), tgt[2] - z));
     }
 
