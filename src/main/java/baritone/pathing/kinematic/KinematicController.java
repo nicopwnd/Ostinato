@@ -12,6 +12,7 @@ import baritone.pathing.movement.movements.MovementAscend;
 import baritone.pathing.movement.movements.MovementDescend;
 import baritone.pathing.movement.movements.MovementDiagonal;
 import baritone.pathing.movement.movements.MovementFall;
+import baritone.pathing.movement.movements.MovementParkour;
 import baritone.pathing.movement.movements.MovementTraverse;
 import baritone.utils.BlockStateInterface;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -263,6 +264,9 @@ public final class KinematicController {
     private static boolean drivable(IMovement mv) {
         if (mv instanceof MovementTraverse || mv instanceof MovementDiagonal || mv instanceof MovementAscend) {
             return mv.getDest().y - mv.getSrc().y <= 1;
+        }
+        if (mv instanceof MovementParkour) {
+            return mv.getDest().y == mv.getSrc().y; // flat gap jumps; the rollout only accepts jumps that land on the path
         }
         int drop = mv.getSrc().y - mv.getDest().y;
         return (mv instanceof MovementDescend || mv instanceof MovementFall) && drop >= 1 && drop <= 3;
