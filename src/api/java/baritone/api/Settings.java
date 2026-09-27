@@ -339,6 +339,12 @@ public final class Settings {
     public final Setting<Boolean> avoidUpdatingFallingBlocks = new Setting<>(true);
 
     /**
+     * Never stand on sand, gravel or concrete powder that rests on a block without collision
+     * (air, an open fence gate, a sign...), since it can drop out from under the player
+     */
+    public final Setting<Boolean> pitfallAvoidance = new Setting<>(true);
+
+    /**
      * Enables some more advanced vine features. They're honestly just gimmicks and won't ever be needed in real
      * pathing scenarios. And they can cause Baritone to get trapped indefinitely in a strange scenario.
      * <p>
@@ -1705,6 +1711,11 @@ public final class Settings {
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.FIELD)
     private @interface JavaOnly {}
+
+    /**
+     * Drive plain walking stretches of a path with a physics look-ahead controller instead of per-movement logic
+     */
+    public final Setting<Boolean> kinematicTravel = new Setting<>(false);
 
     
     /**
