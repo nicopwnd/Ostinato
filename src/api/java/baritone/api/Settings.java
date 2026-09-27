@@ -319,6 +319,13 @@ public final class Settings {
     public final Setting<Boolean> pitfallAvoidance = new Setting<>(true);
 
     /**
+     * Underwater with nothing breathable in reach, place a wooden door on the floor: a door can't hold
+     * water, so its upper half is an air pocket to put the head in. The door is picked back up if it
+     * was the only one carried.
+     */
+    public final Setting<Boolean> allowDoorAirPockets = new Setting<>(true);
+
+    /**
      * Enables some more advanced vine features. They're honestly just gimmicks and won't ever be needed in real
      * pathing scenarios. And they can cause Baritone to get trapped indefinitely in a strange scenario.
      * <p>
