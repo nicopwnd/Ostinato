@@ -189,6 +189,7 @@ public final class KinematicController {
         sim.copyFrom(real);
         double s = s0, score = Double.NaN;
         int ground = 0, bumps = 0;
+        boolean wasBumping = real.collidedH;
         double end = line.get(line.size() - 1)[3];
         int lookahead = longJump ? LOOKAHEAD : HORIZON;
         for (int t = 0; t < lookahead; t++) {
@@ -196,9 +197,10 @@ public final class KinematicController {
             // off long gaps a jump plan jumps once, now; toward one it keeps hopping to carry the speed over
             boolean jump = delay != NEVER && sim.onGround && (longJump ? ground++ >= delay : t == 0);
             sim.tick(aim(sim.x, sim.z, s, shortAim && t < 4) + off, true, true, jump);
-            if (sim.collidedH && t < HORIZON) {
+            if (sim.collidedH && !wasBumping && t < HORIZON) {
                 bumps++; // grazing a wall or trunk cancels sprint (and the sprint-jump boost) in vanilla
             }
+            wasBumping = sim.collidedH;
             double[] pr = project(sim.x, sim.z);
             if (pr[1] > CORRIDOR || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4) {
                 return -1e9;

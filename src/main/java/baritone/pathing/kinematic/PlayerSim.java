@@ -105,7 +105,7 @@ public final class PlayerSim {
         x += r[0];
         y += r[1];
         z += r[2];
-        collidedH = ox != r[0] || oz != r[2];
+        collidedH = Math.abs(ox - r[0]) >= 1e-5 || Math.abs(oz - r[2]) >= 1e-5; // vanilla approximatelyEquals
         onGround = oy != r[1] && oy < 0;
         if (ox != r[0]) vx = 0;
         if (oz != r[2]) vz = 0;
