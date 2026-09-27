@@ -1246,6 +1246,22 @@ public final class Settings {
      * The minimum fireworks before landing early for safety
      */
     public final Setting<Integer> elytraMinFireworksBeforeLanding = new Setting<>(5);
+
+    /**
+     * With an elytra and no fireworks, glide straight toward the goal (descending) instead of refusing
+     * or emergency landing, when the goal is within gliding range of the current height.
+     */
+    public final Setting<Boolean> elytraGlideWithoutFireworks = new Setting<>(true);
+
+    /**
+     * Blocks forward per block of height lost when judging whether a rocket-free glide reaches the goal.
+     */
+    public final Setting<Double> elytraGlideRatio = new Setting<>(8.0);
+
+    /**
+     * Pitch held while gliding without fireworks (positive looks down); a few degrees down keeps speed.
+     */
+    public final Setting<Float> elytraGlidePitch = new Setting<>(6.0f);
     /**
      * Automatically land when elytra is almost out of durability, or almost out of fireworks
      */
