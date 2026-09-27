@@ -23,6 +23,8 @@ public final class PlayerSim {
 
     public double x, y, z, vx, vy, vz;
     public boolean onGround, sprinting, collidedH;
+    /** Vanilla's jump cooldown: holding jump re-jumps only every 10 ticks. */
+    public int jumpTicks;
 
     private final World world;
     private final List<double[]> boxes = new ArrayList<>();
@@ -33,7 +35,7 @@ public final class PlayerSim {
 
     public PlayerSim copyFrom(PlayerSim o) {
         x = o.x; y = o.y; z = o.z; vx = o.vx; vy = o.vy; vz = o.vz;
-        onGround = o.onGround; sprinting = o.sprinting; collidedH = o.collidedH;
+        onGround = o.onGround; sprinting = o.sprinting; collidedH = o.collidedH; jumpTicks = o.jumpTicks;
         return this;
     }
 
@@ -47,7 +49,10 @@ public final class PlayerSim {
         sprinting = sprint && forward && !collidedH;
         double yaw = Math.toRadians(yawDeg);
         double sin = Math.sin(yaw), cos = Math.cos(yaw);
-        if (jump && onGround) {
+        if (jumpTicks > 0) jumpTicks--;
+        if (!jump) jumpTicks = 0;
+        if (jump && onGround && jumpTicks == 0) {
+            jumpTicks = 10;
             vy = 0.42;
             if (sprinting) {
                 vx -= sin * 0.2;

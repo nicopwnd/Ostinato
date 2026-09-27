@@ -44,6 +44,8 @@ public final class PhysicsTravel {
     private final PhysicsPathfinder finder;
     private List<PhysicsPathfinder.Action> plan;
     private int step, target = -1, cooldown;
+    /** Jump cooldown left by our own presses; the client keeps it private. */
+    private int jumpTicks;
 
     public PhysicsTravel(IPlayerContext ctx) {
         this.ctx = ctx;
@@ -71,6 +73,7 @@ public final class PhysicsTravel {
         real.onGround = ctx.player().isOnGround();
         real.sprinting = ctx.player().isSprinting();
         real.collidedH = ctx.player().collidedHorizontally;
+        real.jumpTicks = jumpTicks;
 
         int end = pathPosition;
         List<?> moves = path.movements();
@@ -92,6 +95,9 @@ public final class PhysicsTravel {
         PhysicsPathfinder.Action a = plan.get(step++);
         predicted.copyFrom(real);
         predicted.tick(a.yaw, a.forward, a.sprint, a.jump);
+        jumpTicks = predicted.jumpTicks;
+        // Set yaw now: the look behaviour applies a tick late, and the plan assumes this tick's yaw.
+        ctx.player().rotationYaw = a.yaw;
         baritone.getLookBehavior().updateTarget(new Rotation(a.yaw, 0), false);
         baritone.getInputOverrideHandler().clearAllKeys();
         baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, a.forward);
@@ -106,6 +112,7 @@ public final class PhysicsTravel {
     }
 
     private int drop() {
+        jumpTicks = 0;
         plan = null;
         target = -1;
         return -1;
