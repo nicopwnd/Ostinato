@@ -208,6 +208,11 @@ public class ProguardTask extends BaritoneGradleTask {
         Process p = new ProcessBuilder(this.getJavaBinPathForProguard(), "-verbose").start();
         String out = IOUtils.toString(p.getInputStream(), "UTF-8").split("\n")[0].split("Opened ")[1].replace("]", "");
         template.add(2, "-libraryjars '" + out + "'");
+        // Java 8 ships javax.crypto in jce.jar next to rt.jar; ProGuard needs it for JCA users (baritone.swarm.crypto).
+        File jce = new File(new File(out).getParentFile(), "jce.jar");
+        if (jce.isFile()) {
+            template.add(2, "-libraryjars '" + jce + "'");
+        }
 
         {
             final Stream<File> libraries;
