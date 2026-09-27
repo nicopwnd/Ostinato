@@ -370,3 +370,5 @@ install {
 }
 
 install.dependsOn(build)
+
+apply from: 'swarm-deps.gradle'
