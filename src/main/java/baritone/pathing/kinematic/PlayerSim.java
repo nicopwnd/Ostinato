@@ -46,7 +46,8 @@ public final class PlayerSim {
         if (Math.abs(vx) < 0.003) vx = 0;
         if (Math.abs(vy) < 0.003) vy = 0;
         if (Math.abs(vz) < 0.003) vz = 0;
-        sprinting = sprint && forward && !collidedH;
+        // Vanilla: the key starts a sprint; only losing forward input or a wall stops it.
+        sprinting = forward && !collidedH && (sprint || sprinting);
         double yaw = Math.toRadians(yawDeg);
         double sin = Math.sin(yaw), cos = Math.cos(yaw);
         if (jumpTicks > 0) jumpTicks--;
