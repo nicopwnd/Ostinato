@@ -50,7 +50,9 @@ public final class SwarmConfig {
         this.wire = SigilWire.parse(b.wireVersion);
         this.maxLineChars = clamp(b.maxLineChars, MIN_SEAL_LINE, SigilS1C.MINECRAFT_MAX_LINE);
         this.lineReserveChars = clamp(b.lineReserveChars, 0, this.maxLineChars - MIN_SEAL_LINE);
-        int auto = SigilCodec.maxSingleLinePayloadBytes(this.wire, this.maxLineChars - this.lineReserveChars);
+        // signed senders seal every line as S2S, whose signature trailer leaves less room than the circle wire
+        SigilWire sealed = b.requireSignedSender ? SigilWire.S2S : this.wire;
+        int auto = SigilCodec.maxSingleLinePayloadBytes(sealed, this.maxLineChars - this.lineReserveChars);
         this.maxFrameBytes = b.maxFrameBytes <= 0 ? auto : Math.min(auto, Math.max(MIN_FRAME_BYTES, b.maxFrameBytes));
         this.maxChunks = clamp(b.maxChunks, 1, 64);
         this.reassemblyTimeoutMs = Math.max(1000L, Math.min(b.reassemblyTimeoutMs, 600_000L));

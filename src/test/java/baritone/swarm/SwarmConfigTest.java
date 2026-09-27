@@ -39,10 +39,16 @@ public class SwarmConfigTest {
         assertEquals(22, c.lineReserveChars());
         assertEquals(234, c.sealLineBudget());
         assertEquals(SigilWire.S2, c.wire());
-        assertEquals(139, c.maxFrameBytes()); // auto: largest S2C payload sealSingle accepts at 234
+        assertTrue(c.requireSignedSender());
+        // auto: every line is sealed S2S by default, so the frame budget is the S2S one (signature trailer)
+        assertEquals(SigilCodec.maxSingleLinePayloadBytes(SigilWire.S2S, 234), c.maxFrameBytes());
+        SwarmConfig.Builder unsigned = SwarmConfig.builder();
+        unsigned.requireSignedSender = false;
+        assertEquals(139, unsigned.build().maxFrameBytes()); // largest S2C payload sealSingle accepts at 234
         SigilWire.parse("S2"); // default setting value
         SwarmConfig.Builder s1 = SwarmConfig.builder();
         s1.wireVersion = "S1";
+        s1.requireSignedSender = false;
         assertEquals(SigilWire.S1, s1.build().wire());
         assertEquals(135, s1.build().maxFrameBytes());
         SwarmConfig.Builder junk = SwarmConfig.builder();
@@ -104,6 +110,7 @@ public class SwarmConfigTest {
 
         SwarmConfig.Builder big = SwarmConfig.builder();
         big.maxFrameBytes = 100_000;
+        big.requireSignedSender = false;
         assertEquals(139, big.build().maxFrameBytes()); // never above what fits one line
     }
 
