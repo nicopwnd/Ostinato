@@ -458,6 +458,9 @@ public interface MovementHelper extends ActionCosts, Helper {
         if (block instanceof StairsBlock) {
             return YES;
         }
+        if (block instanceof PaneBlock) { // iron bars and glass panes: flat full-height top, even a lone post
+            return YES;
+        }
         if (isWater(state)) {
             return MAYBE;
         }

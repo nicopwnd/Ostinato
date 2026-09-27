@@ -31,7 +31,11 @@ import baritone.utils.pathing.MutableMoveResult;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.FenceBlock;
+import net.minecraft.block.FenceGateBlock;
+import net.minecraft.block.LadderBlock;
 import net.minecraft.block.StairsBlock;
+import net.minecraft.block.WallBlock;
 import net.minecraft.fluid.WaterFluid;
 import net.minecraft.util.Direction;
 
@@ -123,6 +127,16 @@ public class MovementParkour extends Movement {
             int destX = x + xDiff * i;
             int destZ = z + zDiff * i;
 
+            // jump straight into a ladder hung on the far wall, facing us (caught mid-air, no floor needed)
+            if (isCatchableLadder(context.bsi.get0(destX, y, destZ), dir)
+                    && climbableOrPassable(context, destX, y + 1, destZ, dir) && climbableOrPassable(context, destX, y + 2, destZ, dir)) {
+                res.x = destX;
+                res.y = y;
+                res.z = destZ;
+                res.cost = costFromJumpDistance(i) + context.jumpPenalty;
+                return;
+            }
+
             // check head/feet
             if (!MovementHelper.fullyPassable(context, destX, y + 1, destZ)) {
                 break;
@@ -146,6 +160,17 @@ public class MovementParkour extends Movement {
 
             // check for flat landing position
             BlockState landingOn = context.bsi.get0(destX, y - 1, destZ);
+            // a fence or wall top is half a block up: reachable like an ascend, so only up to a 2 block gap
+            if (isTallTop(landingOn) && i <= 3 && (i < 3 || context.canSprint)) {
+                if (checkOvershootSafety(context.bsi, destX + xDiff, y, destZ + zDiff)) {
+                    res.x = destX;
+                    res.y = y;
+                    res.z = destZ;
+                    res.cost = costFromJumpDistance(i) + context.jumpPenalty;
+                    return;
+                }
+                break;
+            }
             // farmland needs to be canWalkOn otherwise farm can never work at all, but we want to specifically disallow ending a jump on farmland haha
             // frostwalker works here because we can't jump from possibly unfrozen water
             if ((landingOn.getBlock() != Blocks.FARMLAND && MovementHelper.canWalkOn(context, destX, y - 1, destZ, landingOn))
@@ -203,6 +228,32 @@ public class MovementParkour extends Movement {
                 }
             }
         }
+    }
+
+    /**
+     * A lone post (iron bars, fence) under the landing: a walking 2 block gap jump falls just short of it, so sprint and brake in the air instead
+     */
+    private boolean narrowLanding() {
+        net.minecraft.util.math.shapes.VoxelShape shape = ctx.world().getBlockState(dest.down()).getCollisionShape(ctx.world(), dest.down());
+        if (shape.isEmpty()) {
+            return false;
+        }
+        net.minecraft.util.math.AxisAlignedBB box = shape.getBoundingBox();
+        return box.maxX - box.minX < 0.99 || box.maxZ - box.minZ < 0.99;
+    }
+
+    static boolean isTallTop(BlockState state) {
+        Block b = state.getBlock();
+        return b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock && !state.get(FenceGateBlock.OPEN);
+    }
+
+    private static boolean isCatchableLadder(BlockState state, Direction dir) {
+        return state.getBlock() == Blocks.LADDER && state.get(LadderBlock.FACING) == dir.getOpposite();
+    }
+
+    private static boolean climbableOrPassable(CalculationContext context, int x, int y, int z, Direction dir) {
+        BlockState state = context.bsi.get0(x, y, z);
+        return isCatchableLadder(state, dir) || MovementHelper.fullyPassable(context, x, y, z, state);
     }
 
     private static boolean checkOvershootSafety(BlockStateInterface bsi, int x, int y, int z) {
@@ -273,7 +324,7 @@ public class MovementParkour extends Movement {
             logDebug("sorry");
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
-        if (dist >= 4 || ascend) {
+        if (dist >= 4 || ascend || dist == 3 && narrowLanding()) {
             state.setInput(Input.SPRINT, true);
         }
         if (Baritone.settings().allowWalkOnMagmaBlocks.value && ctx.world().getBlockState(ctx.playerFeet().down()).getBlock() == Blocks.MAGMA_BLOCK) {
@@ -281,6 +332,24 @@ public class MovementParkour extends Movement {
         }
 
         MovementHelper.moveTowards(ctx, state, dest);
+        if (!ctx.player().isOnGround() && ctx.player().getPositionVec().y > src.y + 0.1 && BlockStateInterface.getBlock(ctx, dest) != Blocks.LADDER) {
+            // mid-air: stop pushing once coasting alone reaches the landing centre, so narrow tops (bars, fence posts) are not overshot
+            double pos = ctx.player().getPositionVec().x * direction.getXOffset() + ctx.player().getPositionVec().z * direction.getZOffset();
+            double centre = (dest.x + 0.5) * direction.getXOffset() + (dest.z + 0.5) * direction.getZOffset();
+            double v = ctx.player().getMotion().x * direction.getXOffset() + ctx.player().getMotion().z * direction.getZOffset();
+            double vy = ctx.player().getMotion().y, y = ctx.player().getPositionVec().y, land = pos;
+            for (int t = 0; t < 40 && (vy > 0 || y > dest.y); t++) {
+                vy = (vy - 0.08) * 0.98;
+                y += vy;
+                v *= 0.91;
+                land += v;
+            }
+            if (pos < centre && land > centre) {
+                state.setInput(Input.SPRINT, false);
+                state.setInput(Input.MOVE_FORWARD, false);
+                state.setInput(Input.MOVE_BACK, land > centre + 0.2);
+            }
+        }
         if (ctx.playerFeet().equals(dest)) {
             Block d = BlockStateInterface.getBlock(ctx, dest);
             if (d == Blocks.VINE || d == Blocks.LADDER) {
@@ -295,7 +364,8 @@ public class MovementParkour extends Movement {
                 state.setInput(Input.SPRINT, false);
                 return state;
             }
-            if (ctx.player().getPositionVec().y - ctx.playerFeet().getY() < 0.094) { // lilypads
+            if (ctx.player().getPositionVec().y - ctx.playerFeet().getY() < 0.094 // lilypads
+                    || ctx.player().isOnGround() && isTallTop(ctx.world().getBlockState(dest.down()))) {
                 state.setStatus(MovementStatus.SUCCESS);
             }
         } else if (!ctx.playerFeet().equals(src)) {
