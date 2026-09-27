@@ -167,4 +167,35 @@ public class MixinClientPlayNetHandler {
             }
         }
     }
+
+    @org.spongepowered.asm.mixin.Unique
+    private net.minecraft.entity.Entity keepBoat;
+
+    // Vanilla drops the ride client-side on any position packet. The server sends one when we mount and
+    // re-sends it until confirmed; if that lands after the passengers packet (common when the client
+    // runs many ticks per frame) we end up walking while the server still has us seated. A small
+    // correction while in a boat isn't a real teleport, so keep the ride.
+    @Inject(method = "handlePlayerPosLook", at = @At("HEAD"))
+    private void keepBoatHead(SPlayerPositionLookPacket packet, CallbackInfo ci) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        keepBoat = null;
+        if (!mc.isOnExecutionThread() || mc.player == null || !(mc.player.getRidingEntity() instanceof net.minecraft.entity.item.BoatEntity)) {
+            return;
+        }
+        if (!packet.getFlags().isEmpty() && packet.getFlags().stream().anyMatch(f -> f == SPlayerPositionLookPacket.Flags.X || f == SPlayerPositionLookPacket.Flags.Y || f == SPlayerPositionLookPacket.Flags.Z)) {
+            return;
+        }
+        if (mc.player.getDistanceSq(packet.getX(), packet.getY(), packet.getZ()) < 4) {
+            keepBoat = mc.player.getRidingEntity();
+        }
+    }
+
+    @Inject(method = "handlePlayerPosLook", at = @At("RETURN"))
+    private void keepBoatReturn(SPlayerPositionLookPacket packet, CallbackInfo ci) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (keepBoat != null && mc.player != null && mc.player.getRidingEntity() == null && keepBoat.isAlive()) {
+            mc.player.startRiding(keepBoat, true);
+        }
+        keepBoat = null;
+    }
 }
