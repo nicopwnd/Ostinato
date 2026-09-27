@@ -38,3 +38,14 @@ TenorClef's primary compile job is `:1.21.4` against Ostinato `main`. The
 experimental `:1.21.11` job, when enabled, must check out Ostinato branch
 `1.21.11` and stage Fabric jars into a sibling `Ostinato/dist` layout. Do not
 feed a `main` (1.21.4) jar to that job.
+
+## Vibe coding / AI use
+
+Large parts of this repository were written or edited with AI assistants
+(Claude, Grok, and similar). That is vibe coding: a person set the
+direction; a model produced a lot of the text. A green CI run or a
+commit message is not proof that a human understood every line.
+
+Read the diff before you run or merge it. Do not treat this as audited
+software. File bugs. Do not assume the model already considered your
+case.
