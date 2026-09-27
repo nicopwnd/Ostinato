@@ -28,6 +28,8 @@ public enum SwarmReject {
     WRONG_GROUP,
     /** Our own frame echoed back (broadcast loopback). */
     SELF,
+    /** Sender is not a member of the group it claims (roster check). */
+    NOT_MEMBER,
     /** Addressed to another member. */
     NOT_FOR_ME,
     /** Sequence number already seen, or older than the replay window. */

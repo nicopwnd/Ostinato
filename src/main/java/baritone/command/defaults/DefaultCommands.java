@@ -69,6 +69,7 @@ public final class DefaultCommands {
                 new SelCommand(baritone),
                 new PickupCommand(baritone),
                 new ElytraCommand(baritone),
+                new SwarmCommand(baritone),
                 new TasksCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);

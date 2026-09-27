@@ -1798,6 +1798,67 @@ public final class Settings {
     public final Setting<String> swarmLocalSpoolDir = new Setting<>("");
 
     /**
+     * Swarm: turn on the in-game chat transport and the {@code #swarm} control commands. Needs a
+     * roster ({@link #swarmRosterFile}) and a sigil keyring ({@link #swarmSigilHome}). Every line
+     * sent is a sealed sigil token; there is no plaintext mode.
+     */
+    public final Setting<Boolean> swarmEnabled = new Setting<>(false);
+
+    /**
+     * Swarm: roster file, relative to the {@code baritone} directory unless absolute. Lines look like
+     * {@code group builders circle=my-circle members=Alice,Bob lead=Alice}. It holds names only,
+     * never keys or passphrases.
+     */
+    public final Setting<String> swarmRosterFile = new Setting<>("swarm.txt");
+
+    /**
+     * Swarm: sigil home holding the {@code circle-*.json} keyring. Empty means the
+     * {@code SIGIL_HOME} environment variable. The keyring is read in place and never copied.
+     */
+    public final Setting<String> swarmSigilHome = new Setting<>("");
+
+    /**
+     * Swarm: chat channel for swarm lines: {@code whisper} (one private message per recipient),
+     * {@code global} (public chat) or {@code team} ({@code /teammsg}). A roster group can override it.
+     */
+    public final Setting<String> swarmChannel = new Setting<>("whisper");
+
+    /**
+     * Swarm: command template for {@link #swarmChannel}, using <code>{to}</code> (whisper only) and
+     * <code>{msg}</code>, e.g. <code>/tell {to} {msg}</code> or <code>/w {to} {msg}</code>. Empty, or a
+     * template missing a placeholder, means the channel default (<code>/msg {to} {msg}</code>,
+     * <code>{msg}</code>, <code>/teammsg {msg}</code>).
+     */
+    public final Setting<String> swarmCommandTemplate = new Setting<>("");
+
+    /**
+     * Swarm: steady outgoing chat lines per second (token bucket). Vanilla 1.16.1 adds 20 to a spam
+     * counter per chat message or command, removes 1 per server tick and kicks above 200, so the
+     * neutral rate is 1 line/s at 20 TPS and less when the server lags. Clamped to at most 0.9
+     * unless {@link #swarmAllowUnsafeRate} is on. The default stays safe down to 10 TPS.
+     */
+    public final Setting<Double> swarmSendRatePerSec = new Setting<>(0.5D);
+
+    /**
+     * Swarm: outgoing burst size (token bucket capacity). Vanilla kicks on the 11th back-to-back
+     * message; clamped to at most 8 unless {@link #swarmAllowUnsafeRate} is on. Keep some headroom
+     * for chat you type yourself.
+     */
+    public final Setting<Integer> swarmSendBurst = new Setting<>(5);
+
+    /**
+     * Swarm: allow {@link #swarmSendRatePerSec} and {@link #swarmSendBurst} above the vanilla-safe
+     * clamp, for servers with a different (or no) spam limit. You can be kicked for spam.
+     */
+    public final Setting<Boolean> swarmAllowUnsafeRate = new Setting<>(false);
+
+    /**
+     * Swarm: outgoing lines waiting for the rate limiter. When full, the newest lower-priority line
+     * is dropped for a higher-priority one; otherwise the new line is dropped.
+     */
+    public final Setting<Integer> swarmSendQueueMax = new Setting<>(64);
+
+    /**
      * Key that opens the Ostinato settings screen in game, polled every client tick while no screen is open.
      * Takes a key name such as {@code RCONTROL}, {@code RSHIFT}, {@code F8}, {@code K} or {@code NONE} to disable,
      * and can be rebound in the screen itself.

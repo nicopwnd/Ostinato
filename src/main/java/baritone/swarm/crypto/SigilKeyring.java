@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Reads circle records written by {@code sigil circle new} ({@code $SIGIL_HOME/circle-*.json}).
@@ -84,6 +85,15 @@ public final class SigilKeyring {
 
     /** Load every {@code circle-*.json} in a sigil home directory, sorted by file name like sigil. */
     public static List<SigilCircle> loadCircles(Path sigilHome) throws SigilException {
+        return loadCircles(sigilHome, name -> true);
+    }
+
+    /**
+     * Like {@link #loadCircles(Path)}, but only derives records whose {@code name} passes
+     * {@code wanted} (PBKDF2 is slow, so circles you do not use are skipped without deriving).
+     * Every derived record is fully checked as in {@link #parseCircleRecord}.
+     */
+    public static List<SigilCircle> loadCircles(Path sigilHome, Predicate<String> wanted) throws SigilException {
         List<Path> files = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(sigilHome, "circle-*.json")) {
             for (Path p : ds) {
@@ -96,12 +106,26 @@ public final class SigilKeyring {
         List<SigilCircle> out = new ArrayList<>();
         for (Path p : files) {
             try {
-                out.add(parseCircleRecord(new String(Files.readAllBytes(p), StandardCharsets.UTF_8)));
+                String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+                if (!wanted.test(recordName(json))) {
+                    continue;
+                }
+                out.add(parseCircleRecord(json));
             } catch (IOException e) {
                 throw new SigilException("Cannot read keyring record " + p.getFileName() + ".", e);
             }
         }
         return out;
+    }
+
+    /** The record's {@code name}, or {@code null} if it is not a JSON object with one. */
+    private static String recordName(String json) {
+        try {
+            JsonElement e = new JsonParser().parse(json);
+            return e.isJsonObject() ? str(e.getAsJsonObject(), "name") : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static String str(JsonObject o, String k) {
