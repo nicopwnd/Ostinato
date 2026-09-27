@@ -29,6 +29,7 @@ import baritone.gui.hud.PathStatus;
 import baritone.gui.model.*;
 import baritone.gui.render.GuiDraw;
 import baritone.gui.render.Icons;
+import baritone.gui.tasks.game.TaskService;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.item.Item;
@@ -127,6 +128,8 @@ public final class OstinatoScreen extends Screen {
     private final Map<SettingCategory, List<Entry>> byCat = new EnumMap<>(SettingCategory.class);
     private final Map<SettingCategory, Anim> catHover = new EnumMap<>(SettingCategory.class);
     private final Anim modHover = new Anim(0, 18);
+    private final Anim tasksHover = new Anim(0, 18);
+    private static final ItemStack TASKS_ICON = new ItemStack(Items.MAP);
     private final Anim open = new Anim(0, 14);
     private final Anim scrollAnim = new Anim(0, 20);
     private final TextInput search = new TextInput(48);
@@ -134,6 +137,8 @@ public final class OstinatoScreen extends Screen {
 
     private SettingCategory selected = SettingCategory.MOVEMENT;
     private boolean modifiedView;
+    private boolean tasksView;
+    private final TasksPanel tasks = new TasksPanel(this);
     private Filter filter = Filter.ALL;
     private boolean searchFocused;
     private List<Entry> rows = new ArrayList<>();
@@ -185,6 +190,7 @@ public final class OstinatoScreen extends Screen {
     public void onClose() { // yarn: removed()
         minecraft.keyboardListener.enableRepeatEvents(false);
         commitEditor();
+        tasks.commit();
         store.saveNow();
     }
 
@@ -303,7 +309,7 @@ public final class OstinatoScreen extends Screen {
         return t.replaceAll("[a-z]+\\.[a-z.]+\\.", "");
     }
 
-    private void flash(String msg, int color) {
+    void flash(String msg, int color) {
         status = msg;
         statusColor = color;
         statusUntil = System.currentTimeMillis() + 3500;
@@ -482,7 +488,7 @@ public final class OstinatoScreen extends Screen {
     }
 
     /** Text with caret / selection, scrolled so the caret stays visible. */
-    private void drawInput(MatrixStack ms, TextInput in, float x, float y, float maxW, boolean focused, int accent, long now) {
+    void drawInput(MatrixStack ms, TextInput in, float x, float y, float maxW, boolean focused, int accent, long now) {
         String t = in.get();
         String before = t.substring(0, in.caret());
         int start = 0;
@@ -514,7 +520,11 @@ public final class OstinatoScreen extends Screen {
         GuiDraw.rect(ms, sbx1, hb + 1, sbx1 + 1, fy, 0x12FFFFFF);
         float iy = hb + 8;
         boolean searching = !search.get().trim().isEmpty();
-        iy = sideItem(ms, iy, "Modified", countModified(), null, modifiedView && !searching, modHover, mx, my, accent, true);
+        iy = sideItem(ms, iy, "Tasks", TaskService.INSTANCE.list().size(), TASKS_ICON, tasksView && !searching, tasksHover, mx, my, accent, false,
+                TaskService.INSTANCE.runner.active());
+        GuiDraw.rect(ms, x0 + 10, iy + 2, sbx1 - 10, iy + 3, 0x10FFFFFF);
+        iy += 6;
+        iy = sideItem(ms, iy, "Modified", countModified(), null, modifiedView && !tasksView && !searching, modHover, mx, my, accent, true, false);
         GuiDraw.rect(ms, x0 + 10, iy + 2, sbx1 - 10, iy + 3, 0x10FFFFFF);
         iy += 6;
         for (SettingCategory c : SettingCategory.values()) {
@@ -522,7 +532,7 @@ public final class OstinatoScreen extends Screen {
             if (l == null || l.isEmpty()) {
                 continue;
             }
-            iy = sideItem(ms, iy, c.displayName, l.size(), c, !modifiedView && !searching && c == selected, catHover.get(c), mx, my, accent, false);
+            iy = sideItem(ms, iy, c.displayName, l.size(), icon(c), !modifiedView && !tasksView && !searching && c == selected, catHover.get(c), mx, my, accent, false, false);
         }
         // mini status card if there is room
         float cy0 = fy - 36, cx0 = x0 + 7, cx1 = sbx1 - 7;
@@ -552,8 +562,8 @@ public final class OstinatoScreen extends Screen {
         return n;
     }
 
-    private float sideItem(MatrixStack ms, float iy, String label, int count, SettingCategory c, boolean sel, Anim hov,
-                           int mx, int my, int accent, boolean special) {
+    private float sideItem(MatrixStack ms, float iy, String label, int count, ItemStack icon, boolean sel, Anim hov,
+                           int mx, int my, int accent, boolean special, boolean live) {
         float ix0 = x0 + 6, ix1 = sbx1 - 6, h = 15;
         float hv = hov.target(in(mx, my, ix0, iy, ix1, iy + h)).get();
         if (sel) {
@@ -566,7 +576,7 @@ public final class OstinatoScreen extends Screen {
         if (special) {
             GuiDraw.icon(ms, Icons.DOT, ix0 + 8, iy + 5.5f, Theme.AMBER, 1f);
         } else {
-            GuiDraw.item(icon(c), ix0 + 6, iy + 1.5f, 12);
+            GuiDraw.item(icon, ix0 + 6, iy + 1.5f, 12);
         }
         float maxLabel = ix1 - (ix0 + 23) - 18;
         GuiDraw.text(ms, GuiDraw.trim(label, maxLabel, 1f), ix0 + 23 + hv, iy + 3.5f, sel ? Theme.TEXT : GuiDraw.lerp(0xFFB8C0CE, Theme.TEXT, hv), sel);
@@ -574,6 +584,9 @@ public final class OstinatoScreen extends Screen {
         float cw = GuiDraw.width(cs, 0.5f, false);
         GuiDraw.round(ms, ix1 - cw - 10, iy + 4, ix1 - 4, iy + h - 4, 2, sel ? GuiDraw.alphaOf(accent, 0x33) : 0x14FFFFFF);
         GuiDraw.text(ms, cs, ix1 - cw - 7, iy + 5.5f, 0.5f, sel ? accent : Theme.MUTED, false, false);
+        if (live) {
+            GuiDraw.icon(ms, Icons.DOT, ix1 - cw - 17, iy + 5.5f, Theme.GREEN, 0.75f);
+        }
         return iy + h + 1;
     }
 
@@ -584,7 +597,16 @@ public final class OstinatoScreen extends Screen {
         return modifiedView ? "Modified" : selected.displayName;
     }
 
+    private boolean showTasks() {
+        return tasksView && search.get().trim().isEmpty();
+    }
+
     private Entry drawContent(MatrixStack ms, int mx, int my, int accent, long now) {
+        if (showTasks()) {
+            tasks.layout(px0, px1, hb, fy);
+            tasks.draw(ms, mx, my, accent, now);
+            return null;
+        }
         String title = title();
         float tw = GuiDraw.text(ms, title, px0, hb + 9, 1f, Theme.TEXT, true, true);
         int mods = 0;
@@ -781,11 +803,21 @@ public final class OstinatoScreen extends Screen {
         GuiDraw.rect(ms, x0 + 1, fy, x1 - 1, fy + 1, 0x12FFFFFF);
         float ty = fy + 9;
         float fx = x0 + 12;
-        fx += GuiDraw.text(ms, all.size() + " settings", fx, ty, Theme.MUTED, false) + 5;
-        GuiDraw.rect(ms, fx, ty + 3, fx + 1.5f, ty + 4.5f, Theme.DIM);
-        fx += 6;
-        int mods = countModified();
-        fx += GuiDraw.text(ms, mods + " modified", fx, ty, Theme.AMBER, false) + 5;
+        boolean tv = showTasks();
+        if (tv) {
+            int n = TaskService.INSTANCE.list().size();
+            fx += GuiDraw.text(ms, n + (n == 1 ? " step" : " steps"), fx, ty, Theme.MUTED, false) + 5;
+            GuiDraw.rect(ms, fx, ty + 3, fx + 1.5f, ty + 4.5f, Theme.DIM);
+            fx += 6;
+            boolean loop = TaskService.INSTANCE.list().loop();
+            fx += GuiDraw.text(ms, loop ? "loop on" : "loop off", fx, ty, loop ? accent : Theme.MUTED, false) + 5;
+        } else {
+            fx += GuiDraw.text(ms, all.size() + " settings", fx, ty, Theme.MUTED, false) + 5;
+            GuiDraw.rect(ms, fx, ty + 3, fx + 1.5f, ty + 4.5f, Theme.DIM);
+            fx += 6;
+            int mods = countModified();
+            fx += GuiDraw.text(ms, mods + " modified", fx, ty, Theme.AMBER, false) + 5;
+        }
         GuiDraw.rect(ms, fx, ty + 3, fx + 1.5f, ty + 4.5f, Theme.DIM);
         fx += 6;
         String info;
@@ -793,6 +825,9 @@ public final class OstinatoScreen extends Screen {
         if (status != null && now < statusUntil) {
             info = status;
             infoCol = statusColor;
+        } else if (tv) {
+            info = tasks.footerStatus();
+            infoCol = tasks.footerStatusColor();
         } else if (store.lastError() != null) {
             info = "Save failed: " + store.lastError();
             infoCol = Theme.DANGER;
@@ -809,7 +844,11 @@ public final class OstinatoScreen extends Screen {
         // buttons (right)
         float bxr = button(ms, "Done", x1 - 10, true, mx, my, accent) - 5;
         boolean confirm = now < resetConfirmUntil;
-        bxr = button(ms, confirm ? "Click to confirm" : "Reset category", bxr, false, mx, my, confirm ? Theme.DANGER : accent) - 10;
+        if (!tv) {
+            bxr = button(ms, confirm ? "Click to confirm" : "Reset category", bxr, false, mx, my, confirm ? Theme.DANGER : accent) - 10;
+        } else {
+            bxr -= 5;
+        }
         // key hints
         String key = KeyNames.name(KeyNames.parse(settings.guiKeybind.value));
         float hintsW = hintWidth("ESC", "close") + hintWidth(key, "toggle");
@@ -900,7 +939,7 @@ public final class OstinatoScreen extends Screen {
 
     // ------------------------------------------------------------------ input
 
-    private static boolean in(double mx, double my, float ax, float ay, float bx, float by) {
+    static boolean in(double mx, double my, float ax, float ay, float bx, float by) {
         return mx >= ax && mx < bx && my >= ay && my < by;
     }
 
@@ -938,6 +977,9 @@ public final class OstinatoScreen extends Screen {
                 return true;
             }
         }
+        if (tasks.editing() && !(showTasks() && in(mx, my, px0, hb, px1, fy))) {
+            tasks.commit();
+        }
         // header
         if (in(mx, my, x1 - 23, y0 + 8, x1 - 8, y0 + 23)) {
             closeScreen();
@@ -955,6 +997,16 @@ public final class OstinatoScreen extends Screen {
         // sidebar
         float iy = hb + 8;
         if (in(mx, my, x0 + 6, iy, sbx1 - 6, iy + 15)) {
+            tasksView = true;
+            modifiedView = false;
+            search.set("");
+            searchFocused = false;
+            rebuild();
+            return true;
+        }
+        iy += 16 + 6;
+        if (in(mx, my, x0 + 6, iy, sbx1 - 6, iy + 15)) {
+            tasksView = false;
             modifiedView = true;
             search.set("");
             filter = Filter.ALL;
@@ -968,6 +1020,7 @@ public final class OstinatoScreen extends Screen {
                 continue;
             }
             if (in(mx, my, x0 + 6, iy, sbx1 - 6, iy + 15)) {
+                tasksView = false;
                 modifiedView = false;
                 selected = c;
                 search.set("");
@@ -976,6 +1029,15 @@ public final class OstinatoScreen extends Screen {
                 return true;
             }
             iy += 16;
+        }
+        float doneW0 = GuiDraw.width("Done") + 16;
+        if (showTasks()) {
+            if (in(mx, my, x1 - 10 - doneW0, fy + 5, x1 - 10, fy + 19)) {
+                closeScreen();
+                return true;
+            }
+            tasks.layout(px0, px1, hb, fy);
+            return tasks.mouseClicked(mx, my, button) || super.mouseClicked(mx, my, button);
         }
         // filter chips
         float chx = px1;
@@ -1143,6 +1205,10 @@ public final class OstinatoScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
         layout();
+        if (showTasks()) {
+            tasks.layout(px0, px1, hb, fy);
+            return tasks.mouseScrolled(mx, my, delta);
+        }
         Entry e = rowAt(mx, my);
         if (e != null && editing == null && (e.kind == Kind.NUMBER || e.kind == Kind.SLIDER)) {
             float cyc = rowY(e) + (ROW_H - 2) / 2f, cx = px1 - 14;
@@ -1168,6 +1234,13 @@ public final class OstinatoScreen extends Screen {
                 flash("Settings screen key is now " + KeyNames.name(key), accentOrMuted());
             }
             capturing = null;
+            return true;
+        }
+        if (tasks.editing()) {
+            return tasks.keyPressed(key);
+        }
+        if (showTasks() && key == GLFW.GLFW_KEY_S && Screen.hasControlDown()) {
+            tasks.save();
             return true;
         }
         if (editing != null) {
@@ -1228,7 +1301,7 @@ public final class OstinatoScreen extends Screen {
     }
 
     /** Shared editing keys for the search box and inline editors; true if handled. */
-    private boolean editKey(TextInput in, int key) {
+    boolean editKey(TextInput in, int key) {
         if (Screen.isSelectAll(key)) {
             in.selectAll();
         } else if (Screen.isPaste(key)) {
@@ -1260,6 +1333,13 @@ public final class OstinatoScreen extends Screen {
         if (editing != null) {
             editor.insert(String.valueOf(c));
             return true;
+        }
+        if (tasks.editing()) {
+            tasks.charTyped(c);
+            return true;
+        }
+        if (!searchFocused && showTasks()) {
+            return false; // typing on the Tasks tab does not jump to settings search
         }
         if (!searchFocused) {
             searchFocused = true;

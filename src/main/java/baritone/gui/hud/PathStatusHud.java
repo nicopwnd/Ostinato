@@ -26,6 +26,7 @@ import baritone.gui.render.GuiDraw;
 import baritone.gui.render.Icons;
 import baritone.gui.screen.OstinatoScreen;
 import baritone.gui.screen.Theme;
+import baritone.gui.tasks.game.TaskService;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import net.minecraft.client.Minecraft;
 
@@ -37,7 +38,7 @@ import java.util.Locale;
  */
 public final class PathStatusHud {
 
-    public static final int W = 150, H = 92;
+    public static final int W = 150, H = 92, TASK_H = 14;
     private static final Anim FADE = new Anim(0, 10);
     private static long lastActive;
     private static PathStatus last = new PathStatus();
@@ -68,7 +69,8 @@ public final class PathStatusHud {
         }
         PathStatus st = PathStatus.capture(BaritoneAPI.getProvider().getPrimaryBaritone());
         long now = System.currentTimeMillis();
-        if (st.active()) {
+        String task = TaskService.INSTANCE.runner.hudLine(now);
+        if (st.active() || task != null) {
             lastActive = now;
             last = st;
         }
@@ -97,11 +99,15 @@ public final class PathStatusHud {
                 x0 = sw - 8 - W;
                 y0 = Math.min(58, Math.max(8, sh - H - 60));
         }
-        draw(ms, st.active() ? st : last, x0, y0, Theme.accent());
+        float totalH = H + (task != null ? TASK_H : 0);
+        if (y0 + totalH > sh - 4) {
+            y0 = Math.max(4, sh - 4 - totalH);
+        }
+        draw(ms, st.active() ? st : (task != null ? st : last), x0, y0, Theme.accent(), task);
     }
 
-    static void draw(MatrixStack ms, PathStatus st, float x0, float y0, int accent) {
-        float x1 = x0 + W, y1 = y0 + H;
+    static void draw(MatrixStack ms, PathStatus st, float x0, float y0, int accent, String task) {
+        float x1 = x0 + W, y1 = y0 + H + (task != null ? TASK_H : 0);
         GuiDraw.shadow(ms, x0, y0, x1, y1, 4, 6, 0x60);
         GuiDraw.roundBorder(ms, x0, y0, x1, y1, 4, 0xB0303A4E, 0xD0141925, 0xC80B0E14);
         GuiDraw.gradH(ms, x0 + 4, y0 + 0.5f, x1 - 4, y0 + 1, GuiDraw.alphaOf(accent, 0xAA), GuiDraw.alphaOf(Theme.BLUE, 0x10));
@@ -153,6 +159,19 @@ public final class PathStatusHud {
         if (!st.nextMovement.isEmpty()) {
             String nm = "next: " + st.nextMovement;
             GuiDraw.text(ms, nm, bx1 - GuiDraw.width(nm, 0.5f, false), y, 0.5f, Theme.MUTED, false, false);
+        }
+        if (task != null) {
+            // "Task 2/5: Mine iron_ore 12/16" -> TASK 2/5 | Mine iron_ore | 12/16
+            y += 10;
+            GuiDraw.rect(ms, x0 + 6, y, x1 - 6, y + 0.5f, 0x16FFFFFF);
+            y += 3.5f;
+            GuiDraw.text(ms, "TASK", bx0, y + 1.5f, 0.5f, Theme.DIM, false, false);
+            String body = task.startsWith("Task ") ? task.substring(5) : task;
+            int colon = body.indexOf(": ");
+            String idx = colon > 0 ? body.substring(0, colon) : "";
+            String rest = colon > 0 ? body.substring(colon + 2) : body;
+            float iw = GuiDraw.text(ms, idx, bx0 + 14, y, accent, false);
+            GuiDraw.text(ms, GuiDraw.trim(rest, bx1 - bx0 - 18 - iw, 1f), bx0 + 18 + iw, y, Theme.TEXT, false);
         }
     }
 

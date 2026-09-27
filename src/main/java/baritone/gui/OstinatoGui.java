@@ -21,9 +21,12 @@ package baritone.gui;
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.event.events.TickEvent;
+import baritone.api.event.events.WorldEvent;
+import baritone.api.event.events.type.EventState;
 import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.gui.model.KeyNames;
 import baritone.gui.screen.OstinatoScreen;
+import baritone.gui.tasks.game.TaskService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.util.InputMappings;
 
@@ -48,6 +51,7 @@ public final class OstinatoGui implements AbstractGameEventListener {
             return;
         }
         STORE.tick();
+        TaskService.INSTANCE.tick();
         Minecraft mc = Minecraft.getInstance();
         int key = KeyNames.parse(Baritone.settings().guiKeybind.value);
         boolean down = key != KeyNames.NONE && InputMappings.isKeyDown(mc.getMainWindow().getHandle(), key);
@@ -55,5 +59,14 @@ public final class OstinatoGui implements AbstractGameEventListener {
             mc.displayGuiScreen(new OstinatoScreen());
         }
         wasDown = down;
+    }
+
+    @Override
+    public void onWorldEvent(WorldEvent event) {
+        // leaving a world ends a running task list; its steps refer to that world
+        if (event.getWorld() == null && event.getState() == EventState.POST
+                && BaritoneAPI.getProvider().getPrimaryBaritone() == baritone) {
+            TaskService.INSTANCE.runner.stop(System.currentTimeMillis());
+        }
     }
 }
