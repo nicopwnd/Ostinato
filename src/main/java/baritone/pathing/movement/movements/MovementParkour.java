@@ -108,7 +108,9 @@ public class MovementParkour extends Movement {
         } else if (standingOn.getBlock() == Blocks.SOUL_SAND) {
             maxJump = 2; // 1 block gap
         } else {
-            if (context.canSprint) {
+            if (context.canSprint && context.allowParkourFourGap && hasRunUp(context, x, y, z, xDiff, zDiff)) {
+                maxJump = 5; // 4 block gap: a hop timed onto the edge, driven by the kinematic controller
+            } else if (context.canSprint) {
                 maxJump = 4;
             } else {
                 maxJump = 3;
@@ -208,6 +210,13 @@ public class MovementParkour extends Movement {
         return !MovementHelper.avoidWalkingInto(bsi.get0(x, y, z)) && !MovementHelper.avoidWalkingInto(bsi.get0(x, y + 1, z));
     }
 
+    private static boolean hasRunUp(CalculationContext context, int x, int y, int z, int xDiff, int zDiff) {
+        int bx = x - xDiff, bz = z - zDiff;
+        return MovementHelper.canWalkOn(context, bx, y - 1, bz)
+                && MovementHelper.fullyPassable(context, bx, y, bz)
+                && MovementHelper.fullyPassable(context, bx, y + 1, bz);
+    }
+
     private static double costFromJumpDistance(int dist) {
         switch (dist) {
             case 2:
@@ -216,6 +225,8 @@ public class MovementParkour extends Movement {
                 return WALK_ONE_BLOCK_COST * 3;
             case 4:
                 return SPRINT_ONE_BLOCK_COST * 4;
+            case 5:
+                return SPRINT_ONE_BLOCK_COST * 6; // tight jump, prefer shorter routes
             default:
                 throw new IllegalStateException("LOL " + dist);
         }
@@ -292,18 +303,20 @@ public class MovementParkour extends Movement {
                     state.setInput(Input.CLICK_RIGHT, true);
                 }
                 // prevent jumping too late by checking for ascend
-                if (dist == 3 && !ascend) { // this is a 2 block gap, dest = src + direction * 3
+                if ((dist == 3 || dist == 5) && !ascend) { // 2 or 4 block gap: jump from the very edge
                     double xDiff = (src.x + 0.5) - ctx.player().getPositionVec().x;
                     double zDiff = (src.z + 0.5) - ctx.player().getPositionVec().z;
                     double distFromStart = Math.max(Math.abs(xDiff), Math.abs(zDiff));
-                    if (distFromStart < 0.7) {
+                    // a 4 block gap jumps on the last tick still on the block: wait while the next step stays on it
+                    double speed = dist == 5 ? Math.max(Math.abs(ctx.player().getMotion().x), Math.abs(ctx.player().getMotion().z)) / 0.546 : 0;
+                    if (dist == 5 ? distFromStart + speed < 1.0 : distFromStart < 0.7) {
                         return state;
                     }
                 }
 
                 state.setInput(Input.JUMP, true);
             } else if (!ctx.playerFeet().equals(dest.offset(direction, -1))) {
-                state.setInput(Input.SPRINT, false);
+                state.setInput(Input.SPRINT, dist == 5); // a 4 block gap needs the run-up at full sprint
                 if (ctx.playerFeet().equals(src.offset(direction, -1))) {
                     MovementHelper.moveTowards(ctx, state, src);
                 } else {

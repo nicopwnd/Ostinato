@@ -74,6 +74,7 @@ public class CalculationContext {
     public final boolean allowJumpAt256;
     public final boolean allowWalkOnMagmaBlocks;
     public final boolean allowParkourAscend;
+    public final boolean allowParkourFourGap;
     public final boolean assumeWalkOnWater;
     public final int frostWalker;
     public final boolean allowDiagonalDescend;
@@ -120,6 +121,8 @@ public class CalculationContext {
         this.allowJumpAt256 = Baritone.settings().allowJumpAt256.value || Baritone.settings().allowJumpAtBuildLimit.value;
         this.allowWalkOnMagmaBlocks = Baritone.settings().allowWalkOnMagmaBlocks.value;
         this.allowParkourAscend = Baritone.settings().allowParkourAscend.value;
+        // only the kinematic controller can build the hop speed a 4 block gap needs
+        this.allowParkourFourGap = Baritone.settings().kinematicTravel.value;
         this.assumeWalkOnWater = Baritone.settings().assumeWalkOnWater.value;
         this.frostWalker = EnchantmentHelper.getMaxEnchantmentLevel(Enchantments.FROST_WALKER, baritone.getPlayerContext().player());
         this.allowDiagonalDescend = Baritone.settings().allowDiagonalDescend.value;

@@ -39,6 +39,13 @@ public final class KinematicController {
     private static final int MAX_LOOKAHEAD_MOVES = 12;
     private static final int HORIZON = 12;
     private static final float[] YAW_OFFSETS = {0, -8, 8, -20, 20, -40, 40};
+    private static final float[] NO_OFFSET = {0};
+    // a plan waits this many ground ticks, then jumps at every landing; long gaps need the hop timed onto the edge
+    private static final int NEVER = -1;
+    private static final int[] DELAYS = {NEVER, 0, 1, 2, 3, 4, 5, 6, 8, 10};
+    private static final int[] JUMP_OR_NOT = {NEVER, 0};
+    // plans are scored at HORIZON but simulated this far so a hop chain that ends in a gap is rejected
+    private static final int LOOKAHEAD = 36;
     private static final double CORRIDOR = 0.55;
     /** Hand back to Baritone this far before the end of the drivable stretch. */
     private static final double HANDBACK = 1.2;
@@ -54,6 +61,7 @@ public final class KinematicController {
     private int stuckTicks, cooldown;
     /** Ticks left walking straight back onto the path line after the hitbox caught a corner beside it. */
     private int recenter, recenters;
+    private boolean longJump; // the driven stretch holds a 3 or 4 block gap
     /** Ticks the controller has driven the player, so callers can verify the backend is in use. */
     public static volatile long drivenTicks;
 
@@ -135,27 +143,31 @@ public final class KinematicController {
         }
 
         float best = Float.NaN;
-        boolean bestJump = false, bestShort = false;
+        boolean bestShort = false;
+        int bestDelay = NEVER;
         double bestScore = -1e9;
-        for (int j = 0; j < (real.onGround ? 2 : 1); j++) {
-            for (float off : YAW_OFFSETS) {
-                double score = rollout(off, j == 1, false, here[0]);
+        for (int delay : longJump ? DELAYS : JUMP_OR_NOT) {
+            for (float off : delay <= 0 ? YAW_OFFSETS : NO_OFFSET) {
+                double score = rollout(off, delay, false, here[0]);
                 if (score > bestScore + 1e-6) {
                     bestScore = score;
                     best = off;
-                    bestJump = j == 1;
+                    bestDelay = delay;
                     bestShort = false;
                 }
             }
-            // steering at the line right beside the player first: gets the box off a corner it snagged on
-            double score = rollout(0, j == 1, true, here[0]);
-            if (score > bestScore + 1e-6) {
-                bestScore = score;
-                best = 0;
-                bestJump = j == 1;
-                bestShort = true;
+            if (delay <= 0) {
+                // steering at the line right beside the player first: gets the box off a corner it snagged on
+                double score = rollout(0, delay, true, here[0]);
+                if (score > bestScore + 1e-6) {
+                    bestScore = score;
+                    best = 0;
+                    bestDelay = delay;
+                    bestShort = true;
+                }
             }
         }
+        boolean bestJump = bestDelay == 0 && real.onGround;
         if (bestScore <= here[0] + 0.05) {
             return -1; // nothing makes progress safely; Baritone knows how to recover
         }
@@ -168,41 +180,47 @@ public final class KinematicController {
         return newPos;
     }
 
-    /** Score = arc progress at the end of the horizon; -inf if the player leaves the corridor or drops below the path. */
-    private double rollout(float yawOffset, boolean jump, boolean shortAim, double s0) {
+    /**
+     * Score = arc progress at the end of the horizon; -inf if the player leaves the corridor or drops below the path
+     * before {@link #LOOKAHEAD}. A plan with a jump delay walks that many ground ticks, then jumps at every landing.
+     */
+    private double rollout(float yawOffset, int delay, boolean shortAim, double s0) {
         sim.copyFrom(real);
-        double s = s0;
-        for (int t = 0; t < HORIZON; t++) {
+        double s = s0, score = Double.NaN;
+        int ground = 0;
+        double end = line.get(line.size() - 1)[3];
+        int lookahead = longJump ? LOOKAHEAD : HORIZON;
+        for (int t = 0; t < lookahead; t++) {
             float off = t < 4 ? yawOffset : 0;
-            sim.tick(aim(sim.x, sim.z, s, shortAim && t < 4) + off, true, true, jump && t == 0);
+            // off long gaps a jump plan jumps once, now; toward one it keeps hopping to carry the speed over
+            boolean jump = delay != NEVER && sim.onGround && (longJump ? ground++ >= delay : t == 0);
+            sim.tick(aim(sim.x, sim.z, s, shortAim && t < 4) + off, true, true, jump);
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR) {
-                return -1e9;
-            }
-            if (hazard(sim.x, sim.y, sim.z)) {
+            if (pr[1] > CORRIDOR || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4) {
                 return -1e9;
             }
             s = Math.max(s, pr[0]);
-            if (sim.y < floorAt(pr[0]) - 0.4) {
-                return -1e9;
-            }
-            if (s >= line.get(line.size() - 1)[3] - 0.3) {
+            if (Double.isNaN(score) && s >= end - 0.3) {
                 return s + (HORIZON - t) * 0.3; // reached the end early
             }
+            if (t == HORIZON - 1) {
+                // keep a little credit for speed along the path so it prefers carrying momentum
+                score = s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz);
+            }
+            if (t >= HORIZON - 1 && sim.onGround && (delay == NEVER || s >= end - 0.3)) {
+                return score; // on the path with no jump pending: nothing later in this plan can fall in
+            }
         }
-        // still airborne (drop or jump): make sure it lands on the path rather than in a gap
-        for (int t = 0; t < 12 && !sim.onGround; t++) {
+        // still airborne: make sure the last jump lands on the path rather than in a gap
+        for (int t = 0; t < 14 && !sim.onGround; t++) {
             sim.tick(aim(sim.x, sim.z, s, false), true, true, false);
             double[] pr = project(sim.x, sim.z);
             if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z)) {
                 return -1e9;
             }
+            s = Math.max(s, pr[0]);
         }
-        if (!sim.onGround) {
-            return -1e9;
-        }
-        // keep a little credit for speed along the path so it prefers carrying momentum
-        return s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz);
+        return sim.onGround ? score : -1e9;
     }
 
     // Lava, fire, magma or cactus under or inside the player box. TenorClef s320t: a rollout inside the 0.55
@@ -258,6 +276,11 @@ public final class KinematicController {
             add(mv.getDest());
         }
         lastMove = i - 1;
+        longJump = false;
+        for (int k = pathPosition; k < i; k++) {
+            IMovement mv = moves.get(k);
+            longJump |= mv instanceof MovementParkour && mv.getSrc().distanceSq(mv.getDest()) >= 16;
+        }
         return line.size() >= 3;
     }
 
