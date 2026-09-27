@@ -15,7 +15,9 @@ import baritone.pathing.movement.movements.MovementFall;
 import baritone.pathing.movement.movements.MovementTraverse;
 import baritone.utils.BlockStateInterface;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.shapes.VoxelShape;
@@ -118,6 +120,9 @@ public final class KinematicController {
             if (pr[1] > CORRIDOR) {
                 return -1e9;
             }
+            if (hazard(sim.x, sim.y, sim.z)) {
+                return -1e9;
+            }
             s = Math.max(s, pr[0]);
             if (sim.y < floorAt(pr[0]) - 0.4) {
                 return -1e9;
@@ -130,7 +135,7 @@ public final class KinematicController {
         for (int t = 0; t < 12 && !sim.onGround; t++) {
             sim.tick(aim(sim.x, sim.z, s), true, true, false);
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4) {
+            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z)) {
                 return -1e9;
             }
         }
@@ -139,6 +144,25 @@ public final class KinematicController {
         }
         // keep a little credit for speed along the path so it prefers carrying momentum
         return s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz);
+    }
+
+    // Lava, fire, magma or cactus under or inside the player box. TenorClef s320t: a rollout inside the 0.55
+    // corridor carried the player into lava beside the path while building a bucket portal.
+    private boolean hazard(double x, double y, double z) {
+        BlockPos.Mutable p = new BlockPos.Mutable();
+        for (double dx = -0.3; dx <= 0.31; dx += 0.6) {
+            for (double dz = -0.3; dz <= 0.31; dz += 0.6) {
+                int bx = PlayerSim.floor(x + dx), bz = PlayerSim.floor(z + dz), by = PlayerSim.floor(y);
+                for (int yy = by - 1; yy <= by + 1; yy++) {
+                    Block b = ctx.world().getBlockState(p.setPos(bx, yy, bz)).getBlock();
+                    if (b == Blocks.LAVA || b == Blocks.FIRE || b == Blocks.SOUL_FIRE || b == Blocks.CACTUS
+                            || (yy == by - 1 && b == Blocks.MAGMA_BLOCK)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private float aim(double x, double z, double s) {
