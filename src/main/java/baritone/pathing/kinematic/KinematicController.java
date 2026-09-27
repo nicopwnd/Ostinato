@@ -43,7 +43,7 @@ public final class KinematicController {
     private static final double HANDBACK = 1.2;
 
     private final IPlayerContext ctx;
-    private final CachedWorld world = new CachedWorld();
+    private final ClientWorld world;
     private final PlayerSim real;
     private final PlayerSim sim;
     private final List<double[]> line = new ArrayList<>(); // x, y, z, arc length
@@ -54,6 +54,7 @@ public final class KinematicController {
 
     public KinematicController(IPlayerContext ctx) {
         this.ctx = ctx;
+        this.world = new ClientWorld(ctx);
         this.real = new PlayerSim(world);
         this.sim = new PlayerSim(world);
     }
@@ -289,53 +290,5 @@ public final class KinematicController {
             }
         }
         return pathPosition;
-    }
-
-    /** Collision boxes and slipperiness read straight from the client world, memoised for one tick. */
-    private final class CachedWorld implements PlayerSim.World {
-        private final Long2ObjectOpenHashMap<List<double[]>> cache = new Long2ObjectOpenHashMap<>();
-        private final BlockPos.Mutable pos = new BlockPos.Mutable();
-
-        void reset() {
-            cache.clear();
-        }
-
-        @Override
-        public void collect(double minX, double minY, double minZ, double maxX, double maxY, double maxZ, List<double[]> out) {
-            for (int x = PlayerSim.floor(minX); x <= PlayerSim.floor(maxX); x++) {
-                for (int y = PlayerSim.floor(minY) - 1; y <= PlayerSim.floor(maxY); y++) { // -1: fences stick up 1.5
-                    for (int z = PlayerSim.floor(minZ); z <= PlayerSim.floor(maxZ); z++) {
-                        out.addAll(boxes(x, y, z));
-                    }
-                }
-            }
-        }
-
-        private List<double[]> boxes(int x, int y, int z) {
-            long key = BlockPos.pack(x, y, z);
-            List<double[]> got = cache.get(key);
-            if (got != null) {
-                return got;
-            }
-            pos.setPos(x, y, z);
-            BlockState state = ctx.world().getBlockState(pos);
-            VoxelShape shape = state.getCollisionShape(ctx.world(), pos);
-            if (shape.isEmpty()) {
-                got = Collections.emptyList();
-            } else {
-                got = new ArrayList<>();
-                for (AxisAlignedBB bb : shape.toBoundingBoxList()) {
-                    got.add(new double[]{bb.minX + x, bb.minY + y, bb.minZ + z, bb.maxX + x, bb.maxY + y, bb.maxZ + z});
-                }
-            }
-            cache.put(key, got);
-            return got;
-        }
-
-        @Override
-        public float slipperiness(int x, int y, int z) {
-            pos.setPos(x, y, z);
-            return ctx.world().getBlockState(pos).getBlock().getSlipperiness();
-        }
     }
 }
