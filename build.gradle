@@ -251,6 +251,7 @@ if (getProject().hasProperty("baritone.fabric_build")) {
 jar {
     from sourceSets.launch.output, sourceSets.api.output
     from { configurations.shade.collect { zipTree(it) } } // nether-pathfinder, for elytra
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/versions/**' // signed shaded jars (BouncyCastle) break ProGuard
 
     if (!getProject().hasProperty("baritone.forge_build")) {
         exclude "**/BaritoneForgeModXD.class"
