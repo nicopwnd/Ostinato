@@ -18,38 +18,41 @@
 package baritone.api.process;
 
 import baritone.api.pathing.goals.Goal;
+import baritone.api.utils.BetterBlockPos;
+import net.minecraft.util.math.BlockPos;
 
-public interface ICustomGoalProcess extends IBaritoneProcess {
+import java.util.List;
 
-    /**
-     * Sets the pathing goal
-     *
-     * @param goal The new goal
-     */
-    void setGoal(Goal goal);
+public interface IElytraProcess extends IBaritoneProcess {
 
-    /**
-     * Starts path calculation and execution.
-     */
-    void path();
+    void repackChunks();
 
     /**
-     * @return The current goal
+     * @return Where it is currently flying to, null if not active
      */
-    Goal getGoal();
+    BlockPos currentDestination();
 
     /**
-     * @return The most recent set goal, which doesn't invalidate upon {@link #onLostControl()}
+     * @return Current active path, empty if not active or no path has been calculated yet
      */
-    Goal mostRecentGoal();
+    List<BetterBlockPos> getPath();
+
+    void pathTo(BlockPos destination);
+
+    void pathTo(Goal destination);
 
     /**
-     * Sets the goal and begins the path execution.
-     *
-     * @param goal The new goal
+     * Resets the state of the process but will maintain the same destination and will try to keep flying
      */
-    default void setGoalAndPath(Goal goal) {
-        this.setGoal(goal);
-        this.path();
-    }
+    void resetState();
+
+    /**
+     * @return {@code true} if the native library loaded and elytra is actually usable
+     */
+    boolean isLoaded();
+
+    /*
+     * FOR INTERNAL USE ONLY. MAY BE REMOVED AT ANY TIME.
+     */
+    boolean isSafeToCancel();
 }

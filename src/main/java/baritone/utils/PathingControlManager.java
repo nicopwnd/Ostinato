@@ -99,6 +99,8 @@ public class PathingControlManager implements IPathingControlManager {
             // get rid of the in progress stuff from the last process
         }
         switch (command.commandType) {
+            case SET_GOAL_AND_PAUSE:
+                p.secretInternalSetGoalAndPath(command);
             case REQUEST_PAUSE:
                 p.requestPause();
                 break;

@@ -196,6 +196,24 @@ public final class PathRenderer implements IRenderer {
         }
     }
 
+    /** A plain block path (elytra), no fade. */
+    public static void drawPositions(MatrixStack stack, List<BetterBlockPos> positions, Color color) {
+        IRenderer.startLines(color, settings.pathRenderLineWidthPixels.value, settings.renderPathIgnoreDepth.value);
+        for (int i = 0; i < positions.size() - 1; i++) {
+            BetterBlockPos a = positions.get(i), b = positions.get(i + 1);
+            emitLine(stack, a.x, a.y, a.z, b.x, b.y, b.z);
+        }
+        IRenderer.endLines(settings.renderPathIgnoreDepth.value);
+    }
+
+    /** A line between world coordinates; call between startLines/endLines. */
+    public static void emitWorldLine(MatrixStack stack, net.minecraft.util.math.vector.Vector3d a, net.minecraft.util.math.vector.Vector3d b) {
+        Matrix4f m = stack.getLast().getMatrix();
+        double vpX = posX(), vpY = posY(), vpZ = posZ();
+        buffer.pos(m, (float) (a.x - vpX), (float) (a.y - vpY), (float) (a.z - vpZ)).color(color[0], color[1], color[2], color[3]).endVertex();
+        buffer.pos(m, (float) (b.x - vpX), (float) (b.y - vpY), (float) (b.z - vpZ)).color(color[0], color[1], color[2], color[3]).endVertex();
+    }
+
     public static void drawManySelectionBoxes(MatrixStack stack, Entity player, Collection<BlockPos> positions, Color color) {
         IRenderer.startLines(color, settings.pathRenderLineWidthPixels.value, settings.renderSelectionBoxesIgnoreDepth.value);
 
@@ -213,7 +231,7 @@ public final class PathRenderer implements IRenderer {
         IRenderer.endLines(settings.renderSelectionBoxesIgnoreDepth.value);
     }
 
-    private static void drawGoal(MatrixStack stack, IPlayerContext ctx, Goal goal, float partialTicks, Color color) {
+    public static void drawGoal(MatrixStack stack, IPlayerContext ctx, Goal goal, float partialTicks, Color color) {
         drawGoal(stack, ctx, goal, partialTicks, color, true);
     }
 

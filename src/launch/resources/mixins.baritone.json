@@ -24,6 +24,7 @@
     "MixinPalettedContainer",
     "MixinPlayerController",
     "MixinScreen",
+    "MixinFireworkRocketEntity",
     "MixinSodiumChunkProvider",
     "MixinSodiumFixedLongHashTable",
     "MixinWorldRenderer"

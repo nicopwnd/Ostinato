@@ -23,6 +23,7 @@ import baritone.api.process.ICustomGoalProcess;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
 import baritone.utils.BaritoneProcessHelper;
+import net.minecraft.util.text.TextFormatting;
 
 /**
  * As set by ExampleBaritoneControl or something idk
@@ -41,6 +42,8 @@ public final class CustomGoalProcess extends BaritoneProcessHelper implements IC
      *
      * @see State
      */
+    private Goal mostRecentGoal;
+
     private State state;
 
     public CustomGoalProcess(Baritone baritone) {
@@ -50,6 +53,14 @@ public final class CustomGoalProcess extends BaritoneProcessHelper implements IC
     @Override
     public void setGoal(Goal goal) {
         this.goal = goal;
+        this.mostRecentGoal = goal;
+        if (baritone.getElytraProcess().isActive()) {
+            try {
+                baritone.getElytraProcess().pathTo(goal);
+            } catch (IllegalArgumentException e) {
+                logDirect("Failed to update elytra goal because: " + e.getMessage(), TextFormatting.RED);
+            }
+        }
         if (this.state == State.NONE) {
             this.state = State.GOAL_SET;
         }
@@ -66,6 +77,11 @@ public final class CustomGoalProcess extends BaritoneProcessHelper implements IC
     @Override
     public Goal getGoal() {
         return this.goal;
+    }
+
+    @Override
+    public Goal mostRecentGoal() {
+        return this.mostRecentGoal;
     }
 
     @Override

@@ -82,6 +82,13 @@ public final class ChunkEvent {
         return this.z;
     }
 
+    /**
+     * @return {@code true} if the event was fired after a chunk population
+     */
+    public boolean isPostPopulate() {
+        return this.state == EventState.POST && (this.type == Type.POPULATE_FULL || this.type == Type.POPULATE_PARTIAL);
+    }
+
     public enum Type {
 
         /**

@@ -1169,6 +1169,131 @@ public final class Settings {
     /**
      * The radius (for the GoalNear) of how close to your target position you actually have to be
      */
+    /**
+     * Automatically elytra fly without having to force the client-sided rotations.
+     */
+    public final Setting<Boolean> elytraFreeLook = new Setting<>(true);
+    /**
+     * Same as {@link #smoothLook} but for elytra flying.
+     */
+    public final Setting<Boolean> elytraSmoothLook = new Setting<>(false);
+    /**
+     * The number of ticks of elytra movement to simulate while firework boost is not active. Higher values are
+     * computationally more expensive.
+     */
+    public final Setting<Integer> elytraSimulationTicks = new Setting<>(20);
+    /**
+     * The maximum allowed deviation in pitch from a direct line-of-sight to the flight target. Higher values are
+     * computationally more expensive.
+     */
+    public final Setting<Integer> elytraPitchRange = new Setting<>(25);
+    /**
+     * The minimum speed that the player can drop to (in blocks/tick) before a firework is automatically deployed.
+     */
+    public final Setting<Double> elytraFireworkSpeed = new Setting<>(1.2);
+    /**
+     * The delay after the player's position is set-back by the server that a firework may be automatically deployed.
+     * Value is in ticks.
+     */
+    public final Setting<Integer> elytraFireworkSetbackUseDelay = new Setting<>(15);
+    /**
+     * The minimum padding value that is added to the player's hitbox when considering which point to fly to on the
+     * path. High values can result in points not being considered which are otherwise safe to fly to. Low values can
+     * result in flight paths which are extremely tight, and there's the possibility of crashing due to getting too low
+     * to the ground.
+     */
+    public final Setting<Double> elytraMinimumAvoidance = new Setting<>(0.2);
+    /**
+     * If enabled, avoids using fireworks when descending along the flight path.
+     */
+    public final Setting<Boolean> elytraConserveFireworks = new Setting<>(false);
+    /**
+     * Renders the raytraces that are performed by the elytra fly calculation.
+     */
+    public final Setting<Boolean> elytraRenderRaytraces = new Setting<>(false);
+    /**
+     * Renders the raytraces that are used in the hitbox part of the elytra fly calculation.
+     * Requires {@link #elytraRenderRaytraces}.
+     */
+    public final Setting<Boolean> elytraRenderHitboxRaytraces = new Setting<>(false);
+    /**
+     * Renders the best elytra flight path that was simulated each tick.
+     */
+    public final Setting<Boolean> elytraRenderSimulation = new Setting<>(true);
+    /**
+     * Automatically path to and jump off of ledges to initiate elytra flight when grounded.
+     */
+    public final Setting<Boolean> elytraAutoJump = new Setting<>(false);
+    /**
+     * The seed used to generate chunks for long distance elytra path-finding in the nether.
+     * Defaults to 2b2t's nether seed.
+     */
+    public final Setting<Long> elytraNetherSeed = new Setting<>(146008555100680L);
+    /**
+     * Whether nether-pathfinder should generate terrain based on {@link #elytraNetherSeed}.
+     * If false all chunks that haven't been loaded are assumed to be air.
+     */
+    public final Setting<Boolean> elytraPredictTerrain = new Setting<>(false);
+    /**
+     * Automatically swap the current elytra with a new one when the durability gets too low
+     */
+    public final Setting<Boolean> elytraAutoSwap = new Setting<>(true);
+    /**
+     * The minimum durability an elytra can have before being swapped
+     */
+    public final Setting<Integer> elytraMinimumDurability = new Setting<>(5);
+    /**
+     * The minimum fireworks before landing early for safety
+     */
+    public final Setting<Integer> elytraMinFireworksBeforeLanding = new Setting<>(5);
+    /**
+     * Automatically land when elytra is almost out of durability, or almost out of fireworks
+     */
+    public final Setting<Boolean> elytraAllowEmergencyLand = new Setting<>(true);
+    /**
+     * Time between culling far away chunks from the nether pathfinder chunk cache
+     */
+    public final Setting<Long> elytraTimeBetweenCacheCullSecs = new Setting<>(java.util.concurrent.TimeUnit.MINUTES.toSeconds(3));
+    /**
+     * Maximum distance chunks can be before being culled from the nether pathfinder chunk cache
+     */
+    public final Setting<Integer> elytraCacheCullDistance = new Setting<>(5000);
+    /**
+     * Should elytra consider nether brick a valid landing block
+     */
+    public final Setting<Boolean> elytraAllowLandOnNetherFortress = new Setting<>(false);
+    /**
+     * Has the user read and understood the elytra terms and conditions
+     */
+    public final Setting<Boolean> elytraTermsAccepted = new Setting<>(false);
+    /**
+     * Verbose chat logging in elytra mode
+     */
+    public final Setting<Boolean> elytraChatSpam = new Setting<>(false);
+    /**
+     * May reduce memory usage by using a custom allocator for pathfinding
+     */
+    public final Setting<Boolean> elytraCustomAllocator = new Setting<>(true);
+    /**
+     * Allow the pathfinder to attempt flight in tighter spaces, useful in caves but can be dangerous.
+     */
+    public final Setting<Boolean> elytraAllowTightSpaces = new Setting<>(false);
+    /**
+     * Allow the pathfinder to fly above y 128 in the nether.
+     */
+    public final Setting<Boolean> elytraAllowAboveRoof = new Setting<>(false);
+    /**
+     * Allow the pathfinder to access the baritone cache to improve pathing
+     */
+    public final Setting<Boolean> elytraUseCache = new Setting<>(true);
+    /**
+     * Allow the pathfinder to fly above the build limit in the overworld and end.
+     */
+    public final Setting<Boolean> elytraAllowAboveBuildLimit = new Setting<>(true);
+    /**
+     * Minimum distance in blocks of an elytra trip before the pathfinder will try to fly above build limit. (Minimum: 32). Requires {@link #elytraAllowAboveBuildLimit} to be enabled.
+     */
+    public final Setting<Integer> elytraLongDistanceThreshold = new Setting<>(500);
     public final Setting<Integer> followRadius = new Setting<>(3);
 
     /**

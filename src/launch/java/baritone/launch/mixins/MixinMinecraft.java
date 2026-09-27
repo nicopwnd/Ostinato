@@ -84,6 +84,20 @@ public class MixinMinecraft {
 
     @Inject(
             method = "runTick",
+            at = @At("TAIL")
+    )
+    private void postRunTick(CallbackInfo ci) {
+        final BiFunction<EventState, TickEvent.Type, TickEvent> tickProvider = TickEvent.createNextProvider();
+        for (IBaritone baritone : BaritoneAPI.getProvider().getAllBaritones()) {
+            TickEvent.Type type = baritone.getPlayerContext().player() != null && baritone.getPlayerContext().world() != null
+                    ? TickEvent.Type.IN
+                    : TickEvent.Type.OUT;
+            baritone.getGameEventHandler().onPostTick(tickProvider.apply(EventState.POST, type));
+        }
+    }
+
+    @Inject(
+            method = "runTick",
             at = @At(
                     value = "INVOKE",
                     target = "net/minecraft/client/world/ClientWorld.tickEntities()V",

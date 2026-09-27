@@ -242,7 +242,7 @@ public enum FasterWorldScanner implements IWorldScanner {
     /**
      * cheats to get the actual map of id -> blockstate from the various palette implementations
      */
-    private static ObjectIntIdentityMap<BlockState> getPalette(IPalette<BlockState> palette) {
+    public static ObjectIntIdentityMap<BlockState> getPalette(IPalette<BlockState> palette) {
         if (palette instanceof IdentityPalette) {
             return Block.BLOCK_STATE_IDS;
         } else {

@@ -23,6 +23,7 @@ import baritone.api.Settings;
 import baritone.api.behavior.IBehavior;
 import baritone.api.event.listener.IEventBus;
 import baritone.api.process.IBaritoneProcess;
+import baritone.api.process.IElytraProcess;
 import baritone.api.utils.IPlayerContext;
 import baritone.behavior.*;
 import baritone.cache.WorldProvider;
@@ -76,6 +77,7 @@ public class Baritone implements IBaritone {
     private final ExploreProcess exploreProcess;
     private final FarmProcess farmProcess;
     private final InventoryPauserProcess inventoryPauserProcess;
+    private final IElytraProcess elytraProcess;
 
     private final PathingControlManager pathingControlManager;
     private final SelectionManager selectionManager;
@@ -118,6 +120,7 @@ public class Baritone implements IBaritone {
             this.exploreProcess          = this.registerProcess(ExploreProcess::new);
             this.farmProcess             = this.registerProcess(FarmProcess::new);
             this.inventoryPauserProcess  = this.registerProcess(InventoryPauserProcess::new);
+            this.elytraProcess           = this.registerProcess(ElytraProcess::create);
             this.registerProcess(BackfillProcess::new);
             this.registerProcess(AirProcess::new);
             this.registerProcess(BoatProcess::new);
@@ -201,6 +204,11 @@ public class Baritone implements IBaritone {
     @Override
     public FarmProcess getFarmProcess() {
         return this.farmProcess;
+    }
+
+    @Override
+    public IElytraProcess getElytraProcess() {
+        return this.elytraProcess;
     }
 
     public InventoryPauserProcess getInventoryPauserProcess() {
