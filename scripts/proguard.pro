@@ -17,6 +17,7 @@
 -dontwarn org.lwjgl.**
 # also lwjgl lol
 -dontwarn module-info
+-dontwarn org.bouncycastle.** # swarm S2S: only the lightweight Ed25519 API is used
 # we dont have forge
 -dontwarn baritone.launch.BaritoneForgeModXD
 

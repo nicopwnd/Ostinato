@@ -250,7 +250,10 @@ if (getProject().hasProperty("baritone.fabric_build")) {
 
 jar {
     from sourceSets.launch.output, sourceSets.api.output
-    from { configurations.shade.collect { zipTree(it) } } // nether-pathfinder, for elytra
+    from({ configurations.shade.collect { zipTree(it) } }) { // nether-pathfinder (elytra), BouncyCastle (swarm S2S)
+        // BouncyCastle is a signed jar; its signatures no longer match once repacked (ProGuard refuses the jar)
+        exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/*.EC', 'META-INF/versions/**'
+    }
 
     if (!getProject().hasProperty("baritone.forge_build")) {
         exclude "**/BaritoneForgeModXD.class"

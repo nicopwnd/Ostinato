@@ -274,6 +274,7 @@
  "swarmMaxPeers": "Swarm messaging: max distinct senders tracked for replay protection; new senders beyond this are refused.",
  "swarmLocalSpoolDir": "Swarm messaging: spool directory for the same-machine test/sim transport. Empty means baritone/swarm-spool in the game directory. Only sealed lines are written there.",
  "swarmEnabled": "Swarm: turn on the in-game chat transport and the #swarm control commands. Needs a roster (swarmRosterFile) and a sigil keyring (swarmSigilHome). Every line sent is a sealed sigil token; there is no plaintext mode.",
+ "swarmRequireSignedSender": "Swarm: only accept messages signed by a pinned member signet (S2S), and sign what we send. Needs signet-*.json records in the sigil home. Off accepts unsigned circle messages (S1C/S2C).",
  "swarmRosterFile": "Swarm: roster file, relative to the baritone directory unless absolute. Lines look like group builders circle=my-circle members=Alice,Bob lead=Alice. It holds names only, never keys or passphrases.",
  "swarmSigilHome": "Swarm: sigil home holding the circle-*.json keyring. Empty means the SIGIL_HOME environment variable. The keyring is read in place and never copied.",
  "swarmChannel": "Swarm: chat channel for swarm lines: whisper (one private message per recipient), global (public chat) or team (/teammsg). A roster group can override it.",

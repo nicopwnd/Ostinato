@@ -253,9 +253,13 @@ public class ProguardTask extends BaritoneGradleTask {
     }
 
     private Stream<File> acquireDependencies() {
+        // shaded jars are already inside the input jar; as library jars too they would be read twice
+        // (and BouncyCastle's META-INF/versions classes are newer than ProGuard can read)
+        java.util.Set<File> shaded = getProject().getConfigurations().getByName("shade").getFiles();
         return getProject().getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().findByName("launch").getRuntimeClasspath().getFiles()
             .stream()
-            .filter(File::isFile);
+            .filter(File::isFile)
+            .filter(f -> !shaded.contains(f));
     }
 
     private void proguardApi() throws Exception {
