@@ -188,7 +188,9 @@ public abstract class Movement implements IMovement, MovementHelper {
         BlockPos feet = ctx.playerFeet();
         // Entering the swim pose needs two blocks of water (feet and head); once swimming, one is enough.
         if (!MovementHelper.isWater(ctx, feet)) return false;
-        if (!p.isSwimming() && !MovementHelper.isWater(ctx, feet.up())) return false;
+        // Paddling on the surface (head in air) over 2+ deep water: dip under too, instead of bobbing on
+        // JUMP with the head out (TenorClef owner report: bot moved head-above-water instead of swimming).
+        if (!p.isSwimming() && !MovementHelper.isWater(ctx, feet.up()) && !MovementHelper.isWater(ctx, feet.down())) return false;
         // Swimming into a step face (a stream down stairs): stop swimming and let JUMP climb it.
         if (p.collidedHorizontally && dest.y >= feet.getY()) return false;
         // Climbing out onto land needs JUMP against the bank: leave that to the normal path.
