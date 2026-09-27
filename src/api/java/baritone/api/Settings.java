@@ -1692,6 +1692,67 @@ public final class Settings {
 
     public final Setting<String> movementBackend = new Setting<>("baritone");
 
+    /**
+     * Swarm messaging: longest chat line the server accepts. Every swarm frame is sealed as one
+     * sigil S1C token that fits in this minus {@link #swarmLineReserveChars}. There is no plaintext mode.
+     */
+    public final Setting<Integer> swarmMaxLineChars = new Setting<>(256);
+
+    /**
+     * Swarm messaging: characters of each line kept free for the transport prefix
+     * (for example {@code "/msg <16-char name> "}).
+     */
+    public final Setting<Integer> swarmLineReserveChars = new Setting<>(22);
+
+    /**
+     * Swarm messaging: max bytes of one swarm frame (envelope header plus body) before sealing.
+     * 0 means the most that still fits one sealed line.
+     */
+    public final Setting<Integer> swarmMaxFrameBytes = new Setting<>(0);
+
+    /**
+     * Swarm messaging: max frames one message may be split into; larger messages are refused
+     * on send and on receive.
+     */
+    public final Setting<Integer> swarmMaxChunks = new Setting<>(8);
+
+    /**
+     * Swarm messaging: how long a partially received message waits for its missing frames
+     * before it is dropped, in milliseconds.
+     */
+    public final Setting<Long> swarmReassemblyTimeoutMs = new Setting<>(30000L);
+
+    /**
+     * Swarm messaging: max partially received messages held at once; further new messages are
+     * refused until some complete or expire.
+     */
+    public final Setting<Integer> swarmMaxPendingMessages = new Setting<>(64);
+
+    /**
+     * Swarm messaging: replay window, in sequence numbers per sender. Each sequence number is
+     * accepted once; ones this far below the newest seen are refused.
+     */
+    public final Setting<Integer> swarmReplayWindow = new Setting<>(256);
+
+    /**
+     * Swarm messaging: refuse frames whose sender timestamp differs from our clock by more than
+     * this many seconds. 0 (default) turns the check off, so bot clocks need not be synced;
+     * sequence numbers still stop replays.
+     */
+    public final Setting<Integer> swarmMaxClockSkewSec = new Setting<>(0);
+
+    /**
+     * Swarm messaging: max distinct senders tracked for replay protection; new senders beyond
+     * this are refused.
+     */
+    public final Setting<Integer> swarmMaxPeers = new Setting<>(64);
+
+    /**
+     * Swarm messaging: spool directory for the same-machine test/sim transport. Empty means
+     * {@code baritone/swarm-spool} in the game directory. Only sealed lines are written there.
+     */
+    public final Setting<String> swarmLocalSpoolDir = new Setting<>("");
+
     // here be dragons
 
     Settings() {
