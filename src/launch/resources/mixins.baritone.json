@@ -9,6 +9,7 @@
   },
   "client": [
     "MixinBlockStateBase",
+    "MixinChatComponent",
     "MixinChunkArray",
     "MixinClientChunkProvider",
     "MixinClientPlayerEntity",

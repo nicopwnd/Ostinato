@@ -1,0 +1,1723 @@
+{
+ "format": "sigil-codebook-v2-cases",
+ "lexicon_v2_sha256": "46137094c869354a1c280884c80157d093f271e6bcab0a353516d5a524ec2278",
+ "texts": [
+  {
+   "text": "",
+   "hex": "c2e0",
+   "expanded": ""
+  },
+  {
+   "text": "a",
+   "hex": "c25015c0",
+   "expanded": "a"
+  },
+  {
+   "text": "the",
+   "hex": "c25013c0",
+   "expanded": "the"
+  },
+  {
+   "text": "The Quick brown fox",
+   "hex": "c250139145d5a58dad4662640e",
+   "expanded": "the Quick brown fox"
+  },
+  {
+   "text": "mine diamond ore at 100 64 -200",
+   "hex": "c2c6dad2dcca77940dc3e443c04463f8",
+   "expanded": "mine diamond ore at 100 64 -200"
+  },
+  {
+   "text": "stash at -1234567 70 99999999",
+   "hex": "c22012b2d686c3c64ddf5e0ff7",
+   "expanded": "stash at -1234567 70 99999999"
+  },
+  {
+   "text": "x 0 63 64 -1 -64 2147483647 -2147483648",
+   "hex": "c254d4c07fc3c040b0dfe7ffffffffa7fffffffff8",
+   "expanded": "x 0 63 64 -1 -64 2147483647 -2147483648"
+  },
+  {
+   "text": "hello, world. ok? yes! no; maybe: fine",
+   "hex": "c2c8d0cad8d8df493c551c2ded75d398d84e65753dc53c6ccd2dccbc",
+   "expanded": "hello, world. ok? yes! no; maybe: fine"
+  },
+  {
+   "text": "line one\nline two\n\nend",
+   "hex": "c2c6d8d2dcca9e86a636c696e654f4552a2867e0",
+   "expanded": "line one\nline two\n\nend"
+  },
+  {
+   "text": "path/to-file (copy) +1 'quoted' \"double\"",
+   "hex": "c252175940f55c6ccd2d8cb6d37adcbcc1b399c5d5bdd195909ed2a5eb5c",
+   "expanded": "path/to-file(copy)+1'quoted'\"double\""
+  },
+  {
+   "text": "café naïve 世界 😀",
+   "hex": "c2c4c6c2cd870ea70b730e1c3afc2eccb8b92e25b173cac663f09f9880e0",
+   "expanded": "caf é na ï ve 世 界😀"
+  },
+  {
+   "text": "supercalifragilisticexpialidocious_and_more",
+   "hex": "c2dee6eae0cae4c6c2d8d2cce4c2ced2d8d3bdcdd1a58d95e1c1a585b1a591bd8da5bf0bab9e05f5053817d3f0f0",
+   "expanded": "supercalifragili sticexpialidocio us_and_more"
+  },
+  {
+   "text": "a,b a , b a  b",
+   "hex": "c250154b031280aa581894056062e0",
+   "expanded": "a, b a, b a b"
+  },
+  {
+   "text": "² Ⅷ ١٢",
+   "hex": "c2c385658b8a169d99c0",
+   "expanded": "² Ⅷ 12"
+  },
+  {
+   "text": "_underscore__ trailing space ",
+   "hex": "c2c0bfa5d5b99195c9cd8dbdc99702fe05fcee8e4c2d2d8d2dccf91cdc1858d978",
+   "expanded": "_underscore__trailing space"
+  },
+  {
+   "text": " leading",
+   "hex": "c2ccd8cac2c8d2dccfc0",
+   "expanded": "leading"
+  },
+  {
+   "text": "tab\tseparated\tvalues",
+   "hex": "c2c4e8c2c5a1cd95c185c985d195932bb30b63ab2b9f",
+   "expanded": "tab separated values"
+  },
+  {
+   "text": "%$#@&*[]{}<>|~`^=",
+   "hex": "c2c04b8093011e040c04d80ab02de05dc0f781f701e603ec0f981fb030605ec07bc0",
+   "expanded": "%$#@&*[]{}<>|~`^="
+  },
+  {
+   "text": "go to the nether portal and wait for me",
+   "hex": "c24eb0a0784ca17d414a73d5042a9cb8",
+   "expanded": "go to the nether portal and wait for me"
+  },
+  {
+   "text": "iron_ingot x64, gold_block x9",
+   "hex": "c2510f817d436e2783634a4a22302fa77ac2f073c0",
+   "expanded": "iron_ingot x64, gold_block x9"
+  },
+  {
+   "text": "build region 3 layer 7 of 12",
+   "hex": "c2c8c4ead2d8c89e058791b185e595c98ea08199c0",
+   "expanded": "build region 3 layer 7 of 12"
+  },
+  {
+   "text": "12ab 3.5 -0 007 1e5",
+   "hex": "c26661616261d162b018ec1c2ca6bc",
+   "expanded": "12 ab 3. 5 0 7 1 e5"
+  },
+  {
+   "text": "Été À PARIS",
+   "hex": "c2c3871381d30e1d4e1c380c8a082a492a7c",
+   "expanded": "É t é À PARIS"
+  }
+ ],
+ "fuzz": [
+  {
+   "hex": "c2f9a03d2427fdcf",
+   "expanded": ""
+  },
+  {
+   "hex": "c2369f245eee95820344b364",
+   "expanded": "birch slab"
+  },
+  {
+   "hex": "c20648239068da39d93c1c12cf134184a20e5dfc46",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c24342366e1016512318e72be4119d2463ec39",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c26679f6f58b6e5cb34d2838aae6c7a5e8",
+   "expanded": "12"
+  },
+  {
+   "hex": "c2fc06",
+   "expanded": ""
+  },
+  {
+   "hex": "c2d8ffda",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2c3c777d05f32ecbae743",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2b810",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2c610cdcfe0e9b890cf",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2f56ee204d681",
+   "expanded": ""
+  },
+  {
+   "hex": "c2849804f6",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c27c4fdbad524bb81c7b3942171d6c567dbdc5ee",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23888f7437c",
+   "expanded": "red sandstone slab iron horse armor water bucket"
+  },
+  {
+   "hex": "c27fd8cc1c3328edd9799e66c438dace90f43c6c",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c20fef280002434d82328cb34bb6e6e48152b9",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c29d37dde5cea4000e6ae62999751b296275fc56",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fdce",
+   "expanded": ""
+  },
+  {
+   "hex": "c29993ad",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20882921c9509c7f915",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2194fd279954ced4e0fcc605d207ece59a5",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fa9d84a9b4",
+   "expanded": ""
+  },
+  {
+   "hex": "c2fde689",
+   "expanded": ""
+  },
+  {
+   "hex": "c259b99363aac261644b8c38016c8d7f60831ec2",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2764c59a19d63144db8a43ee678d40e7408a8",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c24c8491245ce9210c2209aae2a46f0cad6bdfa7c958e3",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2ad8b34f0ace681338da021b45030c53942e7873a",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c22446bf",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2996e1e3b156685e431786c0b3ab6fe",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fd807e17dcb209",
+   "expanded": ""
+  },
+  {
+   "hex": "c27b4cbf0a779c0fb207997737e476848191a775eff3",
+   "expanded": "54 16525790"
+  },
+  {
+   "hex": "c2b5f3284fdc2aa6",
+   "expanded": "\""
+  },
+  {
+   "hex": "c2d3ae37ec0d3010182782e959fee0e3de3a2e3eb8",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2ee88b33099fe069ed6d693",
+   "expanded": ""
+  },
+  {
+   "hex": "c28868aa419d96edcddbdd1d91d6",
+   "expanded": "-105 diamond pickaxe diamond sword iron pickaxe iron sword 316520891"
+  },
+  {
+   "hex": "c274fe3005b8a3d8bb9febffacf700",
+   "expanded": "41"
+  },
+  {
+   "hex": "c2628b7aeb61c243a856",
+   "expanded": "5 gold farm"
+  },
+  {
+   "hex": "c24c8df7030fc4b9ca8f8b",
+   "expanded": "husk"
+  },
+  {
+   "hex": "c23c53df1f7f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2902e8c34bc8b34943e53bbdec36fac22",
+   "expanded": "11916 18"
+  },
+  {
+   "hex": "c2e45d8e368c8c355cb05816521b849594e020466204",
+   "expanded": ""
+  },
+  {
+   "hex": "c22c840fa8a3d7e60bd7867be10eef18e8",
+   "expanded": "jungle wood tell no one"
+  },
+  {
+   "hex": "c273d0bfcaaebcd426b9d9",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c26fc9",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c246d1ec8a2b5fac9f8c2a7ae000333698aaa57f9e0cb2f5",
+   "expanded": "glass bottle"
+  },
+  {
+   "hex": "c25e99e865aa457236e17c91f4237691a1ba6f5a910960",
+   "expanded": "pad1189"
+  },
+  {
+   "hex": "c2f56b2cfe68bf",
+   "expanded": ""
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c28249209f9828e4dd92451917",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2d3813286d9890a7431e4831ae06a8597",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c266f6b9900f6c24b2697975",
+   "expanded": "13"
+  },
+  {
+   "hex": "c21ba628b5ba7b0c99499a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c24800b3e31f6470fe1fe1c10e21",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c27d2fd6309de73a8d",
+   "expanded": "58 pad1327 piston"
+  },
+  {
+   "hex": "c29c559a1a833594fbe581a34c1c04e875aa90e279a1fc",
+   "expanded": "89760168 13 10 59"
+  },
+  {
+   "hex": "c27757fc40df",
+   "expanded": "46?"
+  },
+  {
+   "hex": "c25837390d1f8547c35a0d702434f3ed",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2ed23b424d00373bc7e2d9983506f36c1b8d725156ff43c",
+   "expanded": ""
+  },
+  {
+   "hex": "c27ea7f0e3c0731686ce8f19d41527e5af29d2810dd1cbce",
+   "expanded": "61 other"
+  },
+  {
+   "hex": "c28970ce3828629c887c963c36f68ad15f1291829c",
+   "expanded": "-226 prismarine slab end city ice highway need wait at glow ink sac water bucket 54 837"
+  },
+  {
+   "hex": "c24555",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2411b1ad6b2dedd1f22650834e969",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c230d48ebf",
+   "expanded": "orange wool, chorus flower"
+  },
+  {
+   "hex": "c2c544483ad5",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2d75d897454ba68b483b6b8",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c226007418fd963b81c009c828500e4b0802",
+   "expanded": "crimson nylium blaze rods magenta wool"
+  },
+  {
+   "hex": "c223e4",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2233723f207",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2a7e555be88fdfebbb77d6f0ba2c5e3a2ead6b96caa64",
+   "expanded": ":"
+  },
+  {
+   "hex": "c268f4e1b8226e7befb70ad9",
+   "expanded": "17"
+  },
+  {
+   "hex": "c257790f86892684314b5b41f94ed6",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e957a5d0423349bc68e17d72be",
+   "expanded": ""
+  },
+  {
+   "hex": "c299314b67ea4e4e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c29ebc77771dafd28fa7e144f0c733bcb236092dba",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c20c",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2aebf",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20ef2f30a455c252b81f58d433bcf",
+   "expanded": "milk bucket"
+  },
+  {
+   "hex": "c204055dbba79442a228ea83a2354d73",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c206cc98998f859dcf8eba88507ab04dd370",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2627a6ac58db1e2",
+   "expanded": "4"
+  },
+  {
+   "hex": "c244fa",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2b777",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c231b152967f862bedf16c324eb55b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c266e4d441dfc84892a5b311bdb37d099c22",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2eafbcd62f8e911d10014369f1cfd",
+   "expanded": ""
+  },
+  {
+   "hex": "c2db963d3e1d08481a9510cbd270a0c05a5882efe946d8",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c265b41d8a6c4fafb6",
+   "expanded": "11 16 44 clump ice"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2d8f1abcb7ef4b8b5f309a1adeecd02",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c275f93bb5e822df4609fa",
+   "expanded": "43"
+  },
+  {
+   "hex": "c26101364dc2f509c3a1",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c266bf",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e7ff682c4dc0cd333154ef75823319ce1477",
+   "expanded": ""
+  },
+  {
+   "hex": "c2b60a8660889bd7",
+   "expanded": "(end city 24 cyan shulker box"
+  },
+  {
+   "hex": "c2f138db370ad931d18ac1564fa1cb",
+   "expanded": ""
+  },
+  {
+   "hex": "c274d707c26e5e0fbd",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fbf76baa9523480922ab4c6772d25f6c990b",
+   "expanded": ""
+  },
+  {
+   "hex": "c2a41861",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2ac757550f670bda8",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c25a53b4f8d684bfb2cf7f97b2f78dff76",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c239cae1fb08af12a443d826669ba203459e88c7ee",
+   "expanded": "smooth stone pad0224"
+  },
+  {
+   "hex": "c2c110e0274c650a35d937ee10e313e5",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c224efc08cb76c5321c5",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2b21150201d2d7dd94d",
+   "expanded": "'netherite scrap i milk bucket birch leaves"
+  },
+  {
+   "hex": "c28e8e06862a36b494c4b7",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2328d699bb57a661cea3692710cadb5ed18",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c26cc036fcb5f53203f7415e82734e9cf74a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e1f4cdc24d",
+   "expanded": ""
+  },
+  {
+   "hex": "c22c3ef1832b4ba85a2c13",
+   "expanded": "oak wood"
+  },
+  {
+   "hex": "c2e792cd485304ddaa59d57628438b5f4134a65b2c81ed",
+   "expanded": ""
+  },
+  {
+   "hex": "c2495b5a5c86ee2d3cb01f9e22fb",
+   "expanded": "waxed exposed chiseled copper/-1105350 dusk blaze rods"
+  },
+  {
+   "hex": "c2357938bbe4fa44",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fb49690425e52d33674d92b1d11f21f7174f179741",
+   "expanded": ""
+  },
+  {
+   "hex": "c25c826a40ab01403cd3",
+   "expanded": "pad0922 weeping vines eyes of ender pad0350 ruined portal"
+  },
+  {
+   "hex": "c2831b5a3f88fb59",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c28bd5f2acf74bfb965d1f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2b600e47cfc4cec18914308c73a",
+   "expanded": "(nether roof"
+  },
+  {
+   "hex": "c2edf95c818020ce266d99a7b4764f305aaf7de496",
+   "expanded": ""
+  },
+  {
+   "hex": "c22a3a10c051721ac46fb9",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2df894527e7dfd8dacd94b7c5ce25ca669248",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2c091005aa47e41d30adbae9a8dcf",
+   "expanded": "H 0 pad0683 jukebox shulker box -5692789\n28"
+  },
+  {
+   "hex": "c22f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c25620b6c0",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c24655f45c5fc50846b4f03c4f5bc11c12b317",
+   "expanded": "pufferfish"
+  },
+  {
+   "hex": "c24eab51dd6898781a23",
+   "expanded": "marker\n46\"crimson nylium"
+  },
+  {
+   "hex": "c2b1b9bc076c752fbbca",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c203330bda4922b34e46e633",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2411d719a30756fda2dc3253a673af88f8f86a1d89ef358",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2296c6fa857fd890c47a93da51dbe",
+   "expanded": "birch log 6"
+  },
+  {
+   "hex": "c28ad39b6b7fcd51e28a62d87ea1fc",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fd6936659f7e6c96993151",
+   "expanded": ""
+  },
+  {
+   "hex": "c27302ea70fc",
+   "expanded": "38 end ship\n"
+  },
+  {
+   "hex": "c2eba6680a31feb20e5d718f4189",
+   "expanded": ""
+  },
+  {
+   "hex": "c2668e2e2704",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2402af8bee7f330a72b83fed10ea7b4f5c7768b46611e44",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c28244a58f284f47638efe394714d467",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22edf44",
+   "expanded": "dispenser"
+  },
+  {
+   "hex": "c2d17562e5b297",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e7b8",
+   "expanded": ""
+  },
+  {
+   "hex": "c259c0fe32688af7fb",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c270715117f8ec",
+   "expanded": "32"
+  },
+  {
+   "hex": "c281c75ce0eaf4c6a9055a7d1c3b84",
+   "expanded": "-2 desert pyramid"
+  },
+  {
+   "hex": "c22f39a358fca0f638",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2b13c892eadf538a34a9ef6",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2412c17f6b7",
+   "expanded": "stripped dark oak log end crystal"
+  },
+  {
+   "hex": "c255b755b7cd2130303f22918a43",
+   "expanded": "pad0052-27"
+  },
+  {
+   "hex": "c26577e47f0372",
+   "expanded": "10"
+  },
+  {
+   "hex": "c2311645de4fec90ca5dd85c",
+   "expanded": "light blue wool'raid farm"
+  },
+  {
+   "hex": "c25f85acf930d9a15829586efd83ed54d7cc31cf8c51",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c222b03d87948c40b945f8403222c9c825255e09",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c241",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c27dbe",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2212226684d9cae04acf42284823a",
+   "expanded": "gapple offhand basalt deltas 13 golden apple 14 pad0218 stripped oak wood"
+  },
+  {
+   "hex": "c2145201dcc9e7c979",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2acd7b536d27e363aab",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20e5f5d240130a6b6e52eeb24a68b6ae00dc06b0422b4",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c202e2ff24208e442fd2f4865e1d58c52d988ae70aac",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2f71634f9a9eea8e3508218",
+   "expanded": ""
+  },
+  {
+   "hex": "c216aa632913",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2f5e13cced9bf9872da0ce0a1027072484d69f0a5dde3",
+   "expanded": ""
+  },
+  {
+   "hex": "c248ec4315fa587a49401731eb127886",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2128a31ff7fce03c5b840",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2690383",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c29fa794d21aa7f34addddb730",
+   "expanded": "1405774093:"
+  },
+  {
+   "hex": "c28d5928ecf6ef3991cb6ac64fccf638",
+   "expanded": "2853 purpur pillar"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23e4819",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2f6325bd13f4179af088aafd3bfea5b6e702d7b",
+   "expanded": ""
+  },
+  {
+   "hex": "c2279cf201cf1cb2b03f845262a4a8bc88f59a941ef88fae",
+   "expanded": "spruce sapling"
+  },
+  {
+   "hex": "c2a242e40d888786c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22dfaf7310f4018f9bc55",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c296ad",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2f62f33edbb",
+   "expanded": ""
+  },
+  {
+   "hex": "c2353e9ed8ff6e2a168599a19e600b7145e36d",
+   "expanded": "weeping vines"
+  },
+  {
+   "hex": "c25c67dd47c9c2b8fe81",
+   "expanded": "pad0908"
+  },
+  {
+   "hex": "c2eab71a15fe507eb538d31cf5cd0b5731f9",
+   "expanded": ""
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2a6f4655fe3b04cb6d58ea96ad05d3b0a2dadb9271ce47c",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c278b9f9a375bb67d8d63ca68505f339a09fd8c97ed8d734",
+   "expanded": "49 39"
+  },
+  {
+   "hex": "c2edf8ebd6d3d02cc832671d1a837da795a4",
+   "expanded": ""
+  },
+  {
+   "hex": "c243032b0be9311fd480",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2c507247c6b965bbe0f6d61d6c7b4bb44",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2b7936f3a29785e633557daa211f8b3f22ae96b31c2ded8",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2444e137b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23fae82125a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fd5bd3b869e7e9bd0ff74774b253aba7c1fd",
+   "expanded": ""
+  },
+  {
+   "hex": "c242781d917723460d393ac9e86ed06769ca67f1da42cc",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e4cbbfb3cf",
+   "expanded": ""
+  },
+  {
+   "hex": "c297fff514b54989",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c28652588366b88c",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c27d0cbe649815",
+   "expanded": "58 strider highway"
+  },
+  {
+   "hex": "c273d5a56778fd5f478f545b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22345fedbe9e0",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2eae92db5eb9b62ed34c4fb613d38",
+   "expanded": ""
+  },
+  {
+   "hex": "c2725bafc74290ac22b453e8",
+   "expanded": "36(?"
+  },
+  {
+   "hex": "c2ba47fa93",
+   "expanded": "; left turn"
+  },
+  {
+   "hex": "c234814ec98bc8386ebad4b32b023c5d373cbf55faffb2ac",
+   "expanded": "crimson fungus enchanted golden apple"
+  },
+  {
+   "hex": "c2f5121d42af9227fee2487e49",
+   "expanded": ""
+  },
+  {
+   "hex": "c2c061fcbee7bda3",
+   "expanded": "0"
+  },
+  {
+   "hex": "c2e45fbdeaa771f1d3b4e128",
+   "expanded": ""
+  },
+  {
+   "hex": "c202061cc574324cbcb30d910e8bc02ffdcc2c5b55",
+   "expanded": "eye of ender end crystals 38 stripped acacia wood lodestone compass cobblestone"
+  },
+  {
+   "hex": "c2cac258c5b1107ecb8d7b39deb5882938",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fef25dbbf1524fc46b023e983db201ac0d",
+   "expanded": ""
+  },
+  {
+   "hex": "c2fa745e179e4344",
+   "expanded": ""
+  },
+  {
+   "hex": "c250a5b1dc59bc",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2fa7a553af85ef00cbdec3b81",
+   "expanded": ""
+  },
+  {
+   "hex": "c2794f9ffdb266ee095e39336b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2ef6bb0fe",
+   "expanded": ""
+  },
+  {
+   "hex": "c2c297b9d9",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2efc1a50faba6388907a941a0ec8a260354024e2461",
+   "expanded": ""
+  },
+  {
+   "hex": "c281e541938e3a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2218c4d1634a3e46b2c5ee3c9e53aacf206ff1d",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c24c348c3e4bad386f55b7b174b06e4358288a5b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23f287aa38c869c844f044ea816",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c25bcc8a322c7d1d0e0c1c04de731f23d3a0ed",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c28a1e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c207de482a771682c41944d029837424f0e0eb8662f6ee",
+   "expanded": "shulker boxes+music disc chirp oak stairs pad0606 -51 the nether -1 sea pickle 40 cherry fence"
+  },
+  {
+   "hex": "c22ccc94d916c4fab850d6249992",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2774ff95b341f0ac0da6b280d777964ab7d572941b04045",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c27decb918e3a3ae621a15b3ce94",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20fadfada15f98447b917b0d2c1a61336be9d31b9",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c22eb7a85787918fdc",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c266bd16ef4123a53439996d26a331718eba70b110",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2923a569e8588466767e35cbd9d3e5041b31711d1683846",
+   "expanded": "59738"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2bc5a1736",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c26ac394925d981f8dabdca8f7",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2d97f1e16e268684c868ad733032a0e",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2540444a7cb6ba55c3e4eb309aa197cb39d53de00f3",
+   "expanded": "bulb stand by 383208120"
+  },
+  {
+   "hex": "c24af87b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c28a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2a5e5",
+   "expanded": ","
+  },
+  {
+   "hex": "c208e166a757a47e",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2854020",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c27e890b2acc8fb10b8a337e05690f32d87370b0e1",
+   "expanded": "61 warped forest acacia wood pad0545"
+  },
+  {
+   "hex": "c24a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c281fa3f8580",
+   "expanded": "-2"
+  },
+  {
+   "hex": "c28374a1bf",
+   "expanded": "-4 pale oak stairs"
+  },
+  {
+   "hex": "c207330a89dccb4d1ba7f39cb5f4b0d98a274af72afc",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c21a4925a459b0eef362c241f141f96d3bf7c1",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2e0de08a5d06c",
+   "expanded": ""
+  },
+  {
+   "hex": "c25deb2d05e9e244c17cb2a9298a85c3bd",
+   "expanded": "pad1102 2145596 24766'nether hub ice path strider path 5 mycelium"
+  },
+  {
+   "hex": "c25f75d7825306",
+   "expanded": "pad1299"
+  },
+  {
+   "hex": "c27574e8158c",
+   "expanded": "42"
+  },
+  {
+   "hex": "c25a003e67af73d787668653c68e88a18b8959219b312800",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2cb9bb8c22cd39f",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2e09341bc28bd1df5955c00ce96cb58d86ec7b4491819",
+   "expanded": ""
+  },
+  {
+   "hex": "c2cece6dce0d21a248d757a293118b803ad0",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c29140e73bb7c251bd805b57427fd770",
+   "expanded": "33230"
+  },
+  {
+   "hex": "c2508bc24ed5f04900511bde",
+   "expanded": "buy"
+  },
+  {
+   "hex": "c2756c9193a9970ab1984fa72ec27c33e40f9057a1ca11",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c285ec25e784b858ff19f975261ed2f2e142abbb",
+   "expanded": "-30 ancient debris"
+  },
+  {
+   "hex": "c2b5210742a0e6b873c6295329796284be6c97",
+   "expanded": "\"33697 38)bricks ice highway birch boat with chest,"
+  },
+  {
+   "hex": "c2d5b284790745cb4192c08955",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2a8440674d08dd71f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2f7225978487c0d82",
+   "expanded": ""
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2be",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2b3b667",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23e9419344e7b36463cfd4dcd2c2e3c3c",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2bf85945e73ec5e940e59106335a63bc6",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2104ef8f22631106f2e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c29e2d710a834af3be857fa22d2009668e06363217aff6",
+   "expanded": "-190595745,+47 ?"
+  },
+  {
+   "hex": "c2db9f155fa1f471db6c034afc01",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2a475c006502f47a60a1dc29be16d75d407",
+   "expanded": ", chorus flower nether roof black wool end crystal."
+  },
+  {
+   "hex": "c25875da86b4095df7d53896",
+   "expanded": "pad0403"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2880832cf",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c27f60fa4b629c31dd",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c29a9dc2104ea27b0a24bb",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20a",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2c69e70bd1334c8",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2630bc874474bb27cf71bcdd981",
+   "expanded": "6 trading hall pearl clutch 233"
+  },
+  {
+   "hex": "c2aeee1db5fff677245b4d62446e94564f",
+   "expanded": "? 46 jungle temple 23"
+  },
+  {
+   "hex": "c286ecf52c9a951aa4e4f05edc682e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c28c2290",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c239e991ba5c47d380c7b8b9e47d4b1b8834c9633057",
+   "expanded": "bricks husk"
+  },
+  {
+   "hex": "c2d365c3",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c236",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c227cc7d66d5d3d35daad95415",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22a6f75586554",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2d275bb25dd7e91f90e2cf5",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2154186b05a6147fc79b5d7faee",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c24f5d39a6fb",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c29c93e19c17a806fae7df",
+   "expanded": "155064769"
+  },
+  {
+   "hex": "c22e25078ad9a5c6",
+   "expanded": "glass bedrock"
+  },
+  {
+   "hex": "c2bc7fa1cbc51c5be885a125199d2c934bb466bb5c",
+   "expanded": "+acacia fence -24 overworld"
+  },
+  {
+   "hex": "c2b68a82be4a6dfb4170afdd5791c37be6834ca8",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2c53f85c4ede6",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2aa",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2cdf5423fb6b778707c0b01bf80d9f3154b20c7cc743605",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c275c855ca415a11807e088d352aa936d7c7",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2d9eaa849b45726b0e52bedfb3d241c",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2f8d1b8",
+   "expanded": ""
+  },
+  {
+   "hex": "c2140d86140a02875a4c9ad05de4862b9e4e3b",
+   "expanded": "overworld woodland mansion item sorter dark oak sapling respawn, 9/-4 50 mossy cobblestone wall"
+  },
+  {
+   "hex": "c2020abfdbe4",
+   "expanded": "eye of ender portal room"
+  },
+  {
+   "hex": "c2b440f358f9efaff1f1be2c24238c0bda",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2fa96c7db178e8cf456a003e0f466bef8",
+   "expanded": ""
+  },
+  {
+   "hex": "c2c5d54562c56c",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2362b2ee2c1b8d801c38e2c2b1f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c217fbe5c1a7cc8ce0377011c432a07211f6ab3cf9b2b9",
+   "expanded": "trading hall"
+  },
+  {
+   "hex": "c280755946c0135ca80364f7c0c54b71",
+   "expanded": "0"
+  },
+  {
+   "hex": "c2828e1e5213dba8d8ffcea807bc53bb8343150ad7b99f9d",
+   "expanded": "2 33"
+  },
+  {
+   "hex": "c2fbc756195d915186f28a548bf02b3116a9",
+   "expanded": ""
+  },
+  {
+   "hex": "c2d0e32c006744a1e4f81586005de8524ade853ea027",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2102c723e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c292",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2d28e80f1da",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c28f3058d77de55311767f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2a2e4",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2ad2e03847bb71c5c59b64c7d8ffa9031c882",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c24fabd8fc",
+   "expanded": "again"
+  },
+  {
+   "hex": "c2ae9e6100",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2c64f67bc5f733d8d11d690bec9e8ad6568f45229530e",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2a5f5d7458d05aea0b32487e1f1e76927cf6351255b",
+   "expanded": ","
+  },
+  {
+   "hex": "c26201ce52cd30821614a0154027d8",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2cfa15733",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2344f4dec",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c274091d973c062a5b29eb045a64db",
+   "expanded": "40 warped forest 44)"
+  },
+  {
+   "hex": "c26e9c4be56ab74848",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2a55ecc05e62003747f4f48c5f996bbc61d76f02b22074d",
+   "expanded": ",?'-1 51 soul soil blaze rod"
+  },
+  {
+   "hex": "c2906652865d8aef6fe15bac1f",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2ce470a6d",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23d2a54",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20a141c114ce998ef95",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2b87bfca7d08bf38f5aa9499b93ce257a61e9",
+   "expanded": ")crimson pressure plate"
+  },
+  {
+   "hex": "c25d8e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c217c9148f7be10e927375ef2b0660a68f",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2e251dc23336fc266589296ec0586b2c2bed65ea9",
+   "expanded": ""
+  },
+  {
+   "hex": "c2bdd5aee4",
+   "expanded": "+"
+  },
+  {
+   "hex": "c2f20780c89d1b9c5b3c4642dc64f00c",
+   "expanded": ""
+  },
+  {
+   "hex": "c25709cb97776014beaa2c729eb4",
+   "expanded": "pad0221"
+  },
+  {
+   "hex": "c2084c68b1dfafc281fe",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2c32076",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2a0f4c32bec3938126fe5715cb97c742c1c1dda",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2b3",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2929cf0",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2a521d9c874ef800ff9dffa20",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2b32ab953",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c235608f44c08c4dbf48481b",
+   "expanded": "sugar cane nether fortress"
+  },
+  {
+   "hex": "c24e70a7bbc00e0c46",
+   "expanded": "now angler"
+  },
+  {
+   "hex": "c22958fda18468255ec52f71fdde376b817c3d30",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c25e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2f03ef9dce06c65ae",
+   "expanded": ""
+  },
+  {
+   "hex": "c2cfe74d",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2808e2a8da66527eb4a17f884",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c2bbaae70e2055cfab2659eac1ea14146e",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2437e7eb09a09c1ee6cba3c9bb7538400e2e112c6dec41b",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2747ea29be2b47537b706a0886bcdb8be",
+   "expanded": "40"
+  },
+  {
+   "hex": "c2a8a51290dcaa0b9875ef6e251709",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c220",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2ebc87046de57a83b5b1e5cd317e957",
+   "expanded": ""
+  },
+  {
+   "hex": "c2882fa3f129ef0923184a1fe95f6e07",
+   "expanded": "-48 cyan banner crimson stem 48 -50707 soul sand"
+  },
+  {
+   "hex": "c217eaccbf9c36",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c23072f3b649e9685bf3a85edadf2d0233a4b64a5356e0",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2616374",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c27bae3793eab8f31e58ae02a52393e6402caa6a8f",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22e75c9b9b129cf9a44",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20817c730",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2da43d3c14ee0131ce882bd",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2874f9bdd3c69ec36bd2528cca671122b5d019bc68c93ab",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2839c6856ddae23b0717a07596b369d75dd723ced",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c242b0ea7d",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c24696f057dabdfa309b7f6b9d",
+   "expanded": "gray bed 48 pad0326 pad1239 -622"
+  },
+  {
+   "hex": "c2cccddff8e64f82",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2b4e4d5eb8466ac83",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c290dfefe0e21464206ae5fb71b2d44cf59250a783305116",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c208e54a7a620b4eb8a4",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c279629b98",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c20e097300037db447954960191e1dd9a02bd7",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c28862dd8a0dc66243",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2f436a815f02622fe7492914e3210995aeb21e528f41170",
+   "expanded": ""
+  },
+  {
+   "hex": "c23fb19d71c68a94a354673c23a2828bd5e98e36",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2d62b106611bfeeae6f9d93c2b488a8d5c0",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c209ce7d589ddae438397f4eb49700807655c7",
+   "expanded": "golden apple 262869947)-4 grass attack orange candle stash at"
+  },
+  {
+   "hex": "c2888035d058b796ff24572f7606",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e2bdc84365498ae2e1de",
+   "expanded": ""
+  },
+  {
+   "hex": "c210b3f1d9aa6fd6200a28438b32cbeaf653eb58",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2ef6bbe25ad71feacc96520f0f9985692316757b347",
+   "expanded": ""
+  },
+  {
+   "hex": "c26a43cecac56953248cd9efde709f",
+   "error": "IndexError"
+  },
+  {
+   "hex": "c20146b78d",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2e64894c25371007c",
+   "expanded": ""
+  },
+  {
+   "hex": "c2687dd119bb40",
+   "expanded": "16"
+  },
+  {
+   "hex": "c254259d",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c256618904aed4057dffa60123",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2c38171ee286a13a83605b25d",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2577b83c44b13e38386b8be14f450b3baeee0",
+   "error": "UnicodeDecodeError"
+  },
+  {
+   "hex": "c2dee0fde29659ffc4c2c28e",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c22ddf479b8c68f8a0273b8a13b44ad2e2fe46987f02",
+   "expanded": "dark oak leaves"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  },
+  {
+   "hex": "c2",
+   "error": "ValueError"
+  }
+ ]
+}
