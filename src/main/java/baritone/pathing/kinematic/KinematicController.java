@@ -53,6 +53,8 @@ public final class KinematicController {
     private int stuckTicks, cooldown;
     /** Ticks left walking straight back onto the path line after the hitbox caught a corner beside it. */
     private int recenter, recenters;
+    /** Ticks the controller has driven the player, so callers can verify the backend is in use. */
+    public static volatile long drivenTicks;
 
     public KinematicController(IPlayerContext ctx) {
         this.ctx = ctx;
@@ -65,6 +67,14 @@ public final class KinematicController {
      * @return the path position to continue from if the controller drove this tick, or -1 to let Baritone run the movement
      */
     public int tick(Baritone baritone, IPath path, int pathPosition) {
+        int r = drive(baritone, path, pathPosition);
+        if (r >= 0) {
+            drivenTicks++;
+        }
+        return r;
+    }
+
+    private int drive(Baritone baritone, IPath path, int pathPosition) {
         if (!Baritone.settings().kinematicTravel.value || ctx.player().isInWater() || ctx.player().isInLava()
                 || ctx.player().isOnLadder() || ctx.player().isElytraFlying() || ctx.player().isPassenger()) {
             return -1;
