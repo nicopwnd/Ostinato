@@ -1,21 +1,3 @@
-/*
- * This file is part of Baritone.
- *
- * Baritone is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Baritone is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-
 package baritone.swarm;
 
 import baritone.swarm.crypto.SigilCircle;
@@ -59,8 +41,14 @@ public class SwarmEndpointTest {
         groups.put("beta", TestCircles.beta());
     }
 
+    private static SwarmConfig unsignedCfg() {
+        SwarmConfig.Builder b = SwarmConfig.builder();
+        b.requireSignedSender = false;
+        return b.build();
+    }
+
     private SwarmEndpoint endpoint(String id) throws Exception {
-        return new SwarmEndpoint(id, SwarmConfig.defaults(), groups, bus.register(id), clock::get);
+        return new SwarmEndpoint(id, unsignedCfg(), groups, bus.register(id), clock::get);
     }
 
     @Test
@@ -97,7 +85,7 @@ public class SwarmEndpointTest {
         for (String line : wire) {
             assertTrue(line, SwarmTransport.isSealed(line));
             assertTrue(line.length() <= a.config().sealLineBudget());
-            assertFalse(line.contains("|")); // no frame text leaks
+            assertFalse(line.contains("|"));
         }
     }
 
@@ -129,7 +117,7 @@ public class SwarmEndpointTest {
         Collections.reverse(order);
         for (String line : order) {
             add(got, b.receiveLine(line));
-            add(got, b.receiveLine(line)); // network duplicate
+            add(got, b.receiveLine(line));
         }
         assertEquals(1, got.size());
         assertEquals(text, got.get(0).body());
@@ -155,14 +143,13 @@ public class SwarmEndpointTest {
         assertEquals(1, b.poll().size());
         assertEquals(null, b.receiveLine(wire.get(0)));
         assertEquals(SwarmReject.REPLAY, b.lastReject());
-        // a restarted sender (new epoch) is accepted; its old-epoch lines are then stale
         clock.addAndGet(5_000);
         bus.setInterceptor((from, to, line) -> {
             wire.add(line);
             return Collections.singletonList(line);
         });
         a.close();
-        SwarmEndpoint a2 = new SwarmEndpoint("botA", SwarmConfig.defaults(), groups, bus.register("botA"), clock::get);
+        SwarmEndpoint a2 = new SwarmEndpoint("botA", unsignedCfg(), groups, bus.register("botA"), clock::get);
         a2.send("alpha", "botB", "cmd", "go");
         assertEquals("go", b.poll().get(0).body());
         assertEquals(null, b.receiveLine(wire.get(0)));
@@ -177,16 +164,13 @@ public class SwarmEndpointTest {
             assertEquals(null, b.receiveLine(line));
             assertEquals(SwarmReject.UNSEALED, b.lastReject());
         }
-        // Right slug, wrong passphrase.
         String frame = new SwarmFrame("alpha", "botA", "botB", 1, 1, 0, 1, 1, 1, "cmd", "stop").encode();
         assertEquals(null, b.receiveLine(SigilS1C.sealSingle(TestCircles.alphaWrongPass(), frame, 234)));
         assertEquals(SwarmReject.UNSEALED, b.lastReject());
-        // A sigil i/n fragment is never a swarm frame, even if it opens.
         for (String part : SigilS1C.seal(TestCircles.alpha(), TestBodies.make(400), 234)) {
             assertEquals(null, b.receiveLine(part));
             assertEquals(SwarmReject.UNSEALED, b.lastReject());
         }
-        // Opens fine but is not a frame.
         assertEquals(null, b.receiveLine(SigilS1C.sealSingle(TestCircles.alpha(), "just chat", 234)));
         assertEquals(SwarmReject.MALFORMED, b.lastReject());
     }
@@ -200,6 +184,7 @@ public class SwarmEndpointTest {
         });
         SwarmConfig.Builder s1 = SwarmConfig.builder();
         s1.wireVersion = "S1";
+        s1.requireSignedSender = false;
         SwarmEndpoint old = new SwarmEndpoint("botOld", s1.build(), groups, bus.register("botOld"), clock::get);
         SwarmEndpoint neu = endpoint("botNew");
         neu.send("alpha", "botOld", "task", TestBodies.make(400));
@@ -219,7 +204,6 @@ public class SwarmEndpointTest {
     @Test
     public void s2SpecificRejections() throws Exception {
         SwarmEndpoint b = endpoint("botB");
-        // sigil's own S2 multi-part fragments look like single tokens on the wire, but are refused after opening
         List<String> parts = SigilS2C.seal(TestCircles.alpha(), TestBodies.make(400), "", 234);
         assertTrue(parts.size() > 1);
         for (String part : parts) {
@@ -235,7 +219,6 @@ public class SwarmEndpointTest {
         assertEquals(SwarmReject.UNSEALED, b.lastReject());
         SwarmMessage m = b.receiveLine(SigilCodec.sealSingle(SigilWire.S2, TestCircles.alpha(), ok, 234));
         assertEquals("stop", m.body());
-        // the same frame again under the other wire is still a replay (same sender/epoch/seq)
         assertEquals(null, b.receiveLine(SigilS1C.sealSingle(TestCircles.alpha(), ok, 234)));
         assertEquals(SwarmReject.REPLAY, b.lastReject());
     }
@@ -266,7 +249,6 @@ public class SwarmEndpointTest {
     public void missingFrameCountsAsExpired() throws Exception {
         bus.setInterceptor(new InMemorySwarmBus.Interceptor() {
             int n;
-
             @Override
             public List<String> deliver(String from, String to, String line) {
                 return ++n == 2 ? Collections.<String>emptyList() : Collections.singletonList(line);
@@ -277,7 +259,7 @@ public class SwarmEndpointTest {
         a.send("alpha", "botB", "task", TestBodies.make(400));
         assertTrue(b.poll().isEmpty());
         assertEquals(1, b.pendingMessages());
-        clock.addAndGet(SwarmConfig.defaults().reassemblyTimeoutMs());
+        clock.addAndGet(unsignedCfg().reassemblyTimeoutMs());
         assertTrue(b.poll().isEmpty());
         assertEquals(0, b.pendingMessages());
         assertEquals(1L, b.rejectCount(SwarmReject.EXPIRED));
@@ -304,7 +286,7 @@ public class SwarmEndpointTest {
         } catch (IllegalArgumentException expected) {
         }
         try {
-            new SwarmEndpoint("botQ", SwarmConfig.defaults(), Collections.<String, SigilCircle>emptyMap(),
+            new SwarmEndpoint("botQ", unsignedCfg(), Collections.<String, SigilCircle>emptyMap(),
                     bus.register("botQ"), clock::get);
             fail("no plaintext mode");
         } catch (IllegalArgumentException expected) {
@@ -313,7 +295,7 @@ public class SwarmEndpointTest {
         shared.put("g1", TestCircles.alpha());
         shared.put("g2", TestCircles.alpha());
         try {
-            new SwarmEndpoint("botR", SwarmConfig.defaults(), shared, bus.register("botR"), clock::get);
+            new SwarmEndpoint("botR", unsignedCfg(), shared, bus.register("botR"), clock::get);
             fail("groups sharing a circle could impersonate each other");
         } catch (IllegalArgumentException expected) {
         }
