@@ -190,11 +190,11 @@ public class Baritone implements IBaritone {
         return this.inventoryBehavior;
     }
 
-    @Override
     public SwarmBehavior getSwarmBehavior() {
         return this.swarmBehavior;
     }
 
+    @Override
     public LookBehavior getLookBehavior() {
         return this.lookBehavior;
     }
