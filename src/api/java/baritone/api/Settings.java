@@ -1656,6 +1656,18 @@ public final class Settings {
     @Target(ElementType.FIELD)
     private @interface JavaOnly {}
 
+    /**
+     * Travel movement backend for goto-style goals ({@code #goto}, custom goals).
+     * <ul>
+     *   <li>{@code baritone} — classic Baritone pathing</li>
+     *   <li>{@code tungsten} — physics A* via the optional Tungsten mod when present; else Baritone</li>
+     *   <li>{@code auto} — Tungsten when the mod is loaded, else Baritone</li>
+     * </ul>
+     * Mining / schematics / inventory stay on Baritone regardless of this setting. Defaults to
+     * {@code baritone} here: TenorClef on 1.16.1 ships the Tungsten jar and drives it itself.
+     */
+    public final Setting<String> movementBackend = new Setting<>("baritone");
+
     // here be dragons
 
     Settings() {
