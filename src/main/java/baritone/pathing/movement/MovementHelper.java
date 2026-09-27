@@ -437,6 +437,9 @@ public interface MovementHelper extends ActionCosts, Helper {
             return YES;
         }
         //*****************************************
+        if (block instanceof FallingBlock && Baritone.settings().pitfallAvoidance.value) {
+            return MAYBE; // depends on what it rests on, see canWalkOnPosition
+        }
         if (isBlockNormalCube(state) && (block != Blocks.MAGMA_BLOCK || Baritone.settings().allowWalkOnMagmaBlocks.value) && block != Blocks.BUBBLE_COLUMN && block != Blocks.HONEY_BLOCK) {
             return YES;
         }
@@ -492,6 +495,11 @@ public interface MovementHelper extends ActionCosts, Helper {
             return isWater(upState) ^ Baritone.settings().assumeWalkOnWater.value;
         }
 
+        if (block instanceof FallingBlock) {
+            // pitfall: sand/gravel/concrete powder resting on something without collision (air, open gate, sign...) drops out from under us
+            BlockPos.Mutable below = bsi.isPassableBlockPos.setPos(x, y - 1, z);
+            return isBlockNormalCube(state) && !bsi.get0(x, y - 1, z).getCollisionShape(bsi.access, below).isEmpty();
+        }
         if (MovementHelper.isLava(state) && !MovementHelper.isFlowing(x, y, z, state, bsi) && Baritone.settings().assumeWalkOnLava.value) { // if we get here it means that assumeWalkOnLava must be true, so put it last
             return true;
         }
