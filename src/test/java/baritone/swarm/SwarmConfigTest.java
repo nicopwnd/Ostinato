@@ -19,7 +19,8 @@
 package baritone.swarm;
 
 import baritone.swarm.crypto.SigilException;
-import baritone.swarm.crypto.SigilS1C;
+import baritone.swarm.crypto.SigilCodec;
+import baritone.swarm.crypto.SigilWire;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -37,7 +38,16 @@ public class SwarmConfigTest {
         assertEquals(256, c.maxLineChars());
         assertEquals(22, c.lineReserveChars());
         assertEquals(234, c.sealLineBudget());
-        assertEquals(135, c.maxFrameBytes()); // auto: largest payload sealSingle accepts at 234
+        assertEquals(SigilWire.S2, c.wire());
+        assertEquals(139, c.maxFrameBytes()); // auto: largest S2C payload sealSingle accepts at 234
+        SigilWire.parse("S2"); // default setting value
+        SwarmConfig.Builder s1 = SwarmConfig.builder();
+        s1.wireVersion = "S1";
+        assertEquals(SigilWire.S1, s1.build().wire());
+        assertEquals(135, s1.build().maxFrameBytes());
+        SwarmConfig.Builder junk = SwarmConfig.builder();
+        junk.wireVersion = "plaintext";
+        assertEquals(SigilWire.S2, junk.build().wire()); // no plaintext mode: unknown values fall back to S2
         assertEquals(8, c.maxChunks());
         assertEquals(30000L, c.reassemblyTimeoutMs());
         assertEquals(64, c.maxPendingMessages());
@@ -49,15 +59,17 @@ public class SwarmConfigTest {
 
     @Test
     public void autoFrameBudgetIsExactlyTheSingleLineLimit() throws Exception {
-        for (int line : Arrays.asList(96, 150, 234, 256)) {
-            int n = SigilS1C.maxSingleLinePayloadBytes(line);
-            String fits = repeat('a', n);
-            String sealed = SigilS1C.sealSingle(TestCircles.alpha(), fits, line);
-            assertTrue(sealed.length() <= line);
-            try {
-                SigilS1C.sealSingle(TestCircles.alpha(), repeat('a', n + 1), line);
-                fail("n+1 bytes must not fit one line at " + line);
-            } catch (SigilException expected) {
+        for (SigilWire wire : SigilWire.values()) {
+            for (int line : Arrays.asList(96, 150, 234, 256)) {
+                int n = SigilCodec.maxSingleLinePayloadBytes(wire, line);
+                String fits = repeat('a', n);
+                String sealed = SigilCodec.sealSingle(wire, TestCircles.alpha(), fits, line);
+                assertTrue(sealed.length() <= line);
+                try {
+                    SigilCodec.sealSingle(wire, TestCircles.alpha(), repeat('a', n + 1), line);
+                    fail(wire + ": n+1 bytes must not fit one line at " + line);
+                } catch (SigilException expected) {
+                }
             }
         }
     }
@@ -89,7 +101,7 @@ public class SwarmConfigTest {
 
         SwarmConfig.Builder big = SwarmConfig.builder();
         big.maxFrameBytes = 100_000;
-        assertEquals(135, big.build().maxFrameBytes()); // never above what fits one line
+        assertEquals(139, big.build().maxFrameBytes()); // never above what fits one line
     }
 
     static String repeat(char ch, int n) {

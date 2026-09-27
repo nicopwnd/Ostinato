@@ -23,7 +23,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * One swarm frame: the plaintext sealed inside a single S1C token.
+ * One swarm frame: the plaintext sealed inside a single S1C or S2C token.
  *
  * <pre>
  * 1|group|from|to|epoch|seq|ts|msg|i/n|type|body

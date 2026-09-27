@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 
 /**
  * Moves sealed swarm lines between members. Transports only ever carry
- * single-part S1C tokens; there is no plaintext mode, and {@link #requireSealed}
+ * single-line S1C or S2C tokens; there is no plaintext mode, and {@link #requireSealed}
  * refuses anything else before it leaves the process.
  */
 public interface SwarmTransport extends Closeable {
@@ -33,8 +33,12 @@ public interface SwarmTransport extends Closeable {
     /** Recipient meaning "every other member". */
     String BROADCAST = "*";
 
-    /** Single-part, non-codebook S1C token: {@code S1C.<slug>.<base64url>}. */
-    Pattern SEALED_LINE = Pattern.compile("S1C\\.[a-z0-9]{4}\\.[A-Za-z0-9_-]{40,}");
+    /**
+     * One circle token without visible fragment fields: {@code S1C.<slug>.<b64>} or
+     * {@code S2C.<slug>.<b64>}. (An S2 multi-part header is inside the blob; the endpoint
+     * refuses those after opening.)
+     */
+    Pattern SEALED_LINE = Pattern.compile("S[12]C\\.[a-z0-9]{4}\\.[A-Za-z0-9_-]{38,}");
 
     /** This member's id on the transport. */
     String selfId();
@@ -51,7 +55,7 @@ public interface SwarmTransport extends Closeable {
 
     static void requireSealed(String line) {
         if (!isSealed(line)) {
-            throw new IllegalArgumentException("swarm transports only carry single S1C tokens");
+            throw new IllegalArgumentException("swarm transports only carry single S1C/S2C tokens");
         }
     }
 }

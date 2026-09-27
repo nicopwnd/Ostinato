@@ -19,8 +19,8 @@
 package baritone.swarm;
 
 import baritone.swarm.crypto.SigilCircle;
+import baritone.swarm.crypto.SigilCodec;
 import baritone.swarm.crypto.SigilException;
-import baritone.swarm.crypto.SigilS1C;
 import baritone.swarm.frame.SwarmChunker;
 import baritone.swarm.frame.SwarmFrame;
 import baritone.swarm.frame.SwarmFrameException;
@@ -44,7 +44,7 @@ import java.util.function.LongSupplier;
 
 /**
  * One swarm member: frames, seals, sends, and on the way in opens, checks and
- * reassembles. Every frame is sealed as exactly one S1C token under the circle
+ * reassembles. Every frame is sealed as exactly one S1C or S2C token ({@code swarmWireVersion}) under the circle
  * of the group it names; inbound frames must name the group whose circle opened
  * them. Rejections are counted, never thrown, on the receive path.
  */
@@ -113,7 +113,7 @@ public final class SwarmEndpoint implements Closeable {
         List<SwarmFrame> frames = chunker.chunk(group, to, type, body, clockMs.getAsLong() / 1000L);
         List<String> lines = new ArrayList<>(frames.size());
         for (SwarmFrame f : frames) { // seal everything first so a failure sends nothing
-            lines.add(SigilS1C.sealSingle(circle, f.encode(), cfg.sealLineBudget()));
+            lines.add(SigilCodec.sealSingle(cfg.wire(), circle, f.encode(), cfg.sealLineBudget()));
         }
         for (String line : lines) {
             transport.send(to, line);
@@ -144,12 +144,15 @@ public final class SwarmEndpoint implements Closeable {
         if (!SwarmTransport.isSealed(token)) {
             return reject(SwarmReject.UNSEALED);
         }
-        SigilS1C.Opened opened;
+        SigilCodec.Opened opened;
         String text;
         try {
-            opened = SigilS1C.open(token, keyring);
+            opened = SigilCodec.open(token, keyring);
             text = opened.text();
         } catch (SigilException e) {
+            return reject(SwarmReject.UNSEALED);
+        }
+        if (opened.total() != 1) { // sigil's own multi-part fragments are never swarm frames
             return reject(SwarmReject.UNSEALED);
         }
         try {

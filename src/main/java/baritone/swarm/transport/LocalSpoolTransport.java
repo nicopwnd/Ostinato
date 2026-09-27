@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Same-machine transport: one inbox directory per member under a shared
  * spool root ({@code swarmLocalSpoolDir}). A send writes a temp file and
  * atomically renames it into the recipient's inbox; receive reads and deletes
- * {@code *.frame} files in name order. Only sealed S1C tokens are written, so
+ * {@code *.frame} files in name order. Only sealed S1C/S2C tokens are written, so
  * the spool never holds plaintext. Member ids are restricted to
  * {@code [A-Za-z0-9_-]{1,16}}, which keeps paths inside the root.
  */

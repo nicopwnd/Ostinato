@@ -318,13 +318,13 @@ public final class SigilS1C {
                 .getBytes(StandardCharsets.UTF_8);
     }
 
-    private static final class AuthFailure extends SigilException {
+    static final class AuthFailure extends SigilException {
         AuthFailure() {
             super("GCM authentication failed.");
         }
     }
 
-    private static byte[] gcm(int mode, byte[] key, byte[] nonce, byte[] input, byte[] aad) throws SigilException {
+    static byte[] gcm(int mode, byte[] key, byte[] nonce, byte[] input, byte[] aad) throws SigilException {
         try {
             Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
             c.init(mode, new SecretKeySpec(key, "AES"), new GCMParameterSpec(TAG_LEN * 8, nonce));
