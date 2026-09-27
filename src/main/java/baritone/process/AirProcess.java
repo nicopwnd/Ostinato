@@ -28,6 +28,8 @@ public final class AirProcess extends BaritoneProcessHelper {
     private boolean active;
     private int surfaceY;
     private int depth;
+    /** Where surfacing began: a teleport (or long drift) makes the goal stale. */
+    private int fromX, fromZ;
     /** Built once per surfacing: a fresh Goal each tick would look like a goal change and restart the search. */
     private Goal goal;
     private Goal col;
@@ -64,6 +66,8 @@ public final class AirProcess extends BaritoneProcessHelper {
         if (!active && ctx.player().isInWater() && air < Math.min(max - 40, Math.max(max / 3, depth * 9)) && !goalWithinBreath(air, depth)) {
             // ~1.5x the straight swim (4 ticks/block): paths detour around hulls and walls.
             active = true;
+            fromX = ctx.playerFeet().getX();
+            fromZ = ctx.playerFeet().getZ();
             surfaceY = findSurfaceY();
             Goal c = columnGoal(surfaceY == NONE ? Integer.MAX_VALUE : surfaceY - ctx.playerFeet().getY());
             if (c == null && surfaceY == NONE) {
@@ -74,7 +78,7 @@ public final class AirProcess extends BaritoneProcessHelper {
             goal = c != null ? c : surfaceGoal(surfaceY == NONE ? ctx.playerFeet().getY() + 64 : surfaceY);
             if (c != null) logDebug("Low on air (" + air + " d=" + depth + " eta=" + baritone.getPathingBehavior().estimatedTicksToGoal().map(Math::round).orElse(-1L) + "), heading to a bubble column");
             else logDebug("Low on air (" + air + "), surfacing to y=" + surfaceY);
-        } else if (active && air >= max) {
+        } else if (active && (air >= max || Math.abs(ctx.playerFeet().getX() - fromX) + Math.abs(ctx.playerFeet().getZ() - fromZ) > 48)) {
             active = false;
         }
         return active;
