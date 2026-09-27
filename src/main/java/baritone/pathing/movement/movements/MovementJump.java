@@ -31,6 +31,7 @@ import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
 import baritone.utils.pathing.MutableMoveResult;
+import net.minecraft.network.play.client.CPlayerPacket;
 import net.minecraft.util.math.vector.Vector3d;
 
 import java.util.ArrayList;
@@ -128,7 +129,7 @@ public class MovementJump extends Movement {
                     }
                 }
                 for (int[] cell : t.cells) {
-                    if (!MovementHelper.fullyPassable(context, x + cell[0] * f[0] + cell[2] * f[2], y + cell[1], z + cell[0] * f[1] + cell[2] * f[3])) {
+                    if (MovementHelper.fullyPassable(context, x + cell[0] * f[0] + cell[2] * f[2], y + cell[1], z + cell[0] * f[1] + cell[2] * f[3]) == (cell[3] == 1)) {
                         continue templates;
                     }
                 }
@@ -174,7 +175,7 @@ public class MovementJump extends Movement {
     protected Set<BetterBlockPos> calculateValidPositions() {
         Set<BetterBlockPos> set = new HashSet<>();
         for (int[] cell : t.cells) {
-            set.add(at(src, f, cell[0], cell[1], cell[2]));
+            if (cell[3] == 0) set.add(at(src, f, cell[0], cell[1], cell[2]));
         }
         for (int r = 0; r <= t.runUp; r++) {
             set.add(at(src, f, -r, 0, 0));
@@ -232,10 +233,12 @@ public class MovementJump extends Movement {
         real.collidedH = ctx.player().collidedHorizontally;
         if (landed) {
             // let the landing settle, then step to the middle for the next movement
-            if (ctx.playerFeet().equals(dest) && (settle++ >= 3 || Math.abs(m.x) + Math.abs(m.z) < 0.03)) {
+            // (a neo lands hanging over the side, feet outside dest: step in once the landing has settled)
+            settle++;
+            if (ctx.playerFeet().equals(dest) && (settle > 3 || Math.abs(m.x) + Math.abs(m.z) < 0.03)) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
-            if (settle > 20) {
+            if (settle > 3) {
                 MovementHelper.moveTowards(ctx, state, dest);
             }
             return state;
@@ -260,6 +263,9 @@ public class MovementJump extends Movement {
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
             running = true;
+            // the client only reports moves over 0.03, and a neo starts ~0.01 off the wall: sync the server's copy of our
+            // position first, or it replays the jump from a stale spot inside the wall and rubber-bands us back
+            ctx.player().connection.sendPacket(new CPlayerPacket.PositionPacket(p.x, p.y, p.z, true));
         } else if (!js.run(real, js.plan, js.jumped, js.airTicks, null)) {
             js.search(real, true); // drifted off the plan: replan around it, else fly it anyway
         }

@@ -21,7 +21,7 @@ public final class JumpTemplates {
         public final double lateral;
         /** {@link JumpSearch} plan indices found offline; the run-time search starts around them. */
         public final int[] plan;
-        /** Cells {a, y, b} the player's box (plus a small margin) passes through; all must be passable. */
+        /** Cells {a, y, b, solid} the player's box (plus a small margin) touches: passable, or solid when the box only slides along it (a neo's wall). */
         public final int[][] cells;
 
         Template(int a, int dy, int b, int runUp, double lateral, int ticks, int[] plan, int[][] cells) {
@@ -43,8 +43,9 @@ public final class JumpTemplates {
             String[] parts = line.split(" ");
             int[][] cells = new int[parts.length - 7][];
             for (int i = 7; i < parts.length; i++) {
-                String[] c = parts[i].split(",");
-                cells[i - 7] = new int[]{Integer.parseInt(c[0]), Integer.parseInt(c[1]), Integer.parseInt(c[2])};
+                boolean solid = parts[i].startsWith("s");
+                String[] c = parts[i].substring(solid ? 1 : 0).split(",");
+                cells[i - 7] = new int[]{Integer.parseInt(c[0]), Integer.parseInt(c[1]), Integer.parseInt(c[2]), solid ? 1 : 0};
             }
             int[] plan = new int[JumpSearch.DIMS];
             for (int k = 0; k < plan.length; k++) plan[k] = parts[6].charAt(k) - '0';
@@ -116,7 +117,7 @@ public final class JumpTemplates {
                     for (int cx = PlayerSim.floor(x - 0.3 - MARGIN); cx <= PlayerSim.floor(x + 0.3 + MARGIN); cx++)
                         for (int cy = PlayerSim.floor(y + 1e-3); cy <= PlayerSim.floor(y + 1.8); cy++)
                             for (int cz = PlayerSim.floor(z - 0.3 - MARGIN); cz <= PlayerSim.floor(z + 0.3 + MARGIN); cz++)
-                                cells.add(cx + "," + cy + "," + cz);
+                                cells.add((w.solid.contains(BoxWorld.key(cx, cy, cz)) ? "s" : "") + cx + "," + cy + "," + cz);
                 };
                 sink.box(start.x, start.y, start.z);
                 js.run(start, js.plan, false, 0, sink);
