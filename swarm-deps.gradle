@@ -1,0 +1,4 @@
+// Applied from build.gradle. Shades BC into the jar (same as nether-pathfinder).
+dependencies {
+    shade 'org.bouncycastle:bcprov-jdk15on:1.70'
+}
