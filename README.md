@@ -124,3 +124,14 @@ wire are SIGIL S2 (including S2S when a sender must be proven).
 Ostinato is licensed under LGPL-3.0 with upstream Baritone's anime exception.
 See [LICENSE](LICENSE) and preserve all applicable notices when redistributing
 artifacts.
+
+## Vibe coding / AI use
+
+Large parts of this repository were written or edited with AI assistants
+(Claude, Grok, and similar). That is vibe coding: a person set the
+direction; a model produced a lot of the text. A green CI run or a
+commit message is not proof that a human understood every line.
+
+Read the diff before you run or merge it. Do not treat this as audited
+software. File bugs. Do not assume the model already considered your
+case.
