@@ -30,9 +30,7 @@ import baritone.swarm.crypto.SigilWire;
  */
 public final class SwarmConfig {
 
-    /** Hard floor for a usable frame (header plus a little body). */
     public static final int MIN_FRAME_BYTES = 48;
-    /** Smallest sealed-line budget allowed (maxLineChars - lineReserveChars); leaves 56 frame bytes. */
     public static final int MIN_SEAL_LINE = 128;
 
     private final SigilWire wire;
@@ -46,6 +44,7 @@ public final class SwarmConfig {
     private final int maxClockSkewSec;
     private final int maxPeers;
     private final String localSpoolDir;
+    private final boolean requireSignedSender;
 
     private SwarmConfig(Builder b) {
         this.wire = SigilWire.parse(b.wireVersion);
@@ -60,6 +59,7 @@ public final class SwarmConfig {
         this.maxClockSkewSec = b.maxClockSkewSec <= 0 ? 0 : Math.max(5, b.maxClockSkewSec);
         this.maxPeers = clamp(b.maxPeers, 1, 4096);
         this.localSpoolDir = b.localSpoolDir == null ? "" : b.localSpoolDir.trim();
+        this.requireSignedSender = b.requireSignedSender;
     }
 
     private static int clamp(int v, int lo, int hi) {
@@ -74,12 +74,10 @@ public final class SwarmConfig {
         return new Builder();
     }
 
-    /** Snapshot the current {@code swarm*} settings. */
     public static SwarmConfig fromSettings(Settings s) {
         return builderFromSettings(s).build();
     }
 
-    /** A builder preloaded from the current {@code swarm*} settings (values are clamped on build). */
     public static Builder builderFromSettings(Settings s) {
         Builder b = builder();
         b.wireVersion = s.swarmWireVersion.value;
@@ -96,11 +94,8 @@ public final class SwarmConfig {
         return b;
     }
 
-    /** Wire format frames are sealed in ({@code swarmWireVersion}); both are accepted on receive. */
     public SigilWire wire() { return wire; }
-    /** Line budget handed to {@link SigilCodec#sealSingle}: max line minus the transport prefix reserve. */
     public int sealLineBudget() { return maxLineChars - lineReserveChars; }
-    /** Max bytes of one encoded frame (envelope header plus body). */
     public int maxFrameBytes() { return maxFrameBytes; }
     public int maxLineChars() { return maxLineChars; }
     public int lineReserveChars() { return lineReserveChars; }
@@ -108,13 +103,12 @@ public final class SwarmConfig {
     public long reassemblyTimeoutMs() { return reassemblyTimeoutMs; }
     public int maxPendingMessages() { return maxPendingMessages; }
     public int replayWindow() { return replayWindow; }
-    /** 0 = no wall-clock check (default; needs no NTP). */
     public int maxClockSkewSec() { return maxClockSkewSec; }
     public int maxPeers() { return maxPeers; }
-    /** Empty = caller picks the default spool directory. */
     public String localSpoolDir() { return localSpoolDir; }
+    /** When true, inbound frames must be S2S with a pinned Ed25519 key. */
+    public boolean requireSignedSender() { return requireSignedSender; }
 
-    /** Mutable builder; defaults mirror the {@code swarm*} setting defaults. */
     public static final class Builder {
         public String wireVersion = "S2";
         public int maxLineChars = 256;
@@ -127,6 +121,7 @@ public final class SwarmConfig {
         public int maxClockSkewSec = 0;
         public int maxPeers = 64;
         public String localSpoolDir = "";
+        public boolean requireSignedSender = true;
 
         private Builder() {}
 
