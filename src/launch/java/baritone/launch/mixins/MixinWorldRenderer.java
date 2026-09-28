@@ -22,7 +22,10 @@ import baritone.api.IBaritone;
 import baritone.api.event.events.RenderEvent;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.vertex.PoseStack;
+import baritone.behavior.FreecamBehavior;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -30,6 +33,7 @@ import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -49,5 +53,22 @@ public class MixinWorldRenderer {
             poseStack.mulPose(matrix4f);
             ibaritone.getGameEventHandler().onRenderPass(new RenderEvent(deltaTracker.getGameTimeDeltaPartialTick(false), poseStack, matrix4f2));
         }
+    }
+
+    // Vanilla skips the local player unless it is the camera entity; while freecam is on, let the bot's
+    // (translucent) body render.
+    @Redirect(
+            method = "collectVisibleEntities",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/Camera;getEntity()Lnet/minecraft/world/entity/Entity;",
+                    ordinal = 3
+            )
+    )
+    private Entity localPlayerCheck(Camera camera) {
+        if (FreecamBehavior.activeCamera() != null && Minecraft.getInstance().player != null) {
+            return Minecraft.getInstance().player;
+        }
+        return camera.getEntity();
     }
 }
