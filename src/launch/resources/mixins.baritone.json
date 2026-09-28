@@ -20,6 +20,7 @@
     "MixinLivingEntity",
     "MixinLootContext",
     "MixinMinecraft",
+    "MixinMouseHelper",
     "MixinNetworkManager",
     "MixinPalettedContainer",
     "MixinPlayerController",
