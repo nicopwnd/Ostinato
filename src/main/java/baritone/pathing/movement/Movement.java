@@ -235,13 +235,17 @@ public abstract class Movement implements IMovement, MovementHelper {
         } else if (dy < -0.5) {
             pitch = 30f;                   // dive
         } else {
-            // cruise just under the surface; if the head breaches, nose back down or the pose drops
-            pitch = !p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER) ? 6f : -8f;
+            // cruise just under the surface; if the head breaches, nose back down or the pose drops.
+            if (!p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER)) pitch = 6f;
+            else pitch = -8f;
         }
         float yaw = state.getTarget().getRotation().map(Rotation::getYaw)
                 .orElse(ctx.playerRotations().getYaw());
         state.setInput(Input.SPRINT, true);
-        state.setInput(Input.JUMP, air < 30 && !p.isSwimming());
+        // On the surface lane the swim pose settles with the eyes a hair under the waterline and pitch alone
+        // won't lift it: kick up with JUMP once air runs low so the head breaks the surface on the move.
+        boolean kick = surfaceLane && p.isSwimming() && air < 100 && p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER);
+        state.setInput(Input.JUMP, (air < 30 && !p.isSwimming()) || kick);
         // Pitch does nothing until the swim pose, and the pose needs the eyes under: at the surface the
         // bot otherwise paddles upright forever at a third of swim speed. Sink the eyes in with sneak.
         state.setInput(Input.SNEAK, !p.isSwimming() && air >= 30 && !breathing && !p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER));
