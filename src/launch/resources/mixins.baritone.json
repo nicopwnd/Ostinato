@@ -23,6 +23,7 @@
     "MixinLootContextBuilder",
     "MixinLootTable",
     "MixinMinecraft",
+    "MixinMouseHandler",
     "MixinNetworkManager",
     "MixinPalettedContainer",
     "MixinPalettedContainer$Data",
