@@ -312,8 +312,10 @@ public final class AirProcess extends BaritoneProcessHelper {
                     double dx = drop.getPosX() - ctx.player().getPosX(), dz = drop.getPosZ() - ctx.player().getPosZ();
                     // Drops float to the ceiling; walking into the spot under it pins us to the floor, so only close in horizontally.
                     if (dx * dx + dz * dz > 0.25) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
-                    if (drop.getPosY() < ctx.player().getPosY() - 0.3) baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
-                    else if (drop.getPosY() > ctx.player().getPosY() + 0.5) baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, true);
+                    // Set both every tick: forced inputs stick, and a SNEAK left from entering the door cancelled
+                    // JUMP in water, pinning us to the floor under a drop at the roof (TenorClef door course).
+                    baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, drop.getPosY() < ctx.player().getPosY() - 0.3);
+                    baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, drop.getPosY() > ctx.player().getPosY() + 0.5);
                 }
                 return pause;
             }
@@ -352,7 +354,7 @@ public final class AirProcess extends BaritoneProcessHelper {
             baritone.getLookBehavior().updateTarget(new Rotation(r.getYaw(), 0), false);
             double hx = c.x - ctx.player().getPosX(), hz = c.z - ctx.player().getPosZ();
             if (hx * hx + hz * hz > 0.04) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
-            if (ctx.player().getPosY() > door.getY() + 0.1) baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
+            baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, ctx.player().getPosY() > door.getY() + 0.1);
             return pause;
         }
         if (ctx.player().getAir() < ctx.player().getMaxAir()) return pause; // breathing
