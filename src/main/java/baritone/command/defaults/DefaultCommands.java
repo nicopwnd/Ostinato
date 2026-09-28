@@ -45,6 +45,7 @@ public final class DefaultCommands {
                 //new SchematicaCommand(baritone),
                 new LitematicaCommand(baritone),
                 new ComeCommand(baritone),
+                new FreecamCommand(baritone),
                 new AxisCommand(baritone),
                 new ForceCancelCommand(baritone),
                 new GcCommand(baritone),

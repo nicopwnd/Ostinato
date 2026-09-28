@@ -1357,6 +1357,11 @@ public final class Settings {
     public final Setting<Integer> followRadius = new Setting<>(3);
 
     /**
+     * Freecam flight speed multiplier (1 = vanilla walking and creative flight)
+     */
+    public final Setting<Double> freecamSpeed = new Setting<>(1D);
+
+    /**
      * The maximum distance to the entity you're following
      */
     public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);

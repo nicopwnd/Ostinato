@@ -4,9 +4,9 @@ import baritone.Baritone;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
-import baritone.api.utils.RayTraceUtils;
 import baritone.api.utils.Rotation;
 import baritone.api.utils.RotationUtils;
+import baritone.api.utils.VecUtils;
 import baritone.api.utils.input.Input;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.movements.MovementSwim;
@@ -15,9 +15,12 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BubbleColumnBlock;
 import net.minecraft.block.DoorBlock;
+import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Direction;
+import net.minecraft.util.Hand;
+import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.math.RayTraceResult;
@@ -47,6 +50,10 @@ public final class AirProcess extends BaritoneProcessHelper {
     private Goal goal;
     private Goal col;
     private int colDist;
+    /** Last scan found open water above: only then can a swim movement creep up to breathe. */
+    private boolean surfaceInReach;
+    private boolean breathed;
+    private boolean breakStarted;
     private static final int NONE = Integer.MIN_VALUE;
 
     /** Door air pocket: the door's lower block, or null when not using one. */
@@ -72,12 +79,13 @@ public final class AirProcess extends BaritoneProcessHelper {
         if (!active && ctx.player().isInWater() && ctx.player().ticksExisted % 20 == 0) {
             // Blocks to the nearest breathable spot: open surface straight up, or a bubble column.
             int surface = findSurfaceY();
+            surfaceInReach = surface != NONE;
             int sd = surface == NONE ? Integer.MAX_VALUE : surface - ctx.playerFeet().getY();
             col = columnGoal(sd);
             depth = Math.min(sd, colDist);
             if (depth == Integer.MAX_VALUE) depth = 0; // no air in reach: keep going, one may come into range
         }
-        if (!active && ctx.player().isSwimming() && col == null && baritone.getPathingBehavior().isPathing() && air > 20) {
+        if (!active && ctx.player().isSwimming() && col == null && surfaceInReach && baritone.getPathingBehavior().isPathing() && air > 20) {
             // Swimming under open water: the movement creeps up to breathe without leaving the swim pose.
             return false;
         }
@@ -93,7 +101,8 @@ public final class AirProcess extends BaritoneProcessHelper {
                 active = false;
                 return false;
             }
-            goal = c != null ? c : surfaceGoal(surfaceY == NONE ? ctx.playerFeet().getY() + 64 : surfaceY);
+            // startDoorPocket nulls goal; a y+64 surface goal left after the pocket drowned the bot.
+            goal = door != null ? null : c != null ? c : surfaceGoal(surfaceY == NONE ? ctx.playerFeet().getY() + 64 : surfaceY);
             if (door != null) logDebug("Low on air (" + air + "), nothing to breathe in reach: door air pocket at " + door);
             else if (c != null) logDebug("Low on air (" + air + " d=" + depth + " eta=" + baritone.getPathingBehavior().estimatedTicksToGoal().map(Math::round).orElse(-1L) + "), heading to a bubble column");
             else logDebug("Low on air (" + air + "), surfacing to y=" + surfaceY);
@@ -266,6 +275,8 @@ public final class AirProcess extends BaritoneProcessHelper {
         door = best;
         pickUpDoor = doorCount() == 1;
         wasPlaced = false;
+        breathed = false;
+        breakStarted = false;
         doorTicks = 0;
         active = true;
         goal = null;
@@ -278,8 +289,10 @@ public final class AirProcess extends BaritoneProcessHelper {
         boolean placed = st.getBlock() instanceof DoorBlock && st.get(DoorBlock.HALF) == net.minecraft.state.properties.DoubleBlockHalf.LOWER;
         boolean inside = ctx.playerFeet().equals(door);
         wasPlaced |= placed;
-        if (++doorTicks > 600 || (!wasPlaced && doorTicks > 100)) {
+        // Breaking a door by hand underwater takes ~450 ticks, so the break gets its own budget.
+        if (++doorTicks > (breathed ? 1200 : 600) || (!wasPlaced && doorTicks > 100)) {
             logDebug("Door air pocket failed");
+            if (breakStarted) ctx.playerController().resetBlockRemoving();
             door = null;
             return null;
         }
@@ -287,13 +300,38 @@ public final class AirProcess extends BaritoneProcessHelper {
         if (!placed) {
             if (wasPlaced) {
                 // Broken back: wait for the dropped door to reach us (it drops at our feet).
-                if (doorCount() > 0) { door = null; return null; }
+                if (doorCount() > 0 || ctx.player().getAir() < 60) { door = null; return null; }
+                // The drop drifts underwater; swim to it rather than waiting in place (TenorClef door course rep 1 drowned waiting).
+                ItemEntity drop = null;
+                for (ItemEntity e : ctx.world().getEntitiesWithinAABB(ItemEntity.class, new AxisAlignedBB(door).grow(6), e -> isWoodenDoor(e.getItem()))) {
+                    if (drop == null || ctx.player().getDistanceSq(e) < ctx.player().getDistanceSq(drop)) drop = e;
+                }
+                if (drop != null) {
+                    Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), drop.getPositionVec(), ctx.playerRotations());
+                    baritone.getLookBehavior().updateTarget(new Rotation(r.getYaw(), 0), false);
+                    double dx = drop.getPosX() - ctx.player().getPosX(), dz = drop.getPosZ() - ctx.player().getPosZ();
+                    // Drops float to the ceiling; walking into the spot under it pins us to the floor, so only close in horizontally.
+                    if (dx * dx + dz * dz > 0.25) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
+                    // Set both every tick: forced inputs stick, and a SNEAK left from entering the door cancelled
+                    // JUMP in water, pinning us to the floor under a drop at the roof (TenorClef door course).
+                    baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, drop.getPosY() < ctx.player().getPosY() - 0.3);
+                    baritone.getInputOverrideHandler().setInputForceState(Input.JUMP, drop.getPosY() > ctx.player().getPosY() + 0.5);
+                }
+                return pause;
+            }
+            if (inside) {
+                // Drifted into the target before placing: the door can't go in our own cell, pick another.
+                int t = doorTicks;
+                if (!startDoorPocket()) { door = null; return null; }
+                doorTicks = t;
                 return pause;
             }
             BlockPos under = door.down();
             Optional<Rotation> rot = RotationUtils.reachableOffset(ctx, under, new Vector3d(door.getX() + 0.5, door.getY(), door.getZ() + 0.5), ctx.playerController().getBlockReachDistance(), false);
             if (rot.isPresent() && baritone.getInventoryBehavior().throwaway(true, AirProcess::isWoodenDoor)) {
-                RayTraceResult r = RayTraceUtils.rayTraceTowards(ctx.player(), rot.get(), ctx.playerController().getBlockReachDistance());
+                // Click on the live crosshair, not the target ray: clicking before the turn landed put doors
+                // on other cells (TenorClef door course: door gone from inventory, none at the target).
+                RayTraceResult r = ctx.objectMouseOver();
                 baritone.getLookBehavior().updateTarget(rot.get(), true);
                 if (r instanceof BlockRayTraceResult && ((BlockRayTraceResult) r).getFace() == Direction.UP && ((BlockRayTraceResult) r).getPos().equals(under)) {
                     baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
@@ -316,19 +354,29 @@ public final class AirProcess extends BaritoneProcessHelper {
             baritone.getLookBehavior().updateTarget(new Rotation(r.getYaw(), 0), false);
             double hx = c.x - ctx.player().getPosX(), hz = c.z - ctx.player().getPosZ();
             if (hx * hx + hz * hz > 0.04) baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, true);
-            if (ctx.player().getPosY() > door.getY() + 0.1) baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
+            baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, ctx.player().getPosY() > door.getY() + 0.1);
             return pause;
         }
         if (ctx.player().getAir() < ctx.player().getMaxAir()) return pause; // breathing
+        if (!breathed) { breathed = true; doorTicks = 0; }
         if (!pickUpDoor) {
             door = null; // leave it as an air station
             return null;
         }
-        Optional<Rotation> rot = RotationUtils.reachable(ctx, door.up());
-        if (rot.isPresent()) {
-            baritone.getLookBehavior().updateTarget(rot.get(), true);
-            if (ctx.isLookingAt(door.up())) baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_LEFT, true);
+        // The eye sits inside the doorway, so a crosshair ray passes the open panel and hits the wall behind
+        // (TenorClef door course: 1200 ticks clicking walls). Face the panel and drive the controller directly;
+        // breaking must happen in here, with eyes out of water, or it takes 5x longer than a full air bar.
+        // Break the lower half: its drop spawns inside our pickup box. The upper half's drop spawned at the edge
+        // of it and floated to the ceiling out of reach (TenorClef door course rep 1 drowned under it).
+        BlockPos top = door;
+        baritone.getLookBehavior().updateTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.calculateBlockCenter(ctx.world(), top), ctx.playerRotations()), true);
+        if (!breakStarted) {
+            ctx.playerController().syncHeldItem();
+            ctx.playerController().clickBlock(top, Direction.UP);
+            breakStarted = true;
         }
+        ctx.playerController().onPlayerDamageBlock(top, Direction.UP);
+        ctx.player().swingArm(Hand.MAIN_HAND);
         return pause;
     }
 
