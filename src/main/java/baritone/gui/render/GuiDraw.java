@@ -278,14 +278,24 @@ public final class GuiDraw {
     }
 
     /** Clip to a GUI-space rectangle. */
+    private static GuiGraphics scissorOwner;
+    private static int scissorDepth;
+
     public static void scissor(float x1, float y1, float x2, float y2) {
         if (cur != null) {
+            if (scissorOwner != cur) {
+                scissorOwner = cur;
+                scissorDepth = 0;
+            }
+            scissorDepth++;
             cur.enableScissor((int) Math.floor(x1), (int) Math.floor(y1), (int) Math.ceil(x2), (int) Math.ceil(y2));
         }
     }
 
+    /** GuiGraphics throws on an unbalanced pop, where GL scissor was forgiving; only pop what we pushed. */
     public static void endScissor() {
-        if (cur != null) {
+        if (cur != null && cur == scissorOwner && scissorDepth > 0) {
+            scissorDepth--;
             cur.disableScissor();
         }
     }
