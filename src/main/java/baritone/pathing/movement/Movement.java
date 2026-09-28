@@ -195,9 +195,10 @@ public abstract class Movement implements IMovement, MovementHelper {
         if (!p.isInWater() || p.isPassenger()) return false;
         if (!Boolean.TRUE.equals(state.getInputStates().get(Input.MOVE_FORWARD))) return false;
         BlockPos feet = ctx.playerFeet();
-        // Entering the swim pose needs two blocks of water (feet and head); once swimming, one is enough.
+        // Entering the swim pose needs room for the body: water at the head, or (floating at the surface)
+        // water under the feet to sneak-sink into. Once swimming, one block is enough.
         if (!MovementHelper.isWater(ctx, feet)) return false;
-        if (!p.isSwimming() && !MovementHelper.isWater(ctx, feet.above())) return false;
+        if (!p.isSwimming() && !MovementHelper.isWater(ctx, feet.above()) && !MovementHelper.isWater(ctx, feet.below())) return false;
         // Swimming into a step face (a stream down stairs): stop swimming and let JUMP climb it.
         if (p.horizontalCollision && dest.y >= feet.getY()) return false;
         // Climbing out onto land needs JUMP against the bank: leave that to the normal path.

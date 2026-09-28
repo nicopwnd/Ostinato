@@ -143,6 +143,8 @@ public final class OstinatoScreen extends Screen {
     private boolean searchFocused;
     private List<Entry> rows = new ArrayList<>();
     private Entry editing, capturing, dragging, hovered;
+    /** CYCLE entry whose option list is open. */
+    private Entry dropdown;
     private boolean editError, draggingThumb;
     private float thumbGrab;
     private long hoverSince;
@@ -455,6 +457,7 @@ public final class OstinatoScreen extends Screen {
         drawSidebar(ms, mx, my, accent);
         Entry hov = drawContent(ms, mx, my, accent, now);
         drawFooter(ms, mx, my, accent, now);
+        drawDropdown(ms, mx, my, accent);
 
         if (hov != hovered) {
             hovered = hov;
@@ -614,6 +617,65 @@ public final class OstinatoScreen extends Screen {
 
     private boolean showTasks() {
         return tasksView && search.get().trim().isEmpty();
+    }
+
+    private static final float DROP_ITEM_H = 12;
+
+    /** Option list box of the open dropdown: {x0, y0, x1, y1, visibleCount}. */
+    private float[] dropBox() {
+        Entry e = dropdown;
+        float cx = px1 - 14, cyc = rowY(e) + (ROW_H - 2) / 2f;
+        int n = e.options.length;
+        int fit = Math.max(1, (int) ((fy - hb - 4) / DROP_ITEM_H));
+        int vis = Math.min(n, fit);
+        float h = vis * DROP_ITEM_H + 2;
+        float top = cyc + 8;
+        if (top + h > fy) {
+            top = Math.max(hb + 2, cyc - 8 - h);
+        }
+        return new float[]{cx - controlWidth(e.kind), top, cx, top + h, vis};
+    }
+
+    private int dropScroll;
+
+    private void drawDropdown(GuiGraphics ms, int mx, int my, int accent) {
+        if (dropdown == null) {
+            return;
+        }
+        float[] b = dropBox();
+        int vis = (int) b[4];
+        dropScroll = Math.max(0, Math.min(dropScroll, dropdown.options.length - vis));
+        GuiDraw.shadow(ms, b[0], b[1], b[2], b[3], 3, 4, 0x80);
+        GuiDraw.roundBorder(ms, b[0], b[1], b[2], b[3], 3, 0xFF3E4860, 0xFA161B26);
+        String cur = valueString(dropdown);
+        for (int i = 0; i < vis; i++) {
+            int idx = i + dropScroll;
+            String opt = dropdown.options[idx];
+            float iy = b[1] + 1 + i * DROP_ITEM_H;
+            boolean h = in(mx, my, b[0], iy, b[2], iy + DROP_ITEM_H);
+            boolean sel = opt.equalsIgnoreCase(cur);
+            if (h) {
+                GuiDraw.rect(ms, b[0] + 1, iy, b[2] - 1, iy + DROP_ITEM_H, 0x22FFFFFF);
+            }
+            GuiDraw.text(ms, GuiDraw.trim(opt, b[2] - b[0] - 10, 1f), b[0] + 6, iy + 2, sel ? accent : Theme.TEXT, false);
+        }
+    }
+
+    /** Returns true if the click was consumed by the open dropdown (always closes it). */
+    private boolean clickDropdown(double mx, double my) {
+        float[] b = dropBox();
+        Entry e = dropdown;
+        dropdown = null;
+        if (in(mx, my, b[0], b[1], b[2], b[3])) {
+            int idx = (int) ((my - b[1] - 1) / DROP_ITEM_H) + dropScroll;
+            if (idx >= 0 && idx < e.options.length) {
+                select(e, idx);
+            }
+            return true;
+        }
+        // clicking the same box again just closes it
+        float cx = px1 - 14, cyc = rowY(e) + (ROW_H - 2) / 2f;
+        return in(mx, my, cx - controlWidth(e.kind), cyc - 7, cx, cyc + 7);
     }
 
     private Entry drawContent(GuiGraphics ms, int mx, int my, int accent, long now) {
@@ -981,6 +1043,9 @@ public final class OstinatoScreen extends Screen {
             capturing = null;
             return true;
         }
+        if (dropdown != null && clickDropdown(mx, my)) {
+            return true;
+        }
         if (editing != null) {
             float cyc = rowY(editing) + (ROW_H - 2) / 2f, cx = px1 - 14;
             if (!in(mx, my, px0, cyc - 7, cx, cyc + 7)) {
@@ -1145,7 +1210,8 @@ public final class OstinatoScreen extends Screen {
             }
             case CYCLE:
                 if (in(mx, my, cx - cw, cyc - 7, cx, cyc + 7)) {
-                    cycle(e, Screen.hasShiftDown() ? -1 : 1);
+                    dropdown = e;
+                    dropScroll = 0;
                 }
                 return true;
             case KEYBIND:
@@ -1169,7 +1235,10 @@ public final class OstinatoScreen extends Screen {
                 idx = i;
             }
         }
-        int next = ((idx + dir) % e.options.length + e.options.length) % e.options.length;
+        select(e, ((idx + dir) % e.options.length + e.options.length) % e.options.length);
+    }
+
+    private void select(Entry e, int next) {
         Class<?> c = e.s.getValueClass();
         if (c.isEnum()) {
             setRaw(e, c.getEnumConstants()[next]);
@@ -1220,6 +1289,10 @@ public final class OstinatoScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double deltaX, double delta) {
         layout();
+        if (dropdown != null) {
+            dropScroll += delta > 0 ? -1 : 1;
+            return true;
+        }
         if (showTasks()) {
             tasks.layout(px0, px1, hb, fy);
             return tasks.mouseScrolled(mx, my, delta);
@@ -1243,6 +1316,10 @@ public final class OstinatoScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (dropdown != null && key == GLFW.GLFW_KEY_ESCAPE) {
+            dropdown = null;
+            return true;
+        }
         if (capturing != null) {
             if (key != GLFW.GLFW_KEY_ESCAPE) {
                 setRaw(capturing, KeyNames.name(key));
