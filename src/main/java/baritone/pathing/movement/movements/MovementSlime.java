@@ -182,10 +182,7 @@ public class MovementSlime extends Movement {
                 if (context.get(cx, yy, cz).getBlock() == Blocks.SLIME_BLOCK && yy <= y - 2) {
                     return yy + 1;
                 }
-                if (yy == y - 1) {
-                    break; // ground straight ahead: walk on to the next column
-                }
-                return Integer.MIN_VALUE;
+                break; // ground or the floor far below: look at the next column
             }
         }
         return Integer.MIN_VALUE;
