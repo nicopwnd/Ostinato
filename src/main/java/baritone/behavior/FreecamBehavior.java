@@ -108,12 +108,15 @@ public final class FreecamBehavior extends Behavior implements Helper {
         }
     }
 
+    private LocalPlayer owner;
+
     public void enable() {
         LocalPlayer p = ctx.player();
         if (camera != null || p == null || baritone != BaritoneAPI.getProvider().getPrimaryBaritone()) {
             return;
         }
         camera = new Camera(p.level());
+        owner = p;
         flying = p.getAbilities().flying;
         jumpHeld = true;
         jumpTapTicks = 0;
@@ -131,6 +134,7 @@ public final class FreecamBehavior extends Behavior implements Helper {
         }
         camera = null;
         active = null;
+        owner = null;
         LocalPlayer p = ctx.player();
         if (p != null) {
             mc.setCameraEntity(p);
@@ -154,8 +158,20 @@ public final class FreecamBehavior extends Behavior implements Helper {
             return;
         }
         LocalPlayer p = ctx.player();
+        // death/respawn replaces the LocalPlayer in the same level: drop freecam rather than drive a dead player
+        if (p != null && p != owner && p.isAlive() && camera.level() == p.level() && event.getType() != TickEvent.Type.OUT) {
+            disable(); // respawned: rebuild freecam around the new player
+            enable();
+            return;
+        }
         if (event.getType() == TickEvent.Type.OUT || p == null || camera.level() != p.level()) {
             disable();
+            return;
+        }
+        if (!p.isAlive()) {
+            if (mc.getCameraEntity() != p) {
+                mc.setCameraEntity(p); // let the death screen and respawn work on the real player
+            }
             return;
         }
         // Keys drive the camera, never the bot; the pathing input (PlayerMovementInput) is left alone.

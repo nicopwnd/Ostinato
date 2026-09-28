@@ -46,7 +46,7 @@ public final class KinematicController {
     private static final int[] JUMP_OR_NOT = {NEVER, 0};
     // plans are scored at HORIZON but simulated this far so a hop chain that ends in a gap is rejected
     private static final int LOOKAHEAD = 36;
-    private static final double BUMP = 0.12;
+    private static final double BUMP = 0.6; // ~2 sprint ticks: grazing a wall also drops sprint, so clean lines should win
     private static final double CORRIDOR = 0.55;
     /** Hand back to Baritone this far before the end of the drivable stretch. */
     private static final double HANDBACK = 1.2;
