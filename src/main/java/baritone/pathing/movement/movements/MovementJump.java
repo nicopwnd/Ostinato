@@ -78,6 +78,19 @@ public class MovementJump extends Movement {
         final List<Option> options = new ArrayList<>();
     }
 
+    /** Jumps (src, dest) that failed live, and when they may be tried again; stops a replan loop onto the same jump. */
+    private static final java.util.Map<Long, Long> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static long failKey(int x, int y, int z, int dx, int dy, int dz) {
+        return BetterBlockPos.longHash(x, y, z) * 31 + BetterBlockPos.longHash(dx, dy, dz);
+    }
+
+    private MovementState fail(MovementState state, String why) {
+        FAILED.put(failKey(src.x, src.y, src.z, dest.x, dest.y, dest.z), System.currentTimeMillis() + 30_000);
+        logDebug(why + " (" + src + " -> " + dest + ", at " + ctx.player().position() + "); avoiding this jump for 30s");
+        return state.setStatus(MovementStatus.UNREACHABLE);
+    }
+
     private static final ThreadLocal<Cache> CACHE = ThreadLocal.withInitial(Cache::new);
 
     private final JumpTemplates.Template t;
@@ -121,6 +134,10 @@ public class MovementJump extends Movement {
             for (JumpTemplates.Template t : JumpTemplates.ALL) {
                 int dx = x + t.a * f[0] + t.b * f[2], dz = z + t.a * f[1] + t.b * f[3];
                 if (!MovementHelper.canWalkOn(context, dx, y + t.dy - 1, dz)) {
+                    continue;
+                }
+                Long until = FAILED.get(failKey(x, y, z, dx, y + t.dy, dz));
+                if (until != null && until > System.currentTimeMillis()) {
                     continue;
                 }
                 for (int r = 1; r <= t.runUp; r++) {
@@ -259,8 +276,7 @@ public class MovementJump extends Movement {
                 return state;
             }
             if (!js.search(real, true) && !js.search(real, false)) {
-                logDebug("no jump from here");
-                return state.setStatus(MovementStatus.UNREACHABLE);
+                return fail(state, "no jump from here");
             }
             running = true;
             // the client only reports moves over 0.03, and a neo starts ~0.01 off the wall: sync the server's copy of our
@@ -272,8 +288,7 @@ public class MovementJump extends Movement {
             // drifted off the plan: replan around it, else fly it anyway. A full search is expensive, so if the player
             // keeps diverging (it isn't following the inputs) give up and let the path replan instead of searching every tick.
             if (++replans > 4) {
-                logDebug("jump keeps diverging from plan at " + p + " v=" + m + " sprint=" + real.sprinting + " ground=" + real.onGround);
-                return state.setStatus(MovementStatus.UNREACHABLE);
+                return fail(state, "jump keeps diverging from plan: v=" + m + " sprint=" + real.sprinting + " ground=" + real.onGround);
             }
             js.search(real, true);
             replanCooldown = 3;
