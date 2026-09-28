@@ -271,10 +271,14 @@ public class MovementJump extends Movement {
                 }
                 return state;
             }
-            if (Math.abs(m.x) + Math.abs(m.z) > 0.02 || !real.onGround) {
+            if (!real.onGround) {
                 return state;
             }
-            if (!js.search(real, true) && !js.search(real, false)) {
+            boolean still = Math.abs(m.x) + Math.abs(m.z) <= 0.02;
+            if (!still && !js.search(real, true)) {
+                return state; // no plan from this momentum: come to a stop first
+            }
+            if (still && !js.search(real, true) && !js.search(real, false)) {
                 logDebug("no jump from here");
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
