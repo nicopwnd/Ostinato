@@ -111,7 +111,22 @@ public final class JumpTemplates {
                 start.x = -r + 0.5;
                 start.z = 0.5 + lat / 10.0;
                 start.onGround = true;
+                start.vy = -0.0784000015258789; // vanilla's resting value: gravity pulls into the ground every tick, else the first tick counts as airborne
                 if (!js.search(start, false)) continue;
+                // the mover accepts a run-up stop up to 0.15 short of the start; the jump must still work from there
+                JumpSearch shortJs = new JumpSearch(w);
+                shortJs.dirX = 1;
+                shortJs.dirZ = 0;
+                shortJs.edge = 1;
+                shortJs.destX = d[0];
+                shortJs.destY = d[1];
+                shortJs.destZ = d[2];
+                PlayerSim shortStart = new PlayerSim(w);
+                shortStart.x = start.x - 0.15;
+                shortStart.z = start.z;
+                shortStart.vy = start.vy;
+                shortStart.onGround = true;
+                if (!shortJs.search(shortStart, false)) continue;
                 Set<String> cells = new TreeSet<>();
                 JumpSearch.CellSink sink = (x, y, z) -> {
                     for (int cx = PlayerSim.floor(x - 0.3 - MARGIN); cx <= PlayerSim.floor(x + 0.3 + MARGIN); cx++)
