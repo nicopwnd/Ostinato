@@ -199,7 +199,7 @@ public abstract class Movement implements IMovement, MovementHelper {
 
         // A lane drawn over the surface: in the swim pose the eyes are only ~0.4 above the feet, so ride with
         // the feet just under the surface line; the head then dips in and out and keeps breathing.
-        boolean surfaceLane = p.isSwimming() && !MovementHelper.isWater(ctx, dest.up()) && MovementHelper.isWater(ctx, dest.down());
+        boolean surfaceLane = p.isSwimming() && ctx.world().isAirBlock(dest.up()) && MovementHelper.isWater(ctx, dest.down());
         double dy = dest.y + (surfaceLane ? 0.45 : 0) - p.getPositionVec().y;
         int air = p.getAir(), max = p.getMaxAir();
         double toSurface = surfaceAbove(p);
@@ -222,7 +222,7 @@ public abstract class Movement implements IMovement, MovementHelper {
             pitch = 30f;                   // dive
         } else {
             // cruise just under the surface; if the head breaches, nose back down or the pose drops
-            pitch = !p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER) ? 6f : toSurface > 1.0 ? -8f : -4f;
+            pitch = !p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER) ? 6f : -8f;
         }
         float yaw = state.getTarget().getRotation().map(Rotation::getYaw)
                 .orElse(ctx.playerRotations().getYaw());
