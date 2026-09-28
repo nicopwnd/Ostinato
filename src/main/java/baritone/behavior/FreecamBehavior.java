@@ -17,6 +17,7 @@
 
 package baritone.behavior;
 
+import baritone.api.BaritoneAPI;
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.event.events.TickEvent;
@@ -64,6 +65,28 @@ public final class FreecamBehavior extends Behavior implements Helper {
 
     public FreecamBehavior(Baritone baritone) {
         super(baritone);
+    }
+
+    /**
+     * Optional status line for the ghost player's tag while freecam is on. A mod driving Baritone (TenorClef) can
+     * set this to describe its current task; otherwise the tag shows Baritone's active process.
+     */
+    public static volatile java.util.function.Supplier<String> statusSupplier;
+
+    /** Text for the tag above the translucent player while freecam is on. */
+    public static String botStatus() {
+        java.util.function.Supplier<String> s = statusSupplier;
+        if (s != null) {
+            try {
+                String t = s.get();
+                if (t != null && !t.isEmpty()) {
+                    return t;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return BaritoneAPI.getProvider().getPrimaryBaritone().getPathingControlManager().mostRecentInControl()
+                .map(p -> p.displayName()).orElse("Idle");
     }
 
     public static Entity activeCamera() {
@@ -225,6 +248,9 @@ public final class FreecamBehavior extends Behavior implements Helper {
      * (TenorClef, InputOverrideHandler) release movement mappings every tick while they drive the player.
      */
     private boolean held(net.minecraft.client.KeyMapping km) {
+        if (mc.screen != null) { // typing in chat or a GUI must not fly the camera
+            return false;
+        }
         com.mojang.blaze3d.platform.InputConstants.Key key = com.mojang.blaze3d.platform.InputConstants.getKey(km.saveString());
         if (key.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) {
             return km.isDown();
