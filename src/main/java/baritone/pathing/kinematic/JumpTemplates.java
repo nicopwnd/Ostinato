@@ -55,7 +55,7 @@ public final class JumpTemplates {
     }
 
     private static final double MARGIN = 0.05;
-    private static final int[] RUN_UPS = {0, 1, 3};
+    private static final int[] RUN_UPS = {0, 1, 2, 3};
     private static final int[] LATERAL = {0, 3, 6, 7, 8}; // tenths of a block
 
     /** Plain full blocks, slipperiness 0.6. */
@@ -113,20 +113,25 @@ public final class JumpTemplates {
                 start.onGround = true;
                 start.vy = -0.0784000015258789; // vanilla's resting value: gravity pulls into the ground every tick, else the first tick counts as airborne
                 if (!js.search(start, false)) continue;
-                // the mover accepts a run-up stop up to 0.15 short of the start; the jump must still work from there
-                JumpSearch shortJs = new JumpSearch(w);
-                shortJs.dirX = 1;
-                shortJs.dirZ = 0;
-                shortJs.edge = 1;
-                shortJs.destX = d[0];
-                shortJs.destY = d[1];
-                shortJs.destZ = d[2];
-                PlayerSim shortStart = new PlayerSim(w);
-                shortStart.x = start.x - 0.15;
-                shortStart.z = start.z;
-                shortStart.vy = start.vy;
-                shortStart.onGround = true;
-                if (!shortJs.search(shortStart, false)) continue;
+                // the mover accepts a run-up stop anywhere within 0.15 of the start (and a few hundredths to the
+                // side); the jump must work from all of it, not just the two ends: r=1 4-gaps had dead bands inside
+                boolean robust = true;
+                for (int ox = -15; ox <= 5 && robust; ox += 2) for (int oz = -5; oz <= 5 && robust; oz += 5) {
+                    JumpSearch rj = new JumpSearch(w);
+                    rj.dirX = 1;
+                    rj.dirZ = 0;
+                    rj.edge = 1;
+                    rj.destX = d[0];
+                    rj.destY = d[1];
+                    rj.destZ = d[2];
+                    PlayerSim rs = new PlayerSim(w);
+                    rs.x = start.x + ox / 100.0;
+                    rs.z = start.z + oz / 100.0;
+                    rs.vy = start.vy;
+                    rs.onGround = true;
+                    robust = rj.search(rs, false);
+                }
+                if (!robust) continue;
                 Set<String> cells = new TreeSet<>();
                 JumpSearch.CellSink sink = (x, y, z) -> {
                     for (int cx = PlayerSim.floor(x - 0.3 - MARGIN); cx <= PlayerSim.floor(x + 0.3 + MARGIN); cx++)

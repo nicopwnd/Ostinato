@@ -316,7 +316,14 @@ public final class BoatProcess extends BaritoneProcessHelper {
                     return c;
                 }
                 // Boats only go on the water's top surface (or a block top with room), so aim at it from above.
-                Rotation aim = look(launch.getX() + 0.5, surfaceY + 0.85, launch.getZ() + 0.5);
+                // A boat is 1.375 wide and placement fails if it would touch a block, so a hit at the middle of a
+                // shore cell clips the bank; aim half a block further out, away from the bank.
+                double ax = launch.getX() + 0.5, az = launch.getZ() + 0.5;
+                if (bank != null) {
+                    ax += 0.5 * Integer.signum(launch.getX() - bank.getX());
+                    az += 0.5 * Integer.signum(launch.getZ() - bank.getZ());
+                }
+                Rotation aim = look(ax, surfaceY + 0.85, az);
                 if (phaseTicks % 2 == 1) {
                     // the look target only lands on the next player tick; useItem raycasts (and sends) the current
                     // rotation, so face the surface now or the use misses and we wait for the next retry
