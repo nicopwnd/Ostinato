@@ -241,7 +241,8 @@ public abstract class Movement implements IMovement, MovementHelper {
         state.setInput(Input.JUMP, air < 30 && !p.isSwimming());
         // Pitch does nothing until the swim pose, and the pose needs the eyes under: at the surface the
         // bot otherwise paddles upright forever at a third of swim speed. Sink the eyes in with sneak.
-        state.setInput(Input.SNEAK, !p.isSwimming() && air >= 30 && !breathing && !p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER));
+        // Not while standing: sneak on the ground is safe-walk, which pins us to the ledge of a shallow shelf.
+        state.setInput(Input.SNEAK, !p.onGround() && !p.isSwimming() && air >= 30 && !breathing && !p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER));
         if (breathing && pocket) {
             if (p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
                 // the pocket is only a few blocks long: climb into it steeply instead of cruising past
