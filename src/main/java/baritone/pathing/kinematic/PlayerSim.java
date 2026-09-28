@@ -17,8 +17,8 @@ public final class PlayerSim {
         float slipperiness(int x, int y, int z);
     }
 
-    public static final double HALF_WIDTH = 0.3;
-    public static final double HEIGHT = 1.8;
+    public static final double HALF_WIDTH = 0.3f; // vanilla sizes are floats: the box edge lands exactly on block faces
+    public static final double HEIGHT = 1.8f;
     public static final double STEP = 0.6;
 
     public double x, y, z, vx, vy, vz;

@@ -135,11 +135,13 @@ public final class KinematicController {
         }
         if (recenter > 0) {
             recenter--;
-            double[] c = pointAt(here[0]);
+            // the second time, once back on the line, walk along it: the rollout keeps steering into the same snag
+            boolean along = recenters > 1 && here[1] < 0.1;
+            double[] c = pointAt(here[0] + (along ? 0.6 : 0));
             float yaw = (float) Math.toDegrees(Math.atan2(-(c[0] - real.x), c[2] - real.z));
             baritone.getLookBehavior().updateTarget(new Rotation(yaw, 0), false);
             baritone.getInputOverrideHandler().clearAllKeys();
-            baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, here[1] > 0.05);
+            baritone.getInputOverrideHandler().setInputForceState(Input.MOVE_FORWARD, along || here[1] > 0.05);
             return newPos;
         }
 
