@@ -86,6 +86,7 @@ public class MovementJump extends Movement {
     private PlayerSim real;
     private boolean running, landed;
     private int settle;
+    private int replans, replanCooldown;
 
     private MovementJump(IBaritone baritone, BetterBlockPos src, JumpTemplates.Template t, int frame) {
         super(baritone, src, at(src, FRAMES[frame], t.a, t.dy, t.b), EMPTY, at(src, FRAMES[frame], t.a, t.dy - 1, t.b));
@@ -265,8 +266,17 @@ public class MovementJump extends Movement {
             // the client only reports moves over 0.03, and a neo starts ~0.01 off the wall: sync the server's copy of our
             // position first, or it replays the jump from a stale spot inside the wall and rubber-bands us back
             ctx.player().connection.send(new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(p.x, p.y, p.z, true, false));
+        } else if (replanCooldown > 0) {
+            replanCooldown--;
         } else if (!js.run(real, js.plan, js.jumped, js.airTicks, null)) {
-            js.search(real, true); // drifted off the plan: replan around it, else fly it anyway
+            // drifted off the plan: replan around it, else fly it anyway. A full search is expensive, so if the player
+            // keeps diverging (it isn't following the inputs) give up and let the path replan instead of searching every tick.
+            if (++replans > 4) {
+                logDebug("jump keeps diverging from plan at " + p + " v=" + m + " sprint=" + real.sprinting + " ground=" + real.onGround);
+                return state.setStatus(MovementStatus.UNREACHABLE);
+            }
+            js.search(real, true);
+            replanCooldown = 3;
         }
         int in = js.input(js.plan, js.jumped, js.airTicks);
         boolean jump = js.jump(js.plan, real, js.jumped);
