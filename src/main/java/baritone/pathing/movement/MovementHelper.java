@@ -457,6 +457,9 @@ public interface MovementHelper extends ActionCosts, Helper {
         if (block instanceof StairBlock) {
             return YES;
         }
+        if (block instanceof net.minecraft.world.level.block.IronBarsBlock) { // iron bars and glass panes: flat full-height top, even a lone post
+            return YES;
+        }
         if (isWater(state)) {
             return MAYBE;
         }
@@ -478,7 +481,7 @@ public interface MovementHelper extends ActionCosts, Helper {
     static boolean canWalkOnPosition(BlockStateInterface bsi, int x, int y, int z, BlockState state) {
         Block block = state.getBlock();
         if (isWater(state)) {
-            // since this is called literally millions of times per second, the benefit of not allocating millions of useless "pos.up()"
+            // since this is called literally millions of times per second, the benefit of not allocating millions of useless "pos.above()"
             // BlockPos s that we'd just garbage collect immediately is actually noticeable. I don't even think its a decrease in readability
             BlockState upState = bsi.get0(x, y + 1, z);
             Block up = upState.getBlock();
@@ -921,6 +924,8 @@ public interface MovementHelper extends ActionCosts, Helper {
         float pitch;
         if (!ctx.player().isSwimming()) {
             pitch = 35;
+            // the swim pose needs the eyes under; pitch alone can't sink them
+            if (!ctx.player().isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) state.setInput(Input.SNEAK, true);
         } else if (!ctx.player().isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
             pitch = 6; // breaching: nose back under or the swim pose drops
         } else {

@@ -42,6 +42,8 @@ import java.util.Set;
 
 public class MovementDescend extends Movement {
 
+    private static final double SHALLOW_WATER_LANDING_PENALTY = 6;
+
     /**
      * Drops (feet to feet) where a boat lands a hair above the floor, the rider is treated as on land,
      * and both the boat and the rider take the full fall.
@@ -174,9 +176,17 @@ public class MovementDescend extends Movement {
                 if (MovementHelper.isFlowing(destX, newY, destZ, ontoBlock, context.bsi)) {
                     return false; // TODO flowing check required here?
                 }
-                if (!MovementHelper.canWalkOn(context, destX, newY - 1, destZ)) {
+                int depth = 1;
+                while (depth < 4 && newY - depth > 0 && MovementHelper.isWater(context.get(destX, newY - depth, destZ))
+                        && !MovementHelper.isFlowing(destX, newY - depth, destZ, context.get(destX, newY - depth, destZ), context.bsi)) {
+                    depth++;
+                }
+                if (!MovementHelper.canWalkOn(context, destX, newY - depth, destZ)) {
                     // we could punch right through the water into something else
                     return false;
+                }
+                if (depth == 1) {
+                    tentativeCost += SHALLOW_WATER_LANDING_PENALTY; // wading out of 1-deep water is slow; prefer deep water where we can swim straight away
                 }
                 // found a fall into water
                 res.x = destX;
