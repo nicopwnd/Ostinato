@@ -42,7 +42,7 @@ public class MixinLivingEntityRenderer {
             at = @At("HEAD")
     )
     private void markGhost(LivingEntityRenderState state, PoseStack pose, MultiBufferSource buffers, int light, CallbackInfo ci) {
-        baritone$ghost = FreecamBehavior.activeCamera() != null && state == MixinPlayerRenderer.GHOST;
+        baritone$ghost = FreecamBehavior.activeCamera() != null && state == FreecamBehavior.ghostState;
     }
 
     // Vanilla draws invisible-but-seen bodies at a fixed 15% alpha; the freecam ghost uses freecamGhostOpacity.

@@ -73,6 +73,9 @@ public final class FreecamBehavior extends Behavior implements Helper {
      */
     public static volatile java.util.function.Supplier<String> statusSupplier;
 
+    /** Render state of the bot's ghost body this frame (set by the player renderer mixin; only it gets tinted). */
+    public static Object ghostState;
+
     /** Text for the tag above the translucent player while freecam is on. */
     public static String botStatus() {
         java.util.function.Supplier<String> s = statusSupplier;
