@@ -197,7 +197,10 @@ public abstract class Movement implements IMovement, MovementHelper {
         if (!MovementHelper.isWater(ctx, dest) && !MovementHelper.isWater(ctx, dest.down())
                 && dest.y >= feet.getY()) return false;
 
-        double dy = dest.y - p.getPositionVec().y;
+        // A lane drawn over the surface: in the swim pose the eyes are only ~0.4 above the feet, so ride with
+        // the feet just under the surface line; the head then dips in and out and keeps breathing.
+        boolean surfaceLane = p.isSwimming() && !MovementHelper.isWater(ctx, dest.up()) && MovementHelper.isWater(ctx, dest.down());
+        double dy = dest.y + (surfaceLane ? 0.45 : 0) - p.getPositionVec().y;
         int air = p.getAir(), max = p.getMaxAir();
         double toSurface = surfaceAbove(p);
         // Start rising while there's still time to creep up in the swim pose (~0.1 block/tick at -30).
@@ -218,12 +221,16 @@ public abstract class Movement implements IMovement, MovementHelper {
         } else if (dy < -0.5) {
             pitch = 30f;                   // dive
         } else {
-            pitch = -8f;                   // cruise just under the surface
+            // cruise just under the surface; if the head breaches, nose back down or the pose drops
+            pitch = !p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER) ? 6f : toSurface > 1.0 ? -8f : -4f;
         }
         float yaw = state.getTarget().getRotation().map(Rotation::getYaw)
                 .orElse(ctx.playerRotations().getYaw());
         state.setInput(Input.SPRINT, true);
         state.setInput(Input.JUMP, air < 30 && !p.isSwimming());
+        // Pitch does nothing until the swim pose, and the pose needs the eyes under: at the surface the
+        // bot otherwise paddles upright forever at a third of swim speed. Sink the eyes in with sneak.
+        state.setInput(Input.SNEAK, !p.isSwimming() && air >= 30 && !breathing && !p.areEyesInFluid(net.minecraft.tags.FluidTags.WATER));
         state.setTarget(new MovementState.MovementTarget(new Rotation(yaw, pitch), true));
         return true;
     }

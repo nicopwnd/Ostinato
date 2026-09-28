@@ -59,7 +59,13 @@ public class MovementSwim extends Movement {
 
     @Override
     protected Set<BetterBlockPos> calculateValidPositions() {
-        return ImmutableSet.of(src, dest, new BetterBlockPos(dest.x, src.y, dest.z), new BetterBlockPos(src.x, dest.y, src.z));
+        if (src.x == dest.x && src.z == dest.z) {
+            return ImmutableSet.of(src, dest, new BetterBlockPos(dest.x, src.y, dest.z), new BetterBlockPos(src.x, dest.y, src.z));
+        }
+        // A swim lane is held loosely: breathing or bobbing lifts us off it (see the arrival rule in updateState),
+        // and the next lane must accept where the last one left us, or the executor rewinds forever.
+        return ImmutableSet.of(src, dest, new BetterBlockPos(dest.x, src.y, dest.z), new BetterBlockPos(src.x, dest.y, src.z),
+                src.up(), src.up(2), src.up(3), src.down());
     }
 
     private static boolean water(CalculationContext c, int x, int y, int z) {
@@ -204,7 +210,10 @@ public class MovementSwim extends Movement {
         // Block-level arrival is enough: sprint-swimming carries momentum, so demanding the column
         // centre made the bot orbit the target (and drown). The next movement steers from here.
         boolean vertical = dest.x == src.x && dest.z == src.z;
-        if (feet.equals(dest) && (!vertical || horiz < 0.5)) {
+        if ((feet.equals(dest) && (!vertical || horiz < 0.5))
+                || (!vertical && dest.y <= src.y && MovementHelper.atSwum(ctx, dest) && !MovementHelper.isWater(ctx, dest.up()))
+                // Rising for air (or bobbing) through the lane: the column counts, or it overshoots and turns back.
+                || (breathing && !vertical && feet.x == dest.x && feet.z == dest.z && feet.y > dest.y && feet.y <= dest.y + 3)) {
             return state.setStatus(MovementStatus.SUCCESS);
         }
         if (!playerInValidPosition() && !MovementHelper.isWater(ctx, feet)) {
