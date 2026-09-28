@@ -25,6 +25,7 @@
     "MixinMinecraft",
     "MixinMouseHandler",
     "MixinPlayerRenderer",
+    "MixinLivingEntityRenderer",
     "MixinNetworkManager",
     "MixinPalettedContainer",
     "MixinPalettedContainer$Data",

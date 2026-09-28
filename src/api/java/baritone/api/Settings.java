@@ -1277,6 +1277,11 @@ public final class Settings {
     public final Setting<Double> freecamSpeed = new Setting<>(1D);
 
     /**
+     * Opacity of the bot's ghost body while freecam is on (0 = invisible, 1 = solid)
+     */
+    public final Setting<Float> freecamGhostOpacity = new Setting<>(0.35f);
+
+    /**
      * The maximum distance to the entity you're following
      */
     public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);

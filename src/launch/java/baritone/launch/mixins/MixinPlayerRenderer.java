@@ -32,6 +32,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PlayerRenderer.class)
 public class MixinPlayerRenderer {
 
+    /** Render state of the bot's ghost this frame; MixinLivingEntityRenderer tints only this one. */
+    public static PlayerRenderState GHOST;
+
     // While freecam is on, draw the bot as a translucent ghost of its skin (vanilla's invisible-but-seen path)
     // with a tag saying what it is doing.
     @Inject(
@@ -42,6 +45,7 @@ public class MixinPlayerRenderer {
         if (FreecamBehavior.activeCamera() == null || player != Minecraft.getInstance().player) {
             return;
         }
+        GHOST = state;
         state.isInvisible = true;
         state.isInvisibleToPlayer = false;
         state.nameTag = Component.literal(FreecamBehavior.botStatus());
