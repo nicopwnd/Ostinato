@@ -1,0 +1,5 @@
+# Capabilities
+
+| capability | owner | live path? | scenario | status | last evidence |
+|---|---|---|---|---|---|
+| Kinematic travel: detect stuck + recover onto the path | Ostinato | yes: `PathExecutor.onTick` → `KinematicController.drive` | `pathbench travel kinematic 3`, goals 8–12, warp 1, seed 12345 | partial | Old build (58d4f3a), start (57,69,-117): 12/15, goal 11 STALLED ×3 (bot stranded on top of a `MovementFall` column, hopping in place, per-tick stuck check never fired). Upstream 1.16.1 (`climbedOff`, 7f66d6a) over 6 runs from random spawns: 88/90. A 60-tick along-line progress watchdog on top: 73/90 (goal 11/12 stalls), so it was not shipped. The (57,69,-117) start never recurred, so the original stall is unconfirmed as fixed. |
