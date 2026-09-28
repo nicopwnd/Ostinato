@@ -265,7 +265,7 @@ public class MovementDiagonal extends Movement {
                 && MovementHelper.isLiquid(ctx, src.down()) && MovementHelper.isLiquid(ctx, dest.down());
         if (ctx.playerFeet().equals(dest) || (swim && MovementHelper.atSwum(ctx, dest))) {
             return state.setStatus(MovementStatus.SUCCESS);
-        } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().up())) && !airborneNearDest()) {
+        } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().up())) && !nearDest()) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
         if (dest.y > src.y && ctx.player().getPositionVec().y < src.y + 0.1 && ctx.player().collidedHorizontally) {
@@ -329,9 +329,9 @@ public class MovementDiagonal extends Movement {
     }
 
     /** Mid-hop just past the corner (e.g. handed over from the kinematic driver): keep steering, it lands on dest. */
-    private boolean airborneNearDest() {
+    private boolean nearDest() {
         double dx = ctx.player().getPositionVec().x - (dest.x + 0.5), dz = ctx.player().getPositionVec().z - (dest.z + 0.5);
         double y = ctx.player().getPositionVec().y;
-        return !ctx.player().isOnGround() && dx * dx + dz * dz < 1.5 * 1.5 && y >= dest.y && y < dest.y + 1.3;
+        return dx * dx + dz * dz < 1.5 * 1.5 && y >= dest.y && y < dest.y + 1.3;
     }
 }
