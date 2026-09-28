@@ -922,6 +922,54 @@ public enum Moves {
         public void apply(CalculationContext context, int x, int y, int z, MutableMoveResult result) {
             MovementJump.cost(context, x, y, z, 23, result);
         }
+    },
+
+    SLIME_0(0, 0, 0, true, true) {
+        @Override
+        public Movement apply0(CalculationContext context, BetterBlockPos src) {
+            return MovementSlime.cost(context, src, 0);
+        }
+
+        @Override
+        public void apply(CalculationContext context, int x, int y, int z, MutableMoveResult result) {
+            MovementSlime.cost(context, x, y, z, 0, result);
+        }
+    },
+
+    SLIME_1(0, 0, 0, true, true) {
+        @Override
+        public Movement apply0(CalculationContext context, BetterBlockPos src) {
+            return MovementSlime.cost(context, src, 1);
+        }
+
+        @Override
+        public void apply(CalculationContext context, int x, int y, int z, MutableMoveResult result) {
+            MovementSlime.cost(context, x, y, z, 1, result);
+        }
+    },
+
+    SLIME_2(0, 0, 0, true, true) {
+        @Override
+        public Movement apply0(CalculationContext context, BetterBlockPos src) {
+            return MovementSlime.cost(context, src, 2);
+        }
+
+        @Override
+        public void apply(CalculationContext context, int x, int y, int z, MutableMoveResult result) {
+            MovementSlime.cost(context, x, y, z, 2, result);
+        }
+    },
+
+    SLIME_3(0, 0, 0, true, true) {
+        @Override
+        public Movement apply0(CalculationContext context, BetterBlockPos src) {
+            return MovementSlime.cost(context, src, 3);
+        }
+
+        @Override
+        public void apply(CalculationContext context, int x, int y, int z, MutableMoveResult result) {
+            MovementSlime.cost(context, x, y, z, 3, result);
+        }
     };
 
     public final boolean dynamicXZ;

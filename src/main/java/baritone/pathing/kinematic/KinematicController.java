@@ -47,9 +47,10 @@ public final class KinematicController {
     // plans are scored at HORIZON but simulated this far so a hop chain that ends in a gap is rejected
     private static final int LOOKAHEAD = 36;
     private static final double BUMP = 0.12;
-    private static final double CORRIDOR = 0.55;
     /** Hand back to Baritone this far before the end of the drivable stretch. */
     private static final double HANDBACK = 1.2;
+    /** Rollout bound: falls, hazards and climbing off the path are checked separately, so plans may cut corners wider. */
+    private static final double WIDE = 1.1;
 
     private final IPlayerContext ctx;
     private final ClientWorld world;
@@ -109,7 +110,7 @@ public final class KinematicController {
         double end = line.get(line.size() - 1)[3];
         // at the end of the whole path drive onto the goal block instead of handing back early
         double handback = lastMove == path.movements().size() - 1 ? 0.3 : HANDBACK;
-        if (here[1] > CORRIDOR + 0.35 || end - here[0] < handback) {
+        if (here[1] > WIDE + 0.2 || end - here[0] < handback) {
             return -1;
         }
         double moved = (real.x - lastX) * (real.x - lastX) + (real.z - lastZ) * (real.z - lastZ);
@@ -204,7 +205,7 @@ public final class KinematicController {
             }
             wasBumping = sim.collidedH;
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4 || climbedOff(pr[0])) {
+            if (pr[1] > WIDE || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4 || climbedOff(pr[0])) {
                 return -1e9;
             }
             s = Math.max(s, pr[0]);
@@ -223,7 +224,7 @@ public final class KinematicController {
         for (int t = 0; t < 14 && !sim.onGround; t++) {
             sim.tick(aim(sim.x, sim.z, s, false), true, true, false);
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z) || climbedOff(pr[0])) {
+            if (pr[1] > WIDE || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z) || climbedOff(pr[0])) {
                 return -1e9;
             }
             s = Math.max(s, pr[0]);

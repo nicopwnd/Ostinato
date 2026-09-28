@@ -15,6 +15,11 @@ public final class PlayerSim {
         void collect(double minX, double minY, double minZ, double maxX, double maxY, double maxZ, List<double[]> out);
 
         float slipperiness(int x, int y, int z);
+
+        /** Slime: a landing bounces back up, walking on it is slowed. */
+        default boolean bouncy(int x, int y, int z) {
+            return false;
+        }
     }
 
     public static final double HALF_WIDTH = 0.3f; // vanilla sizes are floats: the box edge lands exactly on block faces
@@ -110,6 +115,14 @@ public final class PlayerSim {
         if (ox != r[0]) vx = 0;
         if (oz != r[2]) vz = 0;
         if (oy != r[1]) vy = 0;
+        // vanilla SlimeBlock: onLanded reverses the fall, onEntityWalk slows slow-moving walkers (never sneaking here)
+        boolean slime = world.bouncy(floor(x), floor(y - 0.2), floor(z));
+        if (slime && onGround && oy < 0) vy = -oy;
+        if (slime && onGround && Math.abs(vy) < 0.1) {
+            double k = 0.4 + Math.abs(vy) * 0.2;
+            vx *= k;
+            vz *= k;
+        }
     }
 
     /** Vanilla axis order: Y, then the larger horizontal axis first. */
