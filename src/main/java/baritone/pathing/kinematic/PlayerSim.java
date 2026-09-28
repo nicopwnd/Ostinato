@@ -17,12 +17,14 @@ public final class PlayerSim {
         float slipperiness(int x, int y, int z);
     }
 
-    public static final double HALF_WIDTH = 0.3;
-    public static final double HEIGHT = 1.8;
+    public static final double HALF_WIDTH = 0.3f; // vanilla sizes are floats: the box edge lands exactly on block faces
+    public static final double HEIGHT = 1.8f;
     public static final double STEP = 0.6;
 
     public double x, y, z, vx, vy, vz;
     public boolean onGround, sprinting, collidedH;
+    /** Vanilla's jump cooldown: holding jump re-jumps only every 10 ticks. */
+    public int jumpTicks;
 
     private final World world;
     private final List<double[]> boxes = new ArrayList<>();
@@ -33,7 +35,7 @@ public final class PlayerSim {
 
     public PlayerSim copyFrom(PlayerSim o) {
         x = o.x; y = o.y; z = o.z; vx = o.vx; vy = o.vy; vz = o.vz;
-        onGround = o.onGround; sprinting = o.sprinting; collidedH = o.collidedH;
+        onGround = o.onGround; sprinting = o.sprinting; collidedH = o.collidedH; jumpTicks = o.jumpTicks;
         return this;
     }
 
@@ -41,13 +43,23 @@ public final class PlayerSim {
      * One tick with forward held (optionally sprinting/jumping) facing {@code yawDeg}.
      */
     public void tick(float yawDeg, boolean forward, boolean sprint, boolean jump) {
+        tick(yawDeg, forward ? 1 : 0, sprint, jump);
+    }
+
+    /** As above with the forward key's impulse: 1 forward, 0 none, -1 back. */
+    public void tick(float yawDeg, int input, boolean sprint, boolean jump) {
+        boolean forward = input > 0;
         if (Math.abs(vx) < 0.003) vx = 0;
         if (Math.abs(vy) < 0.003) vy = 0;
         if (Math.abs(vz) < 0.003) vz = 0;
-        sprinting = sprint && forward && !collidedH;
+        // Vanilla: the key starts a sprint; only losing forward input or a wall stops it.
+        sprinting = forward && !collidedH && (sprint || sprinting);
         double yaw = Math.toRadians(yawDeg);
         double sin = Math.sin(yaw), cos = Math.cos(yaw);
-        if (jump && onGround) {
+        if (jumpTicks > 0) jumpTicks--;
+        if (!jump) jumpTicks = 0;
+        if (jump && onGround && jumpTicks == 0) {
+            jumpTicks = 10;
             vy = 0.42;
             if (sprinting) {
                 vx -= sin * 0.2;
@@ -63,8 +75,8 @@ public final class PlayerSim {
         } else {
             speed = sprinting ? 0.026 : 0.02;
         }
-        if (forward) {
-            double f = 0.98 * speed;
+        if (input != 0) {
+            double f = 0.98 * speed * input;
             vx += -sin * f;
             vz += cos * f;
         }
@@ -93,7 +105,7 @@ public final class PlayerSim {
         x += r[0];
         y += r[1];
         z += r[2];
-        collidedH = ox != r[0] || oz != r[2];
+        collidedH = Math.abs(ox - r[0]) >= 1e-5 || Math.abs(oz - r[2]) >= 1e-5; // vanilla approximatelyEquals
         onGround = oy != r[1] && oy < 0;
         if (ox != r[0]) vx = 0;
         if (oz != r[2]) vz = 0;

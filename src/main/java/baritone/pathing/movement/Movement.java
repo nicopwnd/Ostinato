@@ -178,6 +178,17 @@ public abstract class Movement implements IMovement, MovementHelper {
         return -1;
     }
 
+    /** Whether the air straight above the eyes is capped by a solid block within a few blocks (a cave pocket, not open water). */
+    private boolean roofedAbove(net.minecraft.world.entity.player.Player p) {
+        BlockPos q = BlockPos.containing(p.getEyePosition(1));
+        while (MovementHelper.isWater(ctx.world().getBlockState(q)) && q.getY() < ctx.world().getMaxY()) q = q.above();
+        for (int i = 0; i < 4; i++, q = q.above()) {
+            net.minecraft.world.level.block.state.BlockState st = ctx.world().getBlockState(q);
+            if (!st.getCollisionShape(ctx.world(), q).isEmpty()) return true;
+        }
+        return false;
+    }
+
     private boolean applySwim(MovementState state) {
         if (!Baritone.settings().swimInWater.value || currentState.getStatus().isComplete()) return false;
         net.minecraft.world.entity.player.Player p = ctx.player();
@@ -193,11 +204,17 @@ public abstract class Movement implements IMovement, MovementHelper {
         if (!MovementHelper.isWater(ctx, dest) && !MovementHelper.isWater(ctx, dest.below())
                 && dest.y >= feet.getY()) return false;
 
-        double dy = dest.y - p.position().y;
+        // A lane drawn over the surface: in the swim pose the eyes are only ~0.4 above the feet, so ride with
+        // the feet just under the surface line; the head then dips in and out and keeps breathing.
+        boolean surfaceLane = p.isSwimming() && ctx.world().isEmptyBlock(dest.above()) && MovementHelper.isWater(ctx, dest.below());
+        double dy = dest.y + (surfaceLane ? 0.45 : 0) - p.position().y;
         int air = p.getAirSupply(), max = p.getMaxAirSupply();
         double toSurface = surfaceAbove(p);
         // Start rising while there's still time to creep up in the swim pose (~0.1 block/tick at -30).
         if (toSurface >= 0 && air < toSurface * 10 + 60) breathing = true;
+        // A roofed air pocket overhead may be the last air for a while: top up to full before swimming on.
+        boolean pocket = toSurface >= 0 && toSurface < 2 && roofedAbove(p);
+        if (pocket && air < max - 20) breathing = true;
         if (air >= max || toSurface < 0) breathing = false;
         float pitch;
         if (breathing) {
@@ -214,12 +231,25 @@ public abstract class Movement implements IMovement, MovementHelper {
         } else if (dy < -0.5) {
             pitch = 30f;                   // dive
         } else {
-            pitch = -8f;                   // cruise just under the surface
+            // cruise just under the surface; if the head breaches, nose back down or the pose drops
+            pitch = !p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? 6f : -8f;
         }
         float yaw = state.getTarget().getRotation().map(Rotation::getYaw)
                 .orElse(ctx.playerRotations().getYaw());
         state.setInput(Input.SPRINT, true);
         state.setInput(Input.JUMP, air < 30 && !p.isSwimming());
+        // Pitch does nothing until the swim pose, and the pose needs the eyes under: at the surface the
+        // bot otherwise paddles upright forever at a third of swim speed. Sink the eyes in with sneak.
+        state.setInput(Input.SNEAK, !p.isSwimming() && air >= 30 && !breathing && !p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER));
+        if (breathing && pocket) {
+            if (p.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) {
+                // the pocket is only a few blocks long: climb into it steeply instead of cruising past
+                pitch = -60f;
+                state.setInput(Input.SPRINT, false);
+            } else {
+                state.setInput(Input.MOVE_FORWARD, false); // hold in the pocket until the lungs are full
+            }
+        }
         state.setTarget(new MovementState.MovementTarget(new Rotation(yaw, pitch), true));
         return true;
     }
