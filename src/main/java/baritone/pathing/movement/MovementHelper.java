@@ -846,6 +846,8 @@ public interface MovementHelper extends ActionCosts, Helper {
         float pitch;
         if (!ctx.player().isSwimming()) {
             pitch = 35;
+            // the swim pose needs the eyes under; pitch alone can't sink them
+            if (!ctx.player().areEyesInFluid(net.minecraft.tags.FluidTags.WATER)) state.setInput(Input.SNEAK, true);
         } else if (!ctx.player().areEyesInFluid(net.minecraft.tags.FluidTags.WATER)) {
             pitch = 6; // breaching: nose back under or the swim pose drops
         } else {

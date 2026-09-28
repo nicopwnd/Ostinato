@@ -103,6 +103,21 @@ public class PathExecutor implements IPathExecutor, Helper {
      * not sneaking out over lava), false otherwise
      */
     public boolean onTick() {
+        // A movement that succeeds immediately after a rewind to it would otherwise bounce between the two forever.
+        if (tickDepth > 8) {
+            return false;
+        }
+        tickDepth++;
+        try {
+            return tickOnce();
+        } finally {
+            tickDepth--;
+        }
+    }
+
+    private int tickDepth;
+
+    private boolean tickOnce() {
         if (pathPosition == path.length() - 1) {
             pathPosition++;
         }

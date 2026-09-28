@@ -3,6 +3,7 @@ package baritone.pathing.kinematic;
 import baritone.api.utils.IPlayerContext;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.shapes.VoxelShape;
@@ -62,5 +63,11 @@ public final class ClientWorld implements PlayerSim.World {
     public float slipperiness(int x, int y, int z) {
         pos.setPos(x, y, z);
         return ctx.world().getBlockState(pos).getBlock().getSlipperiness();
+    }
+
+    @Override
+    public boolean bouncy(int x, int y, int z) {
+        pos.setPos(x, y, z);
+        return ctx.world().getBlockState(pos).getBlock() == Blocks.SLIME_BLOCK;
     }
 }

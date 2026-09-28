@@ -32,6 +32,8 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.MoverType;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.IPacket;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.util.MovementInput;
 import net.minecraft.util.MovementInputFromOptions;
 import net.minecraft.util.math.AxisAlignedBB;
@@ -46,7 +48,7 @@ import net.minecraft.world.World;
 import java.util.Optional;
 
 /**
- * Detached camera for picking a destination. Walks with gravity or, after a double-tapped jump, flies like creative flight; collides with blocks; and is clamped to the bot's render distance.
+ * Detached camera for picking a destination. Walks with player physics (fluids, ladders, ice, slime) or, after a double-tapped jump, flies like creative flight; collides with blocks; and is clamped to the bot's render distance.
  * Left click: follow the entity under the crosshair, else travel to the block under it.
  * Right click: travel to the camera's own position.
  */
@@ -145,8 +147,9 @@ public final class FreecamBehavior extends Behavior implements Helper {
     }
 
     /**
-     * Walks like a survival player (gravity, jump, sprint) with block collision; double-tap jump
-     * toggles creative flight, as in creative mode. Approximates vanilla player physics.
+     * Walks like a survival player with block collision and step-up; double-tap jump toggles creative flight.
+     * Follows vanilla LivingEntity#travel: ice and slime slipperiness, soul sand and honey slowdown (speed and jump
+     * factors), slime bounce, cobwebs, ladders and vines, and swimming in water and lava with their currents.
      */
     private void move(GameSettings gs) {
         camera.syncPrev();
@@ -169,12 +172,21 @@ public final class FreecamBehavior extends Behavior implements Helper {
         }
         boolean sprint = gs.keyBindSprint.isKeyDown() && fwd > 0;
         double speed = Baritone.settings().freecamSpeed.value;
+        // currents push the camera like a player (and tell us whether it is in the fluid)
+        boolean water = !flying && camera.handleFluidAcceleration(FluidTags.WATER, 0.014);
+        boolean lava = !flying && !water && camera.handleFluidAcceleration(FluidTags.LAVA, 0.0023333333333333335);
+        boolean climbing = !flying && !water && !lava && camera.world.getBlockState(camera.getPosition()).isIn(BlockTags.CLIMBABLE);
+        camera.stepHeight = flying ? 0 : 0.6F;
+        camera.setSneaking(sneak && !flying); // sneaking stops slime bounce and slime slowdown, as for a player
         boolean onGround = camera.isOnGround();
+        float slip = onGround ? camera.world.getBlockState(new BlockPos(camera.getPosX(), camera.getPosY() - 0.5000001, camera.getPosZ())).getBlock().getSlipperiness() : 1;
         double accel;
         if (flying) {
             accel = 0.05 * (sprint ? 2 : 1);
+        } else if (water || lava) {
+            accel = 0.02 * (sprint && water ? 2 : 1);
         } else if (onGround) {
-            accel = 0.1 * (sprint ? 1.3 : 1) * (sneak ? 0.3 : 1) * 0.21600002 / (0.6 * 0.6 * 0.6);
+            accel = 0.1 * (sprint ? 1.3 : 1) * (sneak ? 0.3 : 1) * 0.21600002 / (slip * slip * slip);
         } else {
             accel = sprint ? 0.026 : 0.02;
         }
@@ -188,32 +200,48 @@ public final class FreecamBehavior extends Behavior implements Helper {
         double my = m.y;
         if (flying) {
             my += ((jump ? 1 : 0) - (sneak ? 1 : 0)) * 0.15 * speed;
+        } else if (water || lava) {
+            my += (jump ? 0.04 : 0) - (sneak ? 0.04 : 0);
         } else if (jump && onGround) {
-            my = 0.42;
+            my = 0.42 * camera.jumpFactor();
             if (sprint) {
                 mx -= sin * 0.2;
                 mz += cos * 0.2;
             }
         }
-        Vector3d want = new Vector3d(mx, my, mz);
-        camera.move(MoverType.SELF, want);
-        Vector3d moved = new Vector3d(camera.getPosX() - camera.prevPosX, camera.getPosY() - camera.prevPosY, camera.getPosZ() - camera.prevPosZ);
-        if (Math.abs(moved.x - want.x) > 1e-4) {
-            mx = 0;
+        if (climbing) {
+            mx = MathHelper.clamp(mx, -0.15, 0.15);
+            mz = MathHelper.clamp(mz, -0.15, 0.15);
+            my = Math.max(my, sneak ? 0 : -0.15);
         }
-        if (Math.abs(moved.z - want.z) > 1e-4) {
-            mz = 0;
-        }
-        if (Math.abs(moved.y - want.y) > 1e-4) {
-            my = 0;
+        // Entity#move does collision, step-up, the soul sand/honey speed factor, cobweb slowdown and slime bounce
+        camera.setMotion(mx, my, mz);
+        double y0 = camera.getPosY();
+        camera.move(MoverType.SELF, camera.getMotion());
+        m = camera.getMotion();
+        mx = m.x;
+        my = m.y;
+        mz = m.z;
+        if (climbing && (camera.collidedHorizontally || jump)) {
+            my = 0.2;
         }
         if (flying) {
             if (camera.isOnGround() && !jump) {
                 flying = false; // landing ends flight, as in creative
             }
             camera.setMotion(mx * 0.91, my * 0.6, mz * 0.91);
+        } else if (water || lava) {
+            double drag = water ? 0.8 : 0.5;
+            mx *= drag;
+            mz *= drag;
+            my = my * drag - (water ? 0.005 : 0.02);
+            // swimming into a bank with room above hops out, as vanilla does
+            if (camera.collidedHorizontally && camera.isOffsetPositionInLiquid(mx, my + 0.6 - camera.getPosY() + y0, mz)) {
+                my = 0.3;
+            }
+            camera.setMotion(mx, my, mz);
         } else {
-            double friction = camera.isOnGround() ? 0.6 * 0.91 : 0.91;
+            double friction = camera.isOnGround() ? slip * 0.91 : 0.91;
             camera.setMotion(mx * friction, (my - 0.08) * 0.98, mz * friction);
         }
     }
@@ -311,6 +339,10 @@ public final class FreecamBehavior extends Behavior implements Helper {
 
         Camera(World world) {
             super(EntityType.PLAYER, world);
+        }
+
+        float jumpFactor() {
+            return getJumpFactor();
         }
 
         void syncPrev() {

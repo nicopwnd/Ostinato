@@ -42,6 +42,8 @@ import java.util.Set;
 
 public class MovementDescend extends Movement {
 
+    private static final double SHALLOW_WATER_LANDING_PENALTY = 6;
+
     /**
      * Drops (feet to feet) where a boat lands a hair above the floor, the rider is treated as on land,
      * and both the boat and the rider take the full fall.
@@ -141,6 +143,34 @@ public class MovementDescend extends Movement {
         res.cost = totalCost;
     }
 
+    /** Whether a neighbour of the landing column has 2+ deep still water under an open drop from {@code topY} down. */
+    private static boolean deepDropBeside(CalculationContext context, int x, int waterY, int z, int topY) {
+        int[][] sides = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] d : sides) {
+            for (int step = 1; step <= 2; step++) {
+                int nx = x + d[0] * step, nz = z + d[1] * step;
+                if (!openColumn(context, nx, waterY + 1, topY, nz)) {
+                    break;
+                }
+                BlockState top = context.get(nx, waterY, nz);
+                if (MovementHelper.isWater(top) && MovementHelper.isWater(context.get(nx, waterY - 1, nz))
+                        && !MovementHelper.isFlowing(nx, waterY, nz, top, context.bsi)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean openColumn(CalculationContext context, int x, int fromY, int toY, int z) {
+        for (int yy = fromY; yy < toY; yy++) {
+            if (!MovementHelper.fullyPassable(context, x, yy, z)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static boolean dynamicFallCost(CalculationContext context, int x, int y, int z, int destX, int destZ, double frontBreak, BlockState below, MutableMoveResult res) {
         if (frontBreak != 0 && context.get(destX, y + 2, destZ).getBlock() instanceof FallingBlock) {
             // if frontBreak is 0 we can actually get through this without updating the falling block and making it actually fall
@@ -173,9 +203,20 @@ public class MovementDescend extends Movement {
                 if (MovementHelper.isFlowing(destX, newY, destZ, ontoBlock, context.bsi)) {
                     return false; // TODO flowing check required here?
                 }
-                if (!MovementHelper.canWalkOn(context, destX, newY - 1, destZ)) {
+                int depth = 1;
+                while (depth < 4 && newY - depth > 0 && MovementHelper.isWater(context.get(destX, newY - depth, destZ))
+                        && !MovementHelper.isFlowing(destX, newY - depth, destZ, context.get(destX, newY - depth, destZ), context.bsi)) {
+                    depth++;
+                }
+                if (!MovementHelper.canWalkOn(context, destX, newY - depth, destZ)) {
                     // we could punch right through the water into something else
                     return false;
+                }
+                if (depth == 1) {
+                    if (deepDropBeside(context, destX, newY, destZ, y)) {
+                        return false; // deep water within two columns: drop there instead and swim straight away
+                    }
+                    tentativeCost += SHALLOW_WATER_LANDING_PENALTY; // wading out of 1-deep water is slow
                 }
                 // found a fall into water
                 res.x = destX;

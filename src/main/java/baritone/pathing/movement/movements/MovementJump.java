@@ -47,7 +47,7 @@ import java.util.Set;
 public class MovementJump extends Movement {
 
     /** Moves slots; slot k takes the k-th feasible jump from a node. */
-    public static final int SLOTS = 12;
+    public static final int SLOTS = 24;
 
     private static final BetterBlockPos[] EMPTY = new BetterBlockPos[]{};
     /** Approach (ux, uz) and lateral (lx, lz) of the 8 frames: 4 directions, lateral side either way. */
@@ -65,11 +65,15 @@ public class MovementJump extends Movement {
         final JumpTemplates.Template t;
         final int frame;
         final double cost;
+        final int x, y, z;
 
-        Option(JumpTemplates.Template t, int frame, double cost) {
+        Option(JumpTemplates.Template t, int frame, double cost, int x, int y, int z) {
             this.t = t;
             this.frame = frame;
             this.cost = cost;
+            this.x = x;
+            this.y = y;
+            this.z = z;
         }
     }
 
@@ -133,7 +137,19 @@ public class MovementJump extends Movement {
                         continue templates;
                     }
                 }
-                c.options.add(new Option(t, i, t.ticks + t.runUp * WALK_ONE_BLOCK_COST + context.jumpPenalty));
+                double cost = t.ticks + t.runUp * WALK_ONE_BLOCK_COST + context.jumpPenalty;
+                int ddx = dx, ddy = y + t.dy, ddz = dz;
+                // one option per landing block (the cheapest): the planner only has a fixed number of jump slots
+                int same = -1;
+                for (int k = 0; k < c.options.size() && same < 0; k++) {
+                    Option o = c.options.get(k);
+                    if (o.x == ddx && o.y == ddy && o.z == ddz) same = k;
+                }
+                if (same < 0) {
+                    c.options.add(new Option(t, i, cost, ddx, ddy, ddz));
+                } else if (cost < c.options.get(same).cost) {
+                    c.options.set(same, new Option(t, i, cost, ddx, ddy, ddz));
+                }
             }
         }
         return c.options;
@@ -255,10 +271,14 @@ public class MovementJump extends Movement {
                 }
                 return state;
             }
-            if (Math.abs(m.x) + Math.abs(m.z) > 0.02 || !real.onGround) {
+            if (!real.onGround) {
                 return state;
             }
-            if (!js.search(real, true) && !js.search(real, false)) {
+            boolean still = Math.abs(m.x) + Math.abs(m.z) <= 0.02;
+            if (!still && !js.search(real, true)) {
+                return state; // no plan from this momentum: come to a stop first
+            }
+            if (still && !js.search(real, true) && !js.search(real, false)) {
                 logDebug("no jump from here");
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
