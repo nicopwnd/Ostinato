@@ -202,7 +202,7 @@ public final class KinematicController {
             }
             wasBumping = sim.collidedH;
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4) {
+            if (pr[1] > CORRIDOR || hazard(sim.x, sim.y, sim.z) || sim.y < floorAt(pr[0]) - 0.4 || climbedOff(pr[0])) {
                 return -1e9;
             }
             s = Math.max(s, pr[0]);
@@ -221,7 +221,7 @@ public final class KinematicController {
         for (int t = 0; t < 14 && !sim.onGround; t++) {
             sim.tick(aim(sim.x, sim.z, s, false), true, true, false);
             double[] pr = project(sim.x, sim.z);
-            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z)) {
+            if (pr[1] > CORRIDOR || sim.y < floorAt(pr[0]) - 0.4 || hazard(sim.x, sim.y, sim.z) || climbedOff(pr[0])) {
                 return -1e9;
             }
             s = Math.max(s, pr[0]);
@@ -345,6 +345,20 @@ public final class KinematicController {
     }
 
     /** Lowest floor the player may be at around arc length s (an ascend/descend switches floors mid-segment). */
+    /** Standing above the path: the box stepped or jumped onto terrain the path goes around, and Baritone loses it. */
+    private boolean climbedOff(double s) {
+        if (!sim.onGround) {
+            return false;
+        }
+        for (int i = 0; i + 1 < line.size(); i++) {
+            double[] a = line.get(i), b = line.get(i + 1);
+            if (s <= b[3] || i + 2 == line.size()) {
+                return sim.y > Math.max(a[1], b[1]) + 0.6;
+            }
+        }
+        return false;
+    }
+
     private double floorAt(double s) {
         for (int i = 0; i + 1 < line.size(); i++) {
             double[] a = line.get(i), b = line.get(i + 1);
