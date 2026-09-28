@@ -152,7 +152,7 @@ public final class FreecamBehavior extends Behavior implements Helper {
      */
     private void move(Options gs) {
         camera.syncPrev();
-        boolean jump = gs.keyJump.isDown();
+        boolean jump = held(gs.keyJump);
         if (jump && !jumpHeld) {
             flying = jumpTapTicks > 0 ? !flying : flying;
             jumpTapTicks = 7;
@@ -161,15 +161,15 @@ public final class FreecamBehavior extends Behavior implements Helper {
         if (jumpTapTicks > 0) {
             jumpTapTicks--;
         }
-        double fwd = (gs.keyUp.isDown() ? 1 : 0) - (gs.keyDown.isDown() ? 1 : 0);
-        double strafe = (gs.keyLeft.isDown() ? 1 : 0) - (gs.keyRight.isDown() ? 1 : 0);
-        boolean sneak = gs.keyShift.isDown();
+        double fwd = (held(gs.keyUp) ? 1 : 0) - (held(gs.keyDown) ? 1 : 0);
+        double strafe = (held(gs.keyLeft) ? 1 : 0) - (held(gs.keyRight) ? 1 : 0);
+        boolean sneak = held(gs.keyShift);
         double len = Math.sqrt(fwd * fwd + strafe * strafe);
         if (len > 1) {
             fwd /= len;
             strafe /= len;
         }
-        boolean sprint = gs.keySprint.isDown() && fwd > 0;
+        boolean sprint = held(gs.keySprint) && fwd > 0;
         double speed = Baritone.settings().freecamSpeed.value;
         boolean onGround = camera.onGround();
         double accel;
@@ -218,6 +218,18 @@ public final class FreecamBehavior extends Behavior implements Helper {
             double friction = camera.onGround() ? 0.6 * 0.91 : 0.91;
             camera.setDeltaMovement(mx * friction, (my - 0.08) * 0.98, mz * friction);
         }
+    }
+
+    /**
+     * Physical key state. The key mappings' own isDown() can't be trusted here: bot controllers
+     * (TenorClef, InputOverrideHandler) release movement mappings every tick while they drive the player.
+     */
+    private boolean held(net.minecraft.client.KeyMapping km) {
+        com.mojang.blaze3d.platform.InputConstants.Key key = com.mojang.blaze3d.platform.InputConstants.getKey(km.saveString());
+        if (key.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) {
+            return km.isDown();
+        }
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().getWindow(), key.getValue());
     }
 
     /** Keeps the camera within the bot's render distance (horizontal circle) and the world's height. */

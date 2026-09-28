@@ -920,6 +920,7 @@ public final class OstinatoScreen extends Screen {
         }
         // buttons (right)
         float bxr = button(ms, "Done", x1 - 10, true, mx, my, accent) - 5;
+        bxr = button(ms, freecamLabel(), bxr, false, mx, my, accent) - 5;
         boolean confirm = now < resetConfirmUntil;
         if (!tv) {
             bxr = button(ms, confirm ? "Click to confirm" : "Reset category", bxr, false, mx, my, confirm ? Theme.DANGER : accent) - 10;
@@ -933,6 +934,12 @@ public final class OstinatoScreen extends Screen {
         GuiDraw.text(ms, GuiDraw.trim(info, Math.max(20, limit - fx - 6), 1f), fx, ty, infoCol, false);
         bxr = hint(ms, bxr, "ESC", "close");
         hint(ms, bxr, key, "toggle");
+    }
+
+    private static String freecamLabel() {
+        baritone.api.IBaritone b = baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone();
+        boolean on = b instanceof baritone.Baritone && ((baritone.Baritone) b).getFreecamBehavior().isActive();
+        return on ? "Freecam: on" : "Freecam";
     }
 
     private float hintWidth(String k, String label) {
@@ -1111,6 +1118,21 @@ public final class OstinatoScreen extends Screen {
             iy += 16;
         }
         float doneW0 = GuiDraw.width("Done") + 16;
+        float fcw = GuiDraw.width(freecamLabel()) + 16, fcxr = x1 - 10 - doneW0 - 5;
+        if (in(mx, my, fcxr - fcw, fy + 5, fcxr, fy + 19)) {
+            baritone.api.IBaritone b = baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone();
+            if (b instanceof baritone.Baritone) {
+                baritone.behavior.FreecamBehavior fc = ((baritone.Baritone) b).getFreecamBehavior();
+                boolean on = !fc.isActive();
+                onClose(); // the camera needs the mouse and keys
+                if (on) {
+                    fc.enable();
+                } else {
+                    fc.disable();
+                }
+            }
+            return true;
+        }
         if (showTasks()) {
             if (in(mx, my, x1 - 10 - doneW0, fy + 5, x1 - 10, fy + 19)) {
                 onClose();
@@ -1141,7 +1163,7 @@ public final class OstinatoScreen extends Screen {
         }
         long now = System.currentTimeMillis();
         String resetLabel = now < resetConfirmUntil ? "Click to confirm" : "Reset category";
-        float rw = GuiDraw.width(resetLabel) + 16, rxr = x1 - 10 - doneW - 5;
+        float rw = GuiDraw.width(resetLabel) + 16, rxr = fcxr - fcw - 5;
         if (in(mx, my, rxr - rw, fy + 5, rxr, fy + 19)) {
             if (now < resetConfirmUntil) {
                 int n = 0;
