@@ -24,7 +24,7 @@ import java.util.List;
  */
 public final class VexBench implements AbstractGameEventListener {
 
-    private static final String[] DIFFS = {"easy", "medium", "hard", "expert", "perfect"};
+    private static final String[] DIFFS = System.getProperty("ostinato.vex.diffs", "easy,medium,hard,expert,perfect").split(",");
     // -Dostinato.vex.styles=aggressive,safe,... cycles VexBot's play style every full difficulty sweep
     private static final String[] STYLES = System.getProperty("ostinato.vex.styles", "default").split(",");
     private static final int ROUND_TICKS = 20 * 90;
