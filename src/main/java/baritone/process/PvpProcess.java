@@ -44,6 +44,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private LivingEntity target;
     private final Random rng = new Random(7);
     private int strafeDir = 1, strafeLeft, wtap, eatTicks, groundedJumps, blockTicks;
+    private int targetSwingTick;
     private boolean critArmed;
     private float lastHealth = -1;
 
@@ -138,7 +139,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
         look(aimPoint(me, target));
 
         float cd = me.getAttackStrengthScale(0.5f);
-        boolean inReach = dist <= REACH;
+        boolean inReach = exactReach(me, target) <= REACH - 0.05;
+        if (target.swinging && target.swingTime == 0) targetSwingTick = me.tickCount;
+        boolean targetReady = me.tickCount - targetSwingTick >= 10; // its sword is charged: whoever swings first wins the exchange
         boolean immune = target.hurtTime > 1;
         boolean falling = !me.onGround() && me.getDeltaMovement().y < -0.05;
         boolean canJump = me.onGround() && !me.isInWater() && !me.isInLava() && !me.onClimbable();
@@ -149,6 +152,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (axeTime && inReach) { // an axe disables a raised shield whatever the charge
             hit(me);
             axeHits++;
+            return pause();
+        }
+        if (!me.onGround() && !falling && targetReady && inReach && cd >= 0.95f && !immune) {
+            hit(me); // don't hang in the air waiting for a crit while it swings first
+            critArmed = false;
             return pause();
         }
         if (critArmed && falling && inReach && cd >= 0.9f && !immune) {
@@ -330,6 +338,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
         Vec3 eye = me.getEyePosition();
         AABB b = t.getBoundingBox().deflate(0.05);
         return new Vec3(Mth.clamp(eye.x, b.minX, b.maxX), Mth.clamp(eye.y, b.minY + 0.2, b.maxY - 0.1), Mth.clamp(eye.z, b.minZ, b.maxZ));
+    }
+
+    private static double exactReach(Player me, LivingEntity t) {
+        Vec3 eye = me.getEyePosition();
+        AABB b = t.getBoundingBox();
+        return eye.distanceTo(new Vec3(Mth.clamp(eye.x, b.minX, b.maxX), Mth.clamp(eye.y, b.minY, b.maxY), Mth.clamp(eye.z, b.minZ, b.maxZ)));
     }
 
     private static double eyeToBox(Player me, LivingEntity t) {
