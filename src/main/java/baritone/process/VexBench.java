@@ -132,7 +132,9 @@ public final class VexBench implements AbstractGameEventListener {
             return;
         }
         bot = "vex" + round; // VexBot lowercases names
-        run("kill @e[type=!player]", "kill @a[name=!" + Minecraft.getInstance().player.getGameProfile().name() + "]", "kill @e[type=item]");
+        run("kill @e[type=!player]", "kill @a[name=!" + Minecraft.getInstance().player.getGameProfile().name() + "]", "kill @e[type=item]",
+                // explosive rounds leave craters, anchors and obsidian; rebuild the superflat arena
+                "fill -16 -60 -16 16 -50 16 air", "fill -16 -63 -16 16 -62 16 dirt", "fill -16 -61 -16 16 -61 16 grass_block");
         setup = true; // gear up once we're alive again: a kit given to a corpse is lost on respawn
         wait = 20;
         ticks = 0;
