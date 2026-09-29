@@ -429,6 +429,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
      */
     private boolean anchor(Player me) {
         if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 && slotOf(me, Items.GLOWSTONE) < 0 || me.distanceTo(target) > 7) return false;
+        // a crit finishes a low target faster than the place-charge-detonate cycle
+        if (me.distanceTo(target) < 3 && target.getHealth() + target.getAbsorptionAmount() <= 7) return false;
         Level w = ctx.world();
         float myHp = me.getHealth() + me.getAbsorptionAmount();
         BlockPos t = target.blockPosition(), boom = null, charge = null, backOff = null;
