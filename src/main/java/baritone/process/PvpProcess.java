@@ -1,5 +1,6 @@
 package baritone.process;
 
+import net.minecraft.world.entity.Entity;
 import baritone.Baritone;
 import baritone.api.pathing.goals.GoalNear;
 import baritone.api.process.PathingCommand;
@@ -135,7 +136,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         look(aimPoint(me, target));
 
         float cd = me.getAttackStrengthScale(0.5f);
-        boolean inReach = dist <= REACH;
+        boolean inReach = reach(me, target) <= REACH - 0.1;
         boolean immune = target.hurtTime > 1;
         boolean falling = !me.onGround() && me.getDeltaMovement().y < -0.05;
         boolean canJump = me.onGround() && !me.isInWater() && !me.isInLava() && !me.onClimbable();
@@ -158,6 +159,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
             me.setSprinting(false); // a sprinting hit is never a crit
             critArmed = true;
         }
+        if (!me.onGround() && !critArmed && inReach && cd >= 0.95f && !immune) {
+            hit(me); // knocked airborne without a crit set up: don't waste the cooldown
+            return pause();
+        }
         if (me.onGround()) critArmed = false;
         else groundedJumps = 0;
 
@@ -176,6 +181,13 @@ public final class PvpProcess extends BaritoneProcessHelper {
             groundedJumps = 0;
         }
         return pause();
+    }
+
+    /** Eye to nearest point of the target's hitbox, which is what the server checks for reach. */
+    private static double reach(Player me, Entity target) {
+        Vec3 eye = me.getEyePosition();
+        AABB bb = target.getBoundingBox();
+        return eye.distanceTo(new Vec3(Mth.clamp(eye.x, bb.minX, bb.maxX), Mth.clamp(eye.y, bb.minY, bb.maxY), Mth.clamp(eye.z, bb.minZ, bb.maxZ)));
     }
 
     private PathingCommand pause() {
