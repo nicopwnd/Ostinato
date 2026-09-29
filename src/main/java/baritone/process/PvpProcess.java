@@ -507,17 +507,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
         BlockPos feet = me.blockPosition();
         int dx = Integer.signum(threat.getX() - feet.getX()), dz = Integer.signum(threat.getZ() - feet.getZ());
         Level w = ctx.world();
-        // a shield anchor is one they could charge in our face, so put it where it favours us and we'll blow it on them first
-        BlockPos pick = null;
-        float best = -Float.MAX_VALUE;
         for (BlockPos c : new BlockPos[]{feet.offset(dx, 0, dz), feet.offset(dx, 0, 0), feet.offset(0, 0, dz)}) {
             if (c.equals(feet) || c.equals(threat) || !w.getBlockState(c).canBeReplaced() || w.getBlockState(c.below()).canBeReplaced()) continue;
             if (!w.getEntities(null, new AABB(c)).isEmpty() || me.getEyePosition().distanceTo(Vec3.atCenterOf(c)) > 4.5) continue;
-            Vec3 at = Vec3.atCenterOf(c);
-            float score = block == Items.RESPAWN_ANCHOR ? blast(target, at, 10) - blast(me, at, 10) : 0;
-            if (score > best) { best = score; pick = c; }
+            return place(me, block, c.below());
         }
-        return pick != null && place(me, block, pick.below());
+        return false;
     }
 
     /** Right-click the top face of a block with whatever is in hand. */
