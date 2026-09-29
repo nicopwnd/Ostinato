@@ -104,7 +104,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         keepTotem(me);
 
-        if (eatTicks > 0 || me.getHealth() <= 11 && !me.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)
+        boolean targetEating = target.isUsingItem() && target.getUseItem().has(net.minecraft.core.component.DataComponents.FOOD);
+        boolean safe = eyeToBox(me, target) > 4.5 || targetEating;
+        if (eatTicks > 0 || (me.getHealth() <= 5 || me.getHealth() <= 11 && safe) && !me.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)
                 && (slotOf(me, Items.GOLDEN_APPLE) >= 0 || slotOf(me, Items.ENCHANTED_GOLDEN_APPLE) >= 0)) {
             if (eat(me)) return pause();
         }
@@ -136,7 +138,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         look(aimPoint(me, target));
 
         float cd = me.getAttackStrengthScale(0.5f);
-        boolean inReach = reach(me, target) <= REACH - 0.1;
+        boolean inReach = dist <= REACH;
         boolean immune = target.hurtTime > 1;
         boolean falling = !me.onGround() && me.getDeltaMovement().y < -0.05;
         boolean canJump = me.onGround() && !me.isInWater() && !me.isInLava() && !me.onClimbable();
@@ -144,7 +146,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         steer(me, dist);
         if (me.hurtTime == me.hurtDuration - 1 && canJump) me.jumpFromGround(); // jump reset
 
-        if (axeTime && inReach && cd >= 0.9f) {
+        if (axeTime && inReach) { // an axe disables a raised shield whatever the charge
             hit(me);
             axeHits++;
             return pause();
@@ -181,13 +183,6 @@ public final class PvpProcess extends BaritoneProcessHelper {
             groundedJumps = 0;
         }
         return pause();
-    }
-
-    /** Eye to nearest point of the target's hitbox, which is what the server checks for reach. */
-    private static double reach(Player me, Entity target) {
-        Vec3 eye = me.getEyePosition();
-        AABB bb = target.getBoundingBox();
-        return eye.distanceTo(new Vec3(Mth.clamp(eye.x, bb.minX, bb.maxX), Mth.clamp(eye.y, bb.minY, bb.maxY), Mth.clamp(eye.z, bb.minZ, bb.maxZ)));
     }
 
     private PathingCommand pause() {
