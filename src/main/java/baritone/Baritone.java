@@ -70,6 +70,7 @@ public class Baritone implements IBaritone {
     private final LookBehavior lookBehavior;
     private final InventoryBehavior inventoryBehavior;
     private final SwarmBehavior swarmBehavior;
+    private final FreecamBehavior freecamBehavior;
     private final InputOverrideHandler inputOverrideHandler;
 
     private final FollowProcess followProcess;
@@ -112,6 +113,7 @@ public class Baritone implements IBaritone {
             this.inputOverrideHandler = this.registerBehavior(InputOverrideHandler::new);
             this.registerBehavior(WaypointBehavior::new);
             this.swarmBehavior        = this.registerBehavior(SwarmBehavior::new);
+            this.freecamBehavior      = this.registerBehavior(FreecamBehavior::new);
         }
 
         this.pathingControlManager = new PathingControlManager(this);
@@ -133,6 +135,7 @@ public class Baritone implements IBaritone {
         this.worldProvider = new WorldProvider(this);
         this.selectionManager = new SelectionManager(this);
         this.commandManager = new CommandManager(this);
+        this.gameEventHandler.registerEventListener(new baritone.gui.OstinatoGui(this));
     }
 
     public void registerBehavior(IBehavior behavior) {
@@ -154,6 +157,10 @@ public class Baritone implements IBaritone {
     @Override
     public PathingControlManager getPathingControlManager() {
         return this.pathingControlManager;
+    }
+
+    public FreecamBehavior getFreecamBehavior() {
+        return this.freecamBehavior;
     }
 
     @Override

@@ -1272,6 +1272,16 @@ public final class Settings {
     public final Setting<Integer> followRadius = new Setting<>(3);
 
     /**
+     * Freecam flight speed multiplier (1 = vanilla walking and creative flight)
+     */
+    public final Setting<Double> freecamSpeed = new Setting<>(1D);
+
+    /**
+     * Opacity of the bot's ghost body while freecam is on (0 = invisible, 1 = solid)
+     */
+    public final Setting<Float> freecamGhostOpacity = new Setting<>(0.35f);
+
+    /**
      * The maximum distance to the entity you're following
      */
     public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);
@@ -1882,6 +1892,32 @@ public final class Settings {
      * Drive plain walking stretches of a path with a physics look-ahead controller instead of per-movement logic
      */
     public final Setting<Boolean> kinematicTravel = new Setting<>(false);
+
+    /**
+     * Receives movement failures as (code, evidence), e.g. so a bot can record them in its fault log.
+     * Codes: M01 kinematic stuck, M02 off path, M03 movement timeout, M04 movement failed.
+     */
+    public final Setting<java.util.function.BiConsumer<String, String>> movementFault = new Setting<>((code, evidence) -> {});
+
+    /**
+     * Experimental: drive land stretches with keys found by searching simulated player physics.
+     */
+    public final Setting<Boolean> physicsTravel = new Setting<>(false);
+
+    /**
+     * Key that opens the Ostinato settings screen in game, polled every client tick while no screen is open.
+     * Takes a key name such as {@code RCONTROL}, {@code RSHIFT}, {@code F8}, {@code K} or {@code NONE} to disable.
+     */
+    public final Setting<String> guiKeybind = new Setting<>("RCONTROL");
+
+    /** Show the Ostinato path status card on the HUD while pathing. Hidden while F3 is open. */
+    public final Setting<Boolean> renderPathHud = new Setting<>(true);
+
+    /** Where the path status card sits: {@code RIGHT}, {@code LEFT}, {@code TOP_RIGHT} or {@code TOP_LEFT}. */
+    public final Setting<String> pathHudAnchor = new Setting<>("RIGHT");
+
+    /** Accent color of the Ostinato settings screen and path status card. */
+    public final Setting<Color> guiAccentColor = new Setting<>(new Color(79, 209, 197));
 
     
     /**
