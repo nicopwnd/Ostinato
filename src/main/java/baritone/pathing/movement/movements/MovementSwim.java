@@ -176,9 +176,9 @@ public class MovementSwim extends Movement {
         return SWIM_ONE_BLOCK_COST * dist;
     }
 
-    @Override
     private int stallTicks;
 
+    @Override
     public MovementState updateState(MovementState state) {
         super.updateState(state);
         if (state.getStatus() != MovementStatus.RUNNING) {
