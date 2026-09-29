@@ -1,5 +1,6 @@
 package baritone.process;
 
+import net.minecraft.world.entity.Entity;
 import baritone.Baritone;
 import baritone.api.pathing.goals.GoalNear;
 import baritone.api.process.PathingCommand;
@@ -43,6 +44,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private LivingEntity target;
     private final Random rng = new Random(7);
     private int strafeDir = 1, strafeLeft, wtap, eatTicks, groundedJumps, blockTicks;
+    private int targetSwingTick;
     private boolean critArmed;
     private float lastHealth = -1;
 
@@ -103,7 +105,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         keepTotem(me);
 
-        if (eatTicks > 0 || me.getHealth() <= 11 && !me.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)
+        boolean targetEating = target.isUsingItem() && target.getUseItem().has(net.minecraft.core.component.DataComponents.FOOD);
+        boolean safe = eyeToBox(me, target) > 4.5 || targetEating;
+        if (eatTicks > 0 || (me.getHealth() <= 5 || me.getHealth() <= 11 && safe) && !me.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)
                 && (slotOf(me, Items.GOLDEN_APPLE) >= 0 || slotOf(me, Items.ENCHANTED_GOLDEN_APPLE) >= 0)) {
             if (eat(me)) return pause();
         }
@@ -135,7 +139,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
         look(aimPoint(me, target));
 
         float cd = me.getAttackStrengthScale(0.5f);
-        boolean inReach = dist <= REACH;
+        boolean inReach = exactReach(me, target) <= REACH - 0.05;
+        if (target.swinging && target.swingTime == 0) targetSwingTick = me.tickCount;
+        boolean targetReady = me.tickCount - targetSwingTick >= 10; // its sword is charged: whoever swings first wins the exchange
         boolean immune = target.hurtTime > 1;
         boolean falling = !me.onGround() && me.getDeltaMovement().y < -0.05;
         boolean canJump = me.onGround() && !me.isInWater() && !me.isInLava() && !me.onClimbable();
@@ -143,9 +149,14 @@ public final class PvpProcess extends BaritoneProcessHelper {
         steer(me, dist);
         if (me.hurtTime == me.hurtDuration - 1 && canJump) me.jumpFromGround(); // jump reset
 
-        if (axeTime && inReach && cd >= 0.9f) {
+        if (axeTime && inReach) { // an axe disables a raised shield whatever the charge
             hit(me);
             axeHits++;
+            return pause();
+        }
+        if (!me.onGround() && !falling && targetReady && inReach && cd >= 0.95f && !immune) {
+            hit(me); // don't hang in the air waiting for a crit while it swings first
+            critArmed = false;
             return pause();
         }
         if (critArmed && falling && inReach && cd >= 0.9f && !immune) {
@@ -157,6 +168,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (!me.onGround() && me.getDeltaMovement().y < 0.08 && dist <= REACH + 0.6 && cd >= 0.75f) {
             me.setSprinting(false); // a sprinting hit is never a crit
             critArmed = true;
+        }
+        if (!me.onGround() && !critArmed && inReach && cd >= 0.95f && !immune) {
+            hit(me); // knocked airborne without a crit set up: don't waste the cooldown
+            return pause();
         }
         if (me.onGround()) critArmed = false;
         else groundedJumps = 0;
@@ -323,6 +338,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
         Vec3 eye = me.getEyePosition();
         AABB b = t.getBoundingBox().deflate(0.05);
         return new Vec3(Mth.clamp(eye.x, b.minX, b.maxX), Mth.clamp(eye.y, b.minY + 0.2, b.maxY - 0.1), Mth.clamp(eye.z, b.minZ, b.maxZ));
+    }
+
+    private static double exactReach(Player me, LivingEntity t) {
+        Vec3 eye = me.getEyePosition();
+        AABB b = t.getBoundingBox();
+        return eye.distanceTo(new Vec3(Mth.clamp(eye.x, b.minX, b.maxX), Mth.clamp(eye.y, b.minY, b.maxY), Mth.clamp(eye.z, b.minZ, b.maxZ)));
     }
 
     private static double eyeToBox(Player me, LivingEntity t) {
