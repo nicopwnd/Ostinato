@@ -138,16 +138,17 @@ public final class PvpProcess extends BaritoneProcessHelper {
             blockTicks = 0;
         }
 
+        // crystals and anchors reach further than a sword, and blowing them is also how we clear a wall of them
+        if (crystal(me)) {
+            if (dist <= DRIVE) steer(me, dist);
+            return pause();
+        }
         if (dist > DRIVE || !los) {
             if (los && dist > BOW_MIN && slotOf(me, Items.BOW) >= 0 && slotOf(me, Items.ARROW) >= 0) return bow(me);
             use(false);
             return new PathingCommand(new GoalNear(target.blockPosition(), 2), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
         }
         if (me.isUsingItem()) use(false);
-        if (crystal(me)) {
-            steer(me, dist);
-            return pause();
-        }
 
         boolean inReach = exactReach(me, target) <= REACH - 0.05;
         // a shield being raised blocks before isBlocking() shows it; only swap in reach, since any swap drains the charge
@@ -430,16 +431,25 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 && slotOf(me, Items.GLOWSTONE) < 0 || me.distanceTo(target) > 7) return false;
         Level w = ctx.world();
         float myHp = me.getHealth() + me.getAbsorptionAmount();
-        BlockPos t = target.blockPosition(), boom = null, charge = null;
-        float bestBoom = 0, bestCharge = 0;
+        BlockPos t = target.blockPosition(), boom = null, charge = null, backOff = null;
+        float bestBoom = 0, bestCharge = 0, bestBack = 0;
         for (BlockPos p : BlockPos.betweenClosed(t.offset(-3, -1, -3), t.offset(3, 2, 3))) {
             if (!w.getBlockState(p).is(Blocks.RESPAWN_ANCHOR) || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
-            float score = worth(me, Vec3.atCenterOf(p), myHp, 10);
-            if (score <= 0) continue;
-            if (w.getBlockState(p).getValue(RespawnAnchorBlock.CHARGE) > 0) {
-                if (score > bestBoom) { bestBoom = score; boom = p.immutable(); }
-            } else if (score > bestCharge) { bestCharge = score; charge = p.immutable(); }
+            Vec3 at = Vec3.atCenterOf(p);
+            float score = worth(me, at, myHp, 10), dmg = blast(target, at, 10);
+            if (w.getBlockState(p).getValue(RespawnAnchorBlock.CHARGE) == 0) {
+                // charging hurts nobody, so charge anything that would hurt the target
+                if (dmg >= 3 && dmg > bestCharge) { bestCharge = dmg; charge = p.immutable(); }
+            } else if (score > bestBoom) {
+                bestBoom = score;
+                boom = p.immutable();
+            } else if (score <= 0 && blast(me, at, 10) >= 4 && blast(me, at, 10) > bestBack) {
+                bestBack = blast(me, at, 10); // theirs or ours, it can go off in our face
+                backOff = p.immutable();
+            }
         }
+        // their anchor chain wins up close: stand off so an anchor beside them hurts them far more than us
+        if (me.distanceTo(target) < 4) key(Input.MOVE_BACK);
         if (boom != null) {
             int slot = -1;
             for (int i = 0; i < 9; i++) {
@@ -453,6 +463,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (charge != null && slotOf(me, Items.GLOWSTONE) >= 0) {
             select(me, slotOf(me, Items.GLOWSTONE));
             return me.getMainHandItem().getItem() == Items.GLOWSTONE && click(me, charge);
+        }
+        if (backOff != null) { // a charged anchor that would hurt us too much from here: step away, then blow it
+            look(Vec3.atCenterOf(backOff));
+            key(Input.MOVE_BACK);
+            return true;
         }
         if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 || slotOf(me, Items.GLOWSTONE) < 0) return false;
         BlockPos spot = null;
@@ -493,7 +508,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
         float dmg = blast(target, at, size), self = blast(me, at, size);
         boolean totem = me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
         if (self >= myHp - (totem ? 0 : 2) && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0;
-        if (dmg < 3 || dmg < self) return 0;
+        if (dmg < 3 || dmg < self * (size == 10 ? 1.5f : 1)) return 0;
+        if (size == 10 && self >= myHp - 4 && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0; // don't pop our own totem
         return dmg - self * 0.6f;
     }
 
@@ -501,7 +517,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private static float blast(LivingEntity e, Vec3 at, double size) {
         double d = Math.sqrt(e.distanceToSqr(at)) / size;
         if (d > 1) return 0;
-        double impact = (1 - d) * ServerExplosion.getSeenPercent(at, e);
+        // an anchor is removed before it blows, but would block its own rays here, so take it as fully exposed
+        double impact = (1 - d) * (size == 12 ? ServerExplosion.getSeenPercent(at, e) : 1);
         float raw = (float) ((impact * impact + impact) / 2 * 7 * size + 1);
         return CombatRules.getDamageAfterAbsorb(e, raw, e.damageSources().generic(), e.getArmorValue(), (float) e.getAttributeValue(Attributes.ARMOR_TOUGHNESS));
     }
