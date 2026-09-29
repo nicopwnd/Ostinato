@@ -126,6 +126,7 @@ public class Baritone implements IBaritone {
             this.elytraProcess           = this.registerProcess(ElytraProcess::create);
             this.registerProcess(BackfillProcess::new);
             this.pvpProcess              = this.registerProcess(PvpProcess::new);
+            VexBench.install(this);
         }
 
         this.worldProvider = new WorldProvider(this);
