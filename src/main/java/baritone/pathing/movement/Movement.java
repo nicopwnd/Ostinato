@@ -201,7 +201,9 @@ public abstract class Movement implements IMovement, MovementHelper {
         if (!p.isSwimming() && !MovementHelper.isWater(ctx, feet.above()) && !MovementHelper.isWater(ctx, feet.below())) return false;
         // Swimming into a step face (a stream down stairs): stop swimming and let JUMP climb it.
         // A roof lip at head height isn't a step: the swim pose is what fits under it, so keep swimming.
-        if (p.horizontalCollision && dest.y >= feet.getY() && !MovementHelper.isWater(ctx, new BlockPos(dest.x, feet.getY(), dest.z))) return false;
+        BlockPos lip = new BlockPos(dest.x, feet.getY() - 1, dest.z);
+        boolean shelf = p.position().y < feet.getY() && !MovementHelper.isWater(ctx, lip) && !ctx.world().getBlockState(lip).getCollisionShape(ctx.world(), lip).isEmpty();
+        if (p.horizontalCollision && dest.y >= feet.getY() && (shelf || !MovementHelper.isWater(ctx, new BlockPos(dest.x, feet.getY(), dest.z)))) return false;
         // Climbing out onto land needs JUMP against the bank: leave that to the normal path.
         if (!MovementHelper.isWater(ctx, dest) && !MovementHelper.isWater(ctx, dest.below())
                 && dest.y >= feet.getY()) return false;

@@ -233,7 +233,10 @@ public class MovementSwim extends Movement {
                     src, dest, pos.x, pos.y, pos.z, pl.isSwimming(), pl.isSprinting(), pl.getFoodData().getFoodLevel(),
                     pl.horizontalCollision, pl.verticalCollision, pl.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)));
         }
-        boolean step = !MovementHelper.isWater(ctx, new BetterBlockPos(dest.x, feet.y, dest.z));
+        // A shore shelf counts too: floating, the feet hang below the feet block, into the lip of the block under dest.
+        boolean step = !MovementHelper.isWater(ctx, new BetterBlockPos(dest.x, feet.y, dest.z))
+                || (pos.y < feet.y && !MovementHelper.isWater(ctx, new BetterBlockPos(dest.x, feet.y - 1, dest.z))
+                    && !ctx.world().getBlockState(new BetterBlockPos(dest.x, feet.y - 1, dest.z)).getCollisionShape(ctx.world(), new BetterBlockPos(dest.x, feet.y - 1, dest.z)).isEmpty());
         if (ctx.player().horizontalCollision && !step) {
             // Head against a roof lip over open water: sink under it, jumping only wedges us into the edge.
             // keep MOVE_FORWARD: without it applySwim never runs and the bot just floats against the lip
