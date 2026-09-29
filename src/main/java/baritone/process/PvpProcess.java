@@ -55,6 +55,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private final Random rng = new Random(7);
     private int strafeDir = 1, strafeLeft, wtap, eatTicks, groundedJumps, blockTicks;
     private boolean crystalFight;
+    private int backingOff;
     private int targetSwingTick, lastAxeTick = -1000;
     private boolean critArmed;
     private float lastHealth = -1;
@@ -142,6 +143,16 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (crystal(me)) {
             if (dist <= DRIVE) steer(me, dist);
             return pause();
+        }
+        if (!los && dist <= 3) { // right there but walled off (a crawl gap under our feet, a hole): dig through
+            BlockHitResult wall = ctx.world().clip(new net.minecraft.world.level.ClipContext(me.getEyePosition(), target.getEyePosition(),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, me));
+            if (wall.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                look(wall.getLocation());
+                ctx.minecraft().gameMode.continueDestroyBlock(wall.getBlockPos(), wall.getDirection());
+                me.swing(InteractionHand.MAIN_HAND);
+                return pause();
+            }
         }
         if (dist > DRIVE || !los) {
             if (los && dist > BOW_MIN && slotOf(me, Items.BOW) >= 0 && slotOf(me, Items.ARROW) >= 0) return bow(me);
@@ -463,7 +474,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
             select(me, slotOf(me, Items.GLOWSTONE));
             return me.getMainHandItem().getItem() == Items.GLOWSTONE && click(me, charge);
         }
-        if (backOff != null) { // a charged anchor that would hurt us too much from here: step away, then blow it
+        backingOff = backOff == null ? 0 : backingOff + 1;
+        // a charged anchor that would hurt us too much from here: step away, then blow it (unless a wall keeps us pinned)
+        if (backOff != null && backingOff < 40) {
             look(Vec3.atCenterOf(backOff));
             key(Input.MOVE_BACK);
             return true;
@@ -471,8 +484,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 || slotOf(me, Items.GLOWSTONE) < 0) return false;
         BlockPos spot = null;
         float best = 0;
-        for (Direction d : Direction.Plane.HORIZONTAL) {
-            for (BlockPos p : new BlockPos[]{t.relative(d), t.relative(d).above()}) {
+        // not just beside them: a target down a one-wide hole has no free side, only the rim
+        for (BlockPos q : BlockPos.betweenClosed(t.offset(-2, -1, -2), t.offset(2, 2, 2))) {
+            {
+                BlockPos p = q.immutable();
                 if (!w.getBlockState(p).canBeReplaced() || w.getBlockState(p.below()).canBeReplaced()) continue;
                 if (!w.getEntities(null, new AABB(p)).isEmpty() || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
                 float score = worth(me, Vec3.atCenterOf(p), myHp, 10);
@@ -507,7 +522,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
         float dmg = blast(target, at, size), self = blast(me, at, size);
         boolean totem = me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
         if (self >= myHp - (totem ? 0 : 2) && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0;
-        if (dmg < 3 || dmg < self * (size == 10 ? 1.5f : 1)) return 0;
+        // once they're low an even trade wins the race
+        if (dmg < 3 || dmg < self * (size == 10 && target.getHealth() + target.getAbsorptionAmount() > 10 ? 1.5f : 1)) return 0;
         if (size == 10 && self >= myHp - 4 && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0; // don't pop our own totem
         return dmg - self * 0.6f;
     }
