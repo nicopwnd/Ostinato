@@ -523,7 +523,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         boolean totem = me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
         if (self >= myHp - (totem ? 0 : 2) && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0;
         // once they're low an even trade wins the race
-        if (dmg < 3 || dmg < self * (size == 10 && target.getHealth() + target.getAbsorptionAmount() > 14 ? 1.5f : 1)) return 0;
+        if (dmg < 3 || dmg < self * (size == 10 && target.getHealth() + target.getAbsorptionAmount() > 10 ? 1.5f : 1)) return 0;
         if (size == 10 && self >= myHp - 4 && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0; // don't pop our own totem
         return dmg - self * 0.6f;
     }
