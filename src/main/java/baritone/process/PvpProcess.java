@@ -370,9 +370,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
      * else lay obsidian beside the target's feet. Anything that would hurt us more than it, or pop us, is skipped.
      */
     private boolean crystal(Player me) {
-
-        if (anchor(me)) return true;
         crystalFight = slotOf(me, Items.END_CRYSTAL) >= 0 || slotOf(me, Items.RESPAWN_ANCHOR) >= 0 || !ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(8)).isEmpty();
+        if (anchor(me)) return true;
         if (slotOf(me, Items.END_CRYSTAL) < 0 || me.distanceTo(target) > 7) return false;
         float myHp = me.getHealth() + me.getAbsorptionAmount();
         EndCrystal hitIt = null;
