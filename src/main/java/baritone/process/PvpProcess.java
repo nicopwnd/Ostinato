@@ -1,6 +1,15 @@
 package baritone.process;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerExplosion;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
 import baritone.Baritone;
 import baritone.api.pathing.goals.GoalNear;
 import baritone.api.process.PathingCommand;
@@ -44,6 +53,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private LivingEntity target;
     private final Random rng = new Random(7);
     private int strafeDir = 1, strafeLeft, wtap, eatTicks, groundedJumps, blockTicks;
+    private boolean crystalFight;
     private int targetSwingTick, lastAxeTick = -1000;
     private boolean critArmed;
     private float lastHealth = -1;
@@ -133,6 +143,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return new PathingCommand(new GoalNear(target.blockPosition(), 2), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
         }
         if (me.isUsingItem()) use(false);
+        if (crystal(me)) {
+            steer(me, dist);
+            return pause();
+        }
 
         boolean inReach = exactReach(me, target) <= REACH - 0.05;
         // a shield being raised blocks before isBlocking() shows it; only swap in reach, since any swap drains the charge
@@ -275,7 +289,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     }
 
     private void keepTotem(Player me) {
-        if (me.getHealth() > 8 || me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING) return;
+        if (me.getHealth() > 8 && !crystalFight || me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING) return;
         toOffhand(me, Items.TOTEM_OF_UNDYING);
     }
 
@@ -349,7 +363,93 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return new Vec3(Mth.clamp(eye.x, b.minX, b.maxX), Mth.clamp(eye.y, b.minY + 0.2, b.maxY - 0.1), Mth.clamp(eye.z, b.minZ, b.maxZ));
     }
 
-    private static double exactReach(Player me, LivingEntity t) {
+    /**
+     * Crystal PvP: break the crystal that hurts the target most, else put a crystal on obsidian where it does,
+     * else lay obsidian beside the target's feet. Anything that would hurt us more than it, or pop us, is skipped.
+     */
+    private boolean crystal(Player me) {
+        crystalFight = slotOf(me, Items.END_CRYSTAL) >= 0 || !ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(8)).isEmpty();
+        if (slotOf(me, Items.END_CRYSTAL) < 0 || me.distanceTo(target) > 7) return false;
+        float myHp = me.getHealth() + me.getAbsorptionAmount();
+        EndCrystal hitIt = null;
+        float best = 0;
+        for (EndCrystal c : ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(6))) {
+            if (exactReach(me, c) > REACH) continue;
+            float score = worth(me, c.position(), myHp);
+            if (score > best) {
+                best = score;
+                hitIt = c;
+            }
+        }
+        if (hitIt != null) {
+            look(hitIt.position());
+            ctx.minecraft().gameMode.attack(me, hitIt);
+            me.swing(InteractionHand.MAIN_HAND);
+            return true;
+        }
+        Level w = ctx.world();
+        BlockPos base = null;
+        best = 0;
+        BlockPos t = target.blockPosition();
+        for (BlockPos p : BlockPos.betweenClosed(t.offset(-3, -2, -3), t.offset(3, 1, 3))) {
+            if (!w.getBlockState(p).is(Blocks.OBSIDIAN) && !w.getBlockState(p).is(Blocks.BEDROCK)) continue;
+            if (!w.isEmptyBlock(p.above()) || !w.getEntities(null, new AABB(p.above())).isEmpty()) continue;
+            Vec3 at = Vec3.atBottomCenterOf(p.above());
+            if (me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5 || me.getEyePosition().distanceTo(at.add(0, 1, 0)) > REACH + 0.8) continue;
+            float score = worth(me, at, myHp);
+            if (score > best) {
+                best = score;
+                base = p.immutable();
+            }
+        }
+        if (base != null) return place(me, Items.END_CRYSTAL, base);
+        if (slotOf(me, Items.OBSIDIAN) < 0) return false;
+        BlockPos floor = null;
+        best = 0;
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            for (BlockPos p : new BlockPos[]{t.relative(d), t.relative(d).below()}) {
+                if (!w.getBlockState(p).canBeReplaced() || w.getBlockState(p.below()).canBeReplaced()) continue;
+                if (!w.getEntities(null, new AABB(p)).isEmpty() || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
+                float score = worth(me, Vec3.atBottomCenterOf(p.above()), myHp);
+                if (score > best) {
+                    best = score;
+                    floor = p.below();
+                }
+            }
+        }
+        return floor != null && place(me, Items.OBSIDIAN, floor);
+    }
+
+    /** Right-click the top of {@code on} with {@code item}. */
+    private boolean place(Player me, Item item, BlockPos on) {
+        select(me, slotOf(me, item));
+        if (me.getMainHandItem().getItem() != item) return false;
+        Vec3 face = Vec3.atCenterOf(on).add(0, 0.5, 0);
+        look(face);
+        ctx.minecraft().gameMode.useItemOn(ctx.minecraft().player, InteractionHand.MAIN_HAND, new BlockHitResult(face, Direction.UP, on, false));
+        me.swing(InteractionHand.MAIN_HAND);
+        return true;
+    }
+
+    /** How good a crystal blowing up at {@code at} is for us: its damage to the target minus ours, 0 if not worth it. */
+    private float worth(Player me, Vec3 at, float myHp) {
+        float dmg = blast(target, at), self = blast(me, at);
+        boolean totem = me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
+        if (self >= myHp - (totem ? 0 : 2) && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0;
+        if (dmg < 3 || dmg < self) return 0;
+        return dmg - self * 0.6f;
+    }
+
+    /** Vanilla end crystal (power 6) damage to {@code e} after armour. */
+    private static float blast(LivingEntity e, Vec3 at) {
+        double d = Math.sqrt(e.distanceToSqr(at)) / 12;
+        if (d > 1) return 0;
+        double impact = (1 - d) * ServerExplosion.getSeenPercent(at, e);
+        float raw = (float) ((impact * impact + impact) / 2 * 7 * 12 + 1);
+        return CombatRules.getDamageAfterAbsorb(e, raw, e.damageSources().generic(), e.getArmorValue(), (float) e.getAttributeValue(Attributes.ARMOR_TOUGHNESS));
+    }
+
+    private static double exactReach(Player me, Entity t) {
         Vec3 eye = me.getEyePosition();
         AABB b = t.getBoundingBox();
         return eye.distanceTo(new Vec3(Mth.clamp(eye.x, b.minX, b.maxX), Mth.clamp(eye.y, b.minY, b.maxY), Mth.clamp(eye.z, b.minZ, b.maxZ)));

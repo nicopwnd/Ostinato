@@ -28,10 +28,26 @@ public final class VexBench implements AbstractGameEventListener {
     // -Dostinato.vex.styles=aggressive,safe,... cycles VexBot's play style every full difficulty sweep
     private static final String[] STYLES = System.getProperty("ostinato.vex.styles", "default").split(",");
     private static final int ROUND_TICKS = 20 * 90;
-    private static final String[] KIT = {
+    private static final String[] SWORD_KIT = {
             "armor.head with iron_helmet", "armor.chest with iron_chestplate", "armor.legs with iron_leggings",
             "armor.feet with iron_boots", "weapon.offhand with shield", "hotbar.0 with diamond_sword",
             "hotbar.1 with diamond_axe", "hotbar.2 with golden_apple 3", "hotbar.3 with cooked_beef 16"};
+    private static final String[] CRYSTAL_KIT = {
+            "armor.head with diamond_helmet", "armor.chest with diamond_chestplate", "armor.legs with diamond_leggings",
+            "armor.feet with diamond_boots", "weapon.offhand with totem_of_undying", "hotbar.0 with diamond_sword",
+            "hotbar.1 with obsidian 64", "hotbar.2 with end_crystal 64", "hotbar.3 with golden_apple 16",
+            "inventory.0 with totem_of_undying", "inventory.1 with totem_of_undying", "inventory.2 with totem_of_undying"};
+    private static final String[] ANCHOR_KIT = {
+            "armor.head with diamond_helmet", "armor.chest with diamond_chestplate", "armor.legs with diamond_leggings",
+            "armor.feet with diamond_boots", "weapon.offhand with totem_of_undying", "hotbar.0 with diamond_sword",
+            "hotbar.1 with respawn_anchor 32", "hotbar.2 with glowstone 64", "hotbar.3 with golden_apple 16",
+            "inventory.0 with totem_of_undying", "inventory.1 with totem_of_undying", "inventory.2 with totem_of_undying"};
+    // -Dostinato.vex.kit=sword|crystal|anchor picks which of VexBot's combat modes the round exercises
+    private static final String[] KIT = switch (System.getProperty("ostinato.vex.kit", "sword")) {
+        case "crystal" -> CRYSTAL_KIT;
+        case "anchor" -> ANCHOR_KIT;
+        default -> SWORD_KIT;
+    };
 
     private final Baritone baritone;
     private final int rounds;
