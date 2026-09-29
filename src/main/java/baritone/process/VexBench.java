@@ -25,6 +25,8 @@ import java.util.List;
 public final class VexBench implements AbstractGameEventListener {
 
     private static final String[] DIFFS = {"easy", "medium", "hard", "expert", "perfect"};
+    // -Dostinato.vex.styles=aggressive,safe,... cycles VexBot's play style every full difficulty sweep
+    private static final String[] STYLES = System.getProperty("ostinato.vex.styles", "default").split(",");
     private static final int ROUND_TICKS = 20 * 90;
     private static final String[] KIT = {
             "armor.head with iron_helmet", "armor.chest with iron_chestplate", "armor.legs with iron_leggings",
@@ -74,6 +76,8 @@ public final class VexBench implements AbstractGameEventListener {
                 } else {
                     run("tp " + bot + " 8 ~ 0 90 0", "clear " + bot);
                     for (String k : KIT) run("item replace entity " + bot + " " + k);
+                    if (!"default".equals(style()))
+                        run(System.getProperty("ostinato.vex.style", "vexbot playstyle {style} {name}").replace("{style}", style()).replace("{name}", bot));
                     baritone.getPvpProcess().attackPlayer(bot);
                 }
             }
@@ -96,7 +100,7 @@ public final class VexBench implements AbstractGameEventListener {
             PvpProcess p = baritone.getPvpProcess();
             String result = dead ? "death" : botDead ? "win" : "timeout";
             if (botDead && !dead) wins++;
-            String row = String.format("%d,vexbot_%s,%s,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%d", round, DIFFS[round % DIFFS.length], result, ticks,
+            String row = String.format("%d,vexbot_%s_%s,%s,%d,%.1f,%.1f,%d,%d,%d,%d,%d,%d", round, DIFFS[round % DIFFS.length], style(), result, ticks,
                     p.damageTaken, botDmg, p.attacks, p.crits, p.sprintHits, p.axeHits, p.blocks, p.gapples);
             rows.add(row);
             log(row);
@@ -126,9 +130,14 @@ public final class VexBench implements AbstractGameEventListener {
                 "effect give @a instant_health 1 10", "effect give @a saturation 1 10");
         for (String k : KIT) run("item replace entity @a " + k);
         String diff = DIFFS[round % DIFFS.length];
-        run(System.getProperty("ostinato.vex.difficulty", "vexbot difficulty {diff}").replace("{diff}", diff),
+
+        run(System.getProperty("ostinato.vex.difficulty", "vexbot difficulty preset {diff}").replace("{diff}", diff),
                 System.getProperty("ostinato.vex.spawn", "vexbot spawn {name}").replace("{name}", bot));
         wait = 20; // VexBot's fake player joins, then gets geared and teleported
+    }
+
+    private String style() {
+        return STYLES[round / DIFFS.length % STYLES.length];
     }
 
     private void finish() {
@@ -153,7 +162,7 @@ public final class VexBench implements AbstractGameEventListener {
             ServerPlayer p = server.getPlayerList().getPlayers().isEmpty() ? null : server.getPlayerList().getPlayers().get(0);
             var src = server.createCommandSourceStack();
             if (p != null) src = src.withPosition(new Vec3(0, p.getY(), 0)).withLevel(p.level());
-            for (String c : cmds) {
+            for (String c : String.join(";", cmds).split(";")) { // templates may chain commands with ;
                 log("cmd " + c);
                 server.getCommands().performPrefixedCommand(src, c);
             }
