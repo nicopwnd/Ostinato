@@ -118,7 +118,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
         boolean targetEating = target.isUsingItem() && target.getUseItem().has(net.minecraft.core.component.DataComponents.FOOD);
         boolean safe = eyeToBox(me, target) > 4.5 || targetEating;
-        if (eatTicks > 0 || (me.getHealth() <= 5 || me.getHealth() <= 11 && safe) && !me.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)
+        if (eatTicks > 0 || (me.getHealth() <= 5 || me.getHealth() <= 11 && safe || crystalFight && me.getAbsorptionAmount() == 0 && me.getHealth() <= 16) && !me.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)
                 && (slotOf(me, Items.GOLDEN_APPLE) >= 0 || slotOf(me, Items.ENCHANTED_GOLDEN_APPLE) >= 0)) {
             if (eat(me)) return pause();
         }
@@ -437,10 +437,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (!w.getBlockState(p).is(Blocks.RESPAWN_ANCHOR) || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
             Vec3 at = Vec3.atCenterOf(p);
             float score = worth(me, at, myHp, 10), dmg = blast(target, at, 10);
-            if (w.getBlockState(p).getValue(RespawnAnchorBlock.CHARGE) == 0) {
+            boolean charged = w.getBlockState(p).getValue(RespawnAnchorBlock.CHARGE) > 0;
+            if (!charged && score > 0) {
                 // charging hurts nobody, so charge anything that would hurt the target
-                if (dmg >= 3 && dmg > bestCharge) { bestCharge = dmg; charge = p.immutable(); }
-            } else if (score > bestBoom) {
+                if (dmg > bestCharge) { bestCharge = dmg; charge = p.immutable(); }
+            } else if (charged && score > bestBoom) {
                 bestBoom = score;
                 boom = p.immutable();
             } else if (score <= 0 && blast(me, at, 10) >= 8 && blast(me, at, 10) > bestBack) {
