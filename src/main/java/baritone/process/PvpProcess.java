@@ -9,6 +9,7 @@ import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerExplosion;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
 import net.minecraft.world.phys.BlockHitResult;
 import baritone.Baritone;
 import baritone.api.pathing.goals.GoalNear;
@@ -368,7 +369,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
      * else lay obsidian beside the target's feet. Anything that would hurt us more than it, or pop us, is skipped.
      */
     private boolean crystal(Player me) {
-        crystalFight = slotOf(me, Items.END_CRYSTAL) >= 0 || !ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(8)).isEmpty();
+        if (anchor(me)) return true;
+        crystalFight = slotOf(me, Items.END_CRYSTAL) >= 0 || slotOf(me, Items.RESPAWN_ANCHOR) >= 0 || !ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(8)).isEmpty();
         if (slotOf(me, Items.END_CRYSTAL) < 0 || me.distanceTo(target) > 7) return false;
         float myHp = me.getHealth() + me.getAbsorptionAmount();
         EndCrystal hitIt = null;
@@ -420,10 +422,54 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return floor != null && place(me, Items.OBSIDIAN, floor);
     }
 
-    /** Right-click the top of {@code on} with {@code item}. */
-    private boolean place(Player me, Item item, BlockPos on) {
-        select(me, slotOf(me, item));
-        if (me.getMainHandItem().getItem() != item) return false;
+    /**
+     * Anchor PvP (overworld): blow a charged anchor that hurts the target, else charge an anchor near it with
+     * glowstone, else put an anchor down beside its feet.
+     */
+    private boolean anchor(Player me) {
+        if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 && slotOf(me, Items.GLOWSTONE) < 0 || me.distanceTo(target) > 7) return false;
+        Level w = ctx.world();
+        float myHp = me.getHealth() + me.getAbsorptionAmount();
+        BlockPos t = target.blockPosition(), boom = null, charge = null;
+        float bestBoom = 0, bestCharge = 0;
+        for (BlockPos p : BlockPos.betweenClosed(t.offset(-3, -1, -3), t.offset(3, 2, 3))) {
+            if (!w.getBlockState(p).is(Blocks.RESPAWN_ANCHOR) || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
+            float score = worth(me, Vec3.atCenterOf(p), myHp, 10);
+            if (score <= 0) continue;
+            if (w.getBlockState(p).getValue(RespawnAnchorBlock.CHARGE) > 0) {
+                if (score > bestBoom) { bestBoom = score; boom = p.immutable(); }
+            } else if (score > bestCharge) { bestCharge = score; charge = p.immutable(); }
+        }
+        if (boom != null) {
+            int slot = -1;
+            for (int i = 0; i < 9; i++) {
+                Item it = me.getInventory().getItem(i).getItem();
+                if (it != Items.GLOWSTONE && it != Items.RESPAWN_ANCHOR) { slot = i; break; }
+            }
+            if (slot < 0) return false;
+            select(me, slot);
+            return click(me, boom);
+        }
+        if (charge != null && slotOf(me, Items.GLOWSTONE) >= 0) {
+            select(me, slotOf(me, Items.GLOWSTONE));
+            return me.getMainHandItem().getItem() == Items.GLOWSTONE && click(me, charge);
+        }
+        if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 || slotOf(me, Items.GLOWSTONE) < 0) return false;
+        BlockPos spot = null;
+        float best = 0;
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            for (BlockPos p : new BlockPos[]{t.relative(d), t.relative(d).above()}) {
+                if (!w.getBlockState(p).canBeReplaced() || w.getBlockState(p.below()).canBeReplaced()) continue;
+                if (!w.getEntities(null, new AABB(p)).isEmpty() || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
+                float score = worth(me, Vec3.atCenterOf(p), myHp, 10);
+                if (score > best) { best = score; spot = p; }
+            }
+        }
+        return spot != null && place(me, Items.RESPAWN_ANCHOR, spot.below());
+    }
+
+    /** Right-click the top face of a block with whatever is in hand. */
+    private boolean click(Player me, BlockPos on) {
         Vec3 face = Vec3.atCenterOf(on).add(0, 0.5, 0);
         look(face);
         ctx.minecraft().gameMode.useItemOn(ctx.minecraft().player, InteractionHand.MAIN_HAND, new BlockHitResult(face, Direction.UP, on, false));
@@ -431,9 +477,20 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return true;
     }
 
+    /** Right-click the top of {@code on} with {@code item}. */
+    private boolean place(Player me, Item item, BlockPos on) {
+        select(me, slotOf(me, item));
+        if (me.getMainHandItem().getItem() != item) return false;
+        return click(me, on);
+    }
+
     /** How good a crystal blowing up at {@code at} is for us: its damage to the target minus ours, 0 if not worth it. */
     private float worth(Player me, Vec3 at, float myHp) {
-        float dmg = blast(target, at), self = blast(me, at);
+        return worth(me, at, myHp, 12);
+    }
+
+    private float worth(Player me, Vec3 at, float myHp, double size) {
+        float dmg = blast(target, at, size), self = blast(me, at, size);
         boolean totem = me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
         if (self >= myHp - (totem ? 0 : 2) && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0;
         if (dmg < 3 || dmg < self) return 0;
@@ -441,11 +498,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
     }
 
     /** Vanilla end crystal (power 6) damage to {@code e} after armour. */
-    private static float blast(LivingEntity e, Vec3 at) {
-        double d = Math.sqrt(e.distanceToSqr(at)) / 12;
+    private static float blast(LivingEntity e, Vec3 at, double size) {
+        double d = Math.sqrt(e.distanceToSqr(at)) / size;
         if (d > 1) return 0;
         double impact = (1 - d) * ServerExplosion.getSeenPercent(at, e);
-        float raw = (float) ((impact * impact + impact) / 2 * 7 * 12 + 1);
+        float raw = (float) ((impact * impact + impact) / 2 * 7 * size + 1);
         return CombatRules.getDamageAfterAbsorb(e, raw, e.damageSources().generic(), e.getArmorValue(), (float) e.getAttributeValue(Attributes.ARMOR_TOUGHNESS));
     }
 
