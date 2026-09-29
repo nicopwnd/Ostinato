@@ -443,13 +443,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
             } else if (score > bestBoom) {
                 bestBoom = score;
                 boom = p.immutable();
-            } else if (score <= 0 && blast(me, at, 10) >= 4 && blast(me, at, 10) > bestBack) {
+            } else if (score <= 0 && blast(me, at, 10) >= 8 && blast(me, at, 10) > bestBack) {
                 bestBack = blast(me, at, 10); // theirs or ours, it can go off in our face
                 backOff = p.immutable();
             }
         }
-        // their anchor chain wins up close: stand off so an anchor beside them hurts them far more than us
-        if (me.distanceTo(target) < 4) key(Input.MOVE_BACK);
         if (boom != null) {
             int slot = -1;
             for (int i = 0; i < 9; i++) {
