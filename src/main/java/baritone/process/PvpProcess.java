@@ -144,6 +144,16 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (dist <= DRIVE) steer(me, dist);
             return pause();
         }
+        if (!los && dist <= 3) { // right there but walled off (a crawl gap under our feet, a hole): dig through
+            BlockHitResult wall = ctx.world().clip(new net.minecraft.world.level.ClipContext(me.getEyePosition(), target.getEyePosition(),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, me));
+            if (wall.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                look(wall.getLocation());
+                ctx.minecraft().gameMode.continueDestroyBlock(wall.getBlockPos(), wall.getDirection());
+                me.swing(InteractionHand.MAIN_HAND);
+                return pause();
+            }
+        }
         if (dist > DRIVE || !los) {
             if (los && dist > BOW_MIN && slotOf(me, Items.BOW) >= 0 && slotOf(me, Items.ARROW) >= 0) return bow(me);
             use(false);
