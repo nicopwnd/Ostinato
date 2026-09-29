@@ -474,6 +474,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
             select(me, slotOf(me, Items.GLOWSTONE));
             return me.getMainHandItem().getItem() == Items.GLOWSTONE && click(me, charge);
         }
+        // a charged anchor that would hurt us: wall it off at leg height, which is where most of the blast lands
+        if (backOff != null && shield(me, backOff)) return true;
         backingOff = backOff == null ? 0 : backingOff + 1;
         // a charged anchor that would hurt us too much from here: step away, then blow it (unless a wall keeps us pinned)
         if (backOff != null && backingOff < 40) {
@@ -495,6 +497,22 @@ public final class PvpProcess extends BaritoneProcessHelper {
             }
         }
         return spot != null && place(me, Items.RESPAWN_ANCHOR, spot.below());
+    }
+
+    /** Put a block in the cell between our feet and {@code threat} so the explosion's rays hit it instead of our legs. */
+    private boolean shield(Player me, BlockPos threat) {
+        Item block = slotOf(me, Items.OBSIDIAN) >= 0 ? Items.OBSIDIAN : slotOf(me, Items.COBBLESTONE) >= 0 ? Items.COBBLESTONE
+                : slotOf(me, Items.RESPAWN_ANCHOR) >= 0 ? Items.RESPAWN_ANCHOR : null;
+        if (block == null) return false;
+        BlockPos feet = me.blockPosition();
+        int dx = Integer.signum(threat.getX() - feet.getX()), dz = Integer.signum(threat.getZ() - feet.getZ());
+        Level w = ctx.world();
+        for (BlockPos c : new BlockPos[]{feet.offset(dx, 0, dz), feet.offset(dx, 0, 0), feet.offset(0, 0, dz)}) {
+            if (c.equals(feet) || c.equals(threat) || !w.getBlockState(c).canBeReplaced() || w.getBlockState(c.below()).canBeReplaced()) continue;
+            if (!w.getEntities(null, new AABB(c)).isEmpty() || me.getEyePosition().distanceTo(Vec3.atCenterOf(c)) > 4.5) continue;
+            return place(me, block, c.below());
+        }
+        return false;
     }
 
     /** Right-click the top face of a block with whatever is in hand. */
