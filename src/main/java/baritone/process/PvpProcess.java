@@ -44,7 +44,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private LivingEntity target;
     private final Random rng = new Random(7);
     private int strafeDir = 1, strafeLeft, wtap, eatTicks, groundedJumps, blockTicks;
-    private int targetSwingTick;
+    private int targetSwingTick, lastAxeTick = -1000;
     private boolean critArmed;
     private float lastHealth = -1;
 
@@ -134,12 +134,15 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (me.isUsingItem()) use(false);
 
-        boolean axeTime = target.isBlocking() && best(me, AXES) >= 0;
+        boolean inReach = exactReach(me, target) <= REACH - 0.05;
+        // a shield being raised blocks before isBlocking() shows it; only swap in reach, since any swap drains the charge
+        boolean shieldUp = target.isBlocking() || target.isUsingItem() && target.getUseItem().getItem() == Items.SHIELD;
+        // a disabled shield stays "raised" for its 5s cooldown; don't keep throwing uncharged axe swings at it
+        boolean axeTime = shieldUp && inReach && me.tickCount - lastAxeTick > 60 && best(me, AXES) >= 0;
         select(me, axeTime ? best(me, AXES) : weapon(me));
         look(aimPoint(me, target));
 
         float cd = me.getAttackStrengthScale(0.5f);
-        boolean inReach = exactReach(me, target) <= REACH - 0.05;
         if (target.swinging && target.swingTime == 0) targetSwingTick = me.tickCount;
         boolean targetReady = me.tickCount - targetSwingTick >= 10; // its sword is charged: whoever swings first wins the exchange
         boolean immune = target.hurtTime > 1;
@@ -152,6 +155,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (axeTime && inReach) { // an axe disables a raised shield whatever the charge
             hit(me);
             axeHits++;
+            lastAxeTick = me.tickCount;
             return pause();
         }
         if (!me.onGround() && !falling && targetReady && inReach && cd >= 0.95f && !immune) {
@@ -210,6 +214,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (!critArmed && me.getFoodData().getFoodLevel() > 6) me.setSprinting(true);
         } else if (dist < 1.2) {
             key(Input.MOVE_BACK);
+        }
+        if (dist > 3.5) {
+            // it's backing off to heal: run it down in a straight line, sprint-jumping for speed
+            if (me.onGround() && me.isSprinting() && !me.isInWater()) me.jumpFromGround();
+            return;
         }
         key(strafeDir > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT);
     }
