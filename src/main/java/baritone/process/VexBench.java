@@ -35,7 +35,7 @@ public final class VexBench implements AbstractGameEventListener {
     private final int rounds;
     private int round = -1, ticks, wait = 100;
     private String bot;
-    private boolean seen, done;
+    private boolean seen, done, setup;
     private float botDmg;
     private int wins;
     private final List<String> rows = new ArrayList<>();
@@ -62,7 +62,11 @@ public final class VexBench implements AbstractGameEventListener {
             return;
         }
         if (wait > 0) {
-            if (--wait == 0) {
+            if (--wait == 0 && setup) {
+                setup();
+                return;
+            }
+            if (wait == 0) {
                 if (round < 0) {
                     run("gamerule doMobSpawning false", "gamerule doImmediateRespawn true", "gamerule doDaylightCycle false",
                             "time set day", "difficulty normal", "gamemode survival @a", "kill @e[type=!player]");
@@ -108,16 +112,23 @@ public final class VexBench implements AbstractGameEventListener {
             return;
         }
         bot = "vex" + round; // VexBot lowercases names
-        run("kill @e[type=!player]", "kill @a[name=!" + Minecraft.getInstance().player.getGameProfile().name() + "]", "kill @e[type=item]", "clear @a", "effect clear @a", "tp @a 0 ~ 0 -90 0",
+        run("kill @e[type=!player]", "kill @a[name=!" + Minecraft.getInstance().player.getGameProfile().name() + "]", "kill @e[type=item]");
+        setup = true; // gear up once we're alive again: a kit given to a corpse is lost on respawn
+        wait = 20;
+        ticks = 0;
+        seen = false;
+        botDmg = 0;
+    }
+
+    private void setup() {
+        setup = false;
+        run("clear @a", "effect clear @a", "tp @a 0 ~ 0 -90 0",
                 "effect give @a instant_health 1 10", "effect give @a saturation 1 10");
         for (String k : KIT) run("item replace entity @a " + k);
         String diff = DIFFS[round % DIFFS.length];
         run(System.getProperty("ostinato.vex.difficulty", "vexbot difficulty {diff}").replace("{diff}", diff),
                 System.getProperty("ostinato.vex.spawn", "vexbot spawn {name}").replace("{name}", bot));
         wait = 20; // VexBot's fake player joins, then gets geared and teleported
-        ticks = 0;
-        seen = false;
-        botDmg = 0;
     }
 
     private void finish() {
