@@ -51,6 +51,8 @@ public final class KinematicController {
     private static final double HANDBACK = 1.2;
     /** Rollout bound: falls, hazards and climbing off the path are checked separately, so plans may cut corners wider. */
     private static final double WIDE = 1.1;
+    /** Arc length past a move's destination at which the move counts as done even from the neighbouring column. */
+    private static final double PASSED = 0.5;
 
     private final IPlayerContext ctx;
     private final ClientWorld world;
@@ -130,7 +132,7 @@ public final class KinematicController {
                 return -1;
             }
         }
-        int newPos = syncPosition(path, pathPosition);
+        int newPos = syncPosition(path, pathPosition, here[0]);
         if (newPos > pathPosition) {
             recenters = 0;
         }
@@ -373,13 +375,18 @@ public final class KinematicController {
     }
 
     /** Advance past moves whose destination the player already stands in (on the ground at its floor, or near it mid-jump;
-     * standing a floor below an ascend's destination must not skip the ascend). */
-    private int syncPosition(IPath path, int pathPosition) {
+     * standing a floor below an ascend's destination must not skip the ascend).
+     * The corridor lets the box cut into the column beside the path, so a move whose destination it went past along
+     * the line counts too; otherwise Baritone keeps walking back to that destination against the look-ahead
+     * (TenorClef pathbench goals 2/10: a 104 tick M03 tug of war one column off a straight traverse). */
+    private int syncPosition(IPath path, int pathPosition, double s) {
         int fx = PlayerSim.floor(real.x), fz = PlayerSim.floor(real.z);
         int fy = PlayerSim.floor(real.y + 1e-3);
         for (int i = lastMove; i >= pathPosition; i--) {
             BetterBlockPos d = path.movements().get(i).getDest();
-            if (d.x == fx && d.z == fz && (real.onGround ? fy == d.y : fy >= d.y - 1 && fy <= d.y + 1)) {
+            boolean floor = real.onGround ? fy == d.y : fy >= d.y - 1 && fy <= d.y + 1;
+            boolean passed = s >= line.get(i - pathPosition + 1)[3] + PASSED;
+            if (floor && (passed || d.x == fx && d.z == fz)) {
                 return i + 1;
             }
         }
