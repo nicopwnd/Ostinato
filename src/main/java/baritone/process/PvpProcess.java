@@ -55,6 +55,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private final Random rng = new Random(7);
     private int strafeDir = 1, strafeLeft, wtap, eatTicks, groundedJumps, blockTicks;
     private boolean crystalFight;
+    private int backingOff;
     private int targetSwingTick, lastAxeTick = -1000;
     private boolean critArmed;
     private float lastHealth = -1;
@@ -463,7 +464,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
             select(me, slotOf(me, Items.GLOWSTONE));
             return me.getMainHandItem().getItem() == Items.GLOWSTONE && click(me, charge);
         }
-        if (backOff != null) { // a charged anchor that would hurt us too much from here: step away, then blow it
+        backingOff = backOff == null ? 0 : backingOff + 1;
+        // a charged anchor that would hurt us too much from here: step away, then blow it (unless a wall keeps us pinned)
+        if (backOff != null && backingOff < 40) {
             look(Vec3.atCenterOf(backOff));
             key(Input.MOVE_BACK);
             return true;
@@ -471,8 +474,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (slotOf(me, Items.RESPAWN_ANCHOR) < 0 || slotOf(me, Items.GLOWSTONE) < 0) return false;
         BlockPos spot = null;
         float best = 0;
-        for (Direction d : Direction.Plane.HORIZONTAL) {
-            for (BlockPos p : new BlockPos[]{t.relative(d), t.relative(d).above()}) {
+        // not just beside them: a target down a one-wide hole has no free side, only the rim
+        for (BlockPos q : BlockPos.betweenClosed(t.offset(-2, -1, -2), t.offset(2, 2, 2))) {
+            {
+                BlockPos p = q.immutable();
                 if (!w.getBlockState(p).canBeReplaced() || w.getBlockState(p.below()).canBeReplaced()) continue;
                 if (!w.getEntities(null, new AABB(p)).isEmpty() || me.getEyePosition().distanceTo(Vec3.atCenterOf(p)) > 4.5) continue;
                 float score = worth(me, Vec3.atCenterOf(p), myHp, 10);
