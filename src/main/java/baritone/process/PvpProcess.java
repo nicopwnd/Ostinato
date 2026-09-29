@@ -444,7 +444,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
             } else if (charged && score > bestBoom) {
                 bestBoom = score;
                 boom = p.immutable();
-            } else if (score <= 0 && blast(me, at, 10) >= 8 && blast(me, at, 10) > bestBack) {
+            } else if (score <= 0 && (blast(me, at, 10) >= 8 || charged && dmg >= 3) && blast(me, at, 10) > bestBack) {
+                // too costly from here, or a trade that stalls both sides: open the distance so it pays off
                 bestBack = blast(me, at, 10); // theirs or ours, it can go off in our face
                 backOff = p.immutable();
             }
