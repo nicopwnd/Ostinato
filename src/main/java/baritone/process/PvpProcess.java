@@ -395,6 +395,16 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 hitIt = c;
             }
         }
+        if (hitIt == null && slotOf(me, Items.OBSIDIAN) >= 0) {
+            // a crystal that would hurt us and that we won't pop: wall it off at leg height
+            EndCrystal danger = null;
+            float worst = 6;
+            for (EndCrystal c : ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(6))) {
+                float d = blast(me, c.position(), 12);
+                if (d >= worst) { worst = d; danger = c; }
+            }
+            if (danger != null && shield(me, danger.blockPosition())) return true;
+        }
         if (hitIt != null) {
             look(hitIt.position());
             ctx.minecraft().gameMode.attack(me, hitIt);
