@@ -395,6 +395,16 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 hitIt = c;
             }
         }
+        if (hitIt == null && slotOf(me, Items.OBSIDIAN) >= 0) {
+            // a crystal that would hurt us and that we won't pop: wall it off at leg height
+            EndCrystal danger = null;
+            float worst = 6;
+            for (EndCrystal c : ctx.world().getEntitiesOfClass(EndCrystal.class, me.getBoundingBox().inflate(6))) {
+                float d = blast(me, c.position(), 12);
+                if (d >= worst) { worst = d; danger = c; }
+            }
+            if (danger != null && shield(me, danger.blockPosition())) return true;
+        }
         if (hitIt != null) {
             look(hitIt.position());
             ctx.minecraft().gameMode.attack(me, hitIt);
@@ -541,7 +551,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         boolean totem = me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING;
         if (self >= myHp - (totem ? 0 : 2) && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0;
         // once they're low an even trade wins the race
-        if (dmg < 3 || dmg < self * (size == 10 && target.getHealth() + target.getAbsorptionAmount() > 10 ? 1.5f : 1)) return 0;
+        if (dmg < 3 || dmg < self * (size == 10 ? (target.getHealth() + target.getAbsorptionAmount() > 10 ? 1.5f : 1) : (target.getHealth() + target.getAbsorptionAmount() <= 10 ? 0.8f : 1))) return 0;
         if (size == 10 && self >= myHp - 4 && dmg < target.getHealth() + target.getAbsorptionAmount()) return 0; // don't pop our own totem
         return dmg - self * 0.6f;
     }
