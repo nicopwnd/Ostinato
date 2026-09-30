@@ -39,7 +39,7 @@ public final class SettingCategorizer {
 
     static {
         Map<String, SettingCategory> m = new HashMap<>();
-        put(m, MINING, "allowBreak", "allowBreakAnyway", "allowDownward", "blockReachDistance", "avoidUpdatingFallingBlocks",
+        put(m, MINING, "allowBreak", "allowBreakAnyway", "allowDownward", "blockReachDistance", "blockBreakSpeed", "avoidUpdatingFallingBlocks",
                 "pauseMiningForFallingBlocks", "walkWhileBreaking", "blockBreakAdditionalPenalty", "avoidBreakingMultiplier",
                 "blocksToAvoidBreaking", "blocksToDisallowBreaking", "exploreForBlocks", "disableCompletionCheck",
                 "replantCrops", "replantNetherWart");
@@ -59,7 +59,7 @@ public final class SettingCategorizer {
         put(m, PATHING, "blocksToAvoid", "disconnectOnArrival", "axisHeight", "followRadius", "doBedWaypoints",
                 "doDeathWaypoints", "considerPotionEffects", "enterPortal", "rightClickContainerOnArrival");
         put(m, CHAT, "censorCoordinates", "censorRanCommands", "prefix", "prefixControl", "toastTimer", "logAsToast",
-                "verboseCommandExceptions", "desktopNotifications", "echoCommands", "shortBaritonePrefix");
+                "verboseCommandExceptions", "desktopNotifications", "echoCommands", "shortBaritonePrefix", "useMessageTag");
         put(m, ADVANCED, "cutoffAtLoadBoundary", "simplifyUnloadedYCoord", "movementFault");
         put(m, INTERFACE, "guiKeybind", "renderPathHud", "pathHudAnchor", "guiAccentColor");
         OVERRIDES = Collections.unmodifiableMap(m);
