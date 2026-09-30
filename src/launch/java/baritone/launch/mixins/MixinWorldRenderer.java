@@ -62,7 +62,7 @@ public class MixinWorldRenderer {
             method = "collectVisibleEntities",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/Camera;getEntity()Lnet/minecraft/world/entity/Entity;",
+                    target = "Lnet/minecraft/client/Camera;entity()Lnet/minecraft/world/entity/Entity;",
                     ordinal = 3
             )
     )
@@ -70,6 +70,6 @@ public class MixinWorldRenderer {
         if (FreecamBehavior.activeCamera() != null && Minecraft.getInstance().player != null) {
             return Minecraft.getInstance().player;
         }
-        return camera.getEntity();
+        return camera.entity();
     }
 }
