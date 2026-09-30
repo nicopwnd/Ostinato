@@ -46,7 +46,7 @@ import java.util.Set;
 public class MovementJump extends Movement {
 
     /** Moves slots; slot k takes the k-th feasible jump from a node. */
-    public static final int SLOTS = 12;
+    public static final int SLOTS = 24;
 
     private static final BetterBlockPos[] EMPTY = new BetterBlockPos[]{};
     /** Approach (ux, uz) and lateral (lx, lz) of the 8 frames: 4 directions, lateral side either way. */
