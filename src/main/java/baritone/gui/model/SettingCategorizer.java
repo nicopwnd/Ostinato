@@ -42,7 +42,7 @@ public final class SettingCategorizer {
         put(m, MINING, "allowBreak", "allowBreakAnyway", "allowDownward", "blockReachDistance", "avoidUpdatingFallingBlocks",
                 "pauseMiningForFallingBlocks", "walkWhileBreaking", "blockBreakAdditionalPenalty", "avoidBreakingMultiplier",
                 "blocksToAvoidBreaking", "blocksToDisallowBreaking", "exploreForBlocks", "disableCompletionCheck",
-                "replantCrops", "replantNetherWart");
+                "replantCrops", "replantNetherWart", "blockBreakSpeed");
         put(m, INVENTORY, "autoTool", "assumeExternalAutoTool", "useSwordToMine", "preferSilkTouch", "itemSaver",
                 "itemSaverThreshold", "rightClickSpeed", "inventoryMoveOnlyIfStationary");
         put(m, BUILDING, "acceptableThrowawayItems", "allowPlace", "blockPlacementPenalty", "okIfAir", "okIfWater",
@@ -55,13 +55,13 @@ public final class SettingCategorizer {
         put(m, RENDER, "yLevelBoxSize", "fadePath", "cachedChunksOpacity");
         put(m, MOVEMENT, "freeLook", "blockFreeLook", "smoothLook", "smoothLookTicks", "randomLooking", "randomLooking113",
                 "remainWithExistingLookDirection", "antiCheatCompatibility", "kinematicTravel", "physicsTravel",
-                "movementBackend", "pitfallAvoidance", "jumpPenalty", "overshootTraverse");
+                "freecamSpeed", "movementBackend", "pitfallAvoidance", "jumpPenalty", "overshootTraverse");
         put(m, PATHING, "blocksToAvoid", "disconnectOnArrival", "axisHeight", "followRadius", "doBedWaypoints",
                 "doDeathWaypoints", "considerPotionEffects", "enterPortal", "rightClickContainerOnArrival");
         put(m, CHAT, "censorCoordinates", "censorRanCommands", "prefix", "prefixControl", "toastTimer", "logAsToast",
                 "verboseCommandExceptions", "desktopNotifications", "echoCommands", "shortBaritonePrefix");
         put(m, ADVANCED, "cutoffAtLoadBoundary", "simplifyUnloadedYCoord", "movementFault");
-        put(m, INTERFACE, "guiKeybind", "renderPathHud", "pathHudAnchor", "guiAccentColor");
+        put(m, INTERFACE, "guiKeybind", "renderPathHud", "pathHudAnchor", "guiAccentColor", "useMessageTag");
         OVERRIDES = Collections.unmodifiableMap(m);
 
         rule("^swarm", SWARM);
