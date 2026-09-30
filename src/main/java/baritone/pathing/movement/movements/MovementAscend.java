@@ -95,7 +95,7 @@ public class MovementAscend extends Movement {
         BlockState srcUp2 = context.get(x, y + 2, z); // used lower down anyway
         if (context.get(x, y + 3, z).getBlock() instanceof FallingBlock && (MovementHelper.canWalkThrough(context, x, y + 1, z) || !(srcUp2.getBlock() instanceof FallingBlock))) {//it would fall on us and possibly suffocate us
             // HOWEVER, we assume that we're standing in the start position
-            // that means that src and src.up(1) are both air
+            // that means that src and src.above(1) are both air
             // maybe they aren't now, but they will be by the time this starts
             // if the lower one is can't walk through and the upper one is falling, that means that by standing on src
             // (the presupposition of this Movement)
@@ -110,6 +110,11 @@ public class MovementAscend extends Movement {
             // however, in the scenario where glitchy world gen where unsupported sand / gravel generates
             // it's possible srcUp is AIR from the start, and srcUp2 is falling
             // and in that scenario, when we arrive and break srcUp2, that lets srcUp3 fall on us and suffocate us
+        }
+        // Climbing out of water: floating, feet sit ~0.5 below src, so the hop needs clear air two above src.
+        // A waterlogged ledge also blocks it: vanilla's climb-out boost needs the box above to be fluid-free.
+        if (MovementHelper.isWater(context.get(x, y, z)) && ((!srcUp2.isAir() && !MovementHelper.isWater(srcUp2)) || !toPlace.getFluidState().isEmpty())) {
+            return COST_INF;
         }
         BlockState srcDown = context.get(x, y - 1, z);
         if (MovementHelper.isClimbable(srcDown.getBlock())) {
@@ -158,6 +163,16 @@ public class MovementAscend extends Movement {
 
     @Override
     public MovementState updateState(MovementState state) {
+        if (ctx.player().isInWater() && ctx.playerFeet().y >= src.y - 1) {
+            super.updateState(state);
+            if (state.getStatus() != MovementStatus.RUNNING) return state;
+            // Climbing out of water: bobbing drops feet below src, and vanilla lifts a swimmer
+            // pushing into a ledge while holding jump.
+            if (ctx.playerFeet().equals(dest)) return state.setStatus(MovementStatus.SUCCESS);
+            // Pushing into the ledge pins us low; rise first, then push (the hop needs feet ~0.3 above src).
+            if (ctx.player().position().y > src.y + 0.2 || !ctx.player().horizontalCollision) MovementHelper.moveTowards(ctx, state, dest);
+            return state.setInput(Input.JUMP, true);
+        }
         if (ctx.playerFeet().y < src.y) {
             // this check should run even when in preparing state (breaking blocks)
             return state.setStatus(MovementStatus.UNREACHABLE);

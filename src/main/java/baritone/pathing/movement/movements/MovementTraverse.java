@@ -123,6 +123,9 @@ public class MovementTraverse extends Movement {
                 hardness1 *= 5;
                 hardness2 *= 5;
             }
+            if (!standingOnABlock && Baritone.settings().swimInWater.value && MovementHelper.isWater(context.get(x, y, z))) {
+                return COST_INF; // floating: can't mine from here reliably, MovementSwim digs instead
+            }
             return WC + hardness1 + hardness2;
         } else {//this is a bridge, so we need to place a block
             if (MovementHelper.isClimbable(srcDownBlock)) {
@@ -269,7 +272,7 @@ public class MovementTraverse extends Movement {
         }
 
         if (isTheBridgeBlockThere) {
-            if (feet.equals(dest)) {
+            if (feet.equals(dest) || (swim && MovementHelper.atSwum(ctx, dest))) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
             if (Baritone.settings().overshootTraverse.value && (feet.equals(dest.offset(getDirection())) || feet.equals(dest.offset(getDirection()).offset(getDirection())))) {
@@ -295,8 +298,7 @@ public class MovementTraverse extends Movement {
             }
             MovementHelper.moveTowards(ctx, state, positionsToBreak[0]);
             if (swim) {
-                state.setTarget(new MovementState.MovementTarget(
-                        new Rotation(state.getTarget().getRotation().get().getYaw(), -30), true));
+                MovementHelper.surfaceSwim(ctx, state);
             }
             return state;
         } else {
