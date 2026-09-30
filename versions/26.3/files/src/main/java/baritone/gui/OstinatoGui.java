@@ -56,7 +56,7 @@ public final class OstinatoGui implements AbstractGameEventListener {
         int key = KeyNames.parse(Baritone.settings().guiKeybind.value);
         boolean down = key != KeyNames.NONE && InputConstants.isKeyDown(key);
         if (down && !wasDown && mc.gui.screen() == null && mc.player != null) {
-            mc.setScreen(new OstinatoScreen());
+            mc.gui.setScreen(new OstinatoScreen());
         }
         wasDown = down;
     }
