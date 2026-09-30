@@ -390,6 +390,13 @@ public final class Settings {
     public final Setting<Boolean> sprintJump = new Setting<>(false);
 
     /**
+     * Underwater with nothing breathable in reach, place a wooden door on the floor: a door can't hold
+     * water, so its upper half is an air pocket to put the head in. The door is picked back up if it
+     * was the only one carried.
+     */
+    public final Setting<Boolean> allowDoorAirPockets = new Setting<>(true);
+
+    /**
      * Place and ride a boat across large bodies of water when it is faster than swimming
      */
     public final Setting<Boolean> allowBoats = new Setting<>(true);
