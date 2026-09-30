@@ -424,8 +424,7 @@ final class TasksPanel {
         List<String> names = svc.files().list();
         int n = Math.min(10, names.size());
         float y0 = top + 21, h = Math.max(1, n) * 12 + 4;
-        ms.pose().pushPose();
-        ms.pose().translate(0, 0, 300);
+        ms.pose().pushMatrix();
         GuiDraw.shadow(ms, lx0, y0, lx1, y0 + h, 3, 5, 0x80);
         GuiDraw.roundBorder(ms, lx0, y0, lx1, y0 + h, 3, 0xFF34405A, 0xFA151A24, 0xFA0C0F16);
         if (names.isEmpty()) {
@@ -440,7 +439,7 @@ final class TasksPanel {
             }
             GuiDraw.text(ms, GuiDraw.trim(names.get(i), lx1 - lx0 - 12, 1f), lx0 + 6, iy + 2, cur ? accent : h2 ? Theme.TEXT : 0xFFB8C0CE, false);
         }
-        ms.pose().popPose();
+        ms.pose().popMatrix();
     }
 
     // ------------------------------------------------------------------ input
@@ -700,7 +699,7 @@ final class TasksPanel {
             return true;
         }
         if (mx >= tx0 && mx < tx1) {
-            s.setType(s.type().next(button == 1 || Screen.hasShiftDown() ? -1 : 1));
+            s.setType(s.type().next(button == 1 || Keys.shift() ? -1 : 1));
             changed();
             return true;
         }
@@ -739,7 +738,7 @@ final class TasksPanel {
                             idx = o;
                         }
                     }
-                    int dir = button == 1 || Screen.hasShiftDown() ? -1 : 1;
+                    int dir = button == 1 || Keys.shift() ? -1 : 1;
                     s.set(spec.key, spec.options[((idx + dir) % spec.options.length + spec.options.length) % spec.options.length]);
                     changed();
                 } else if (button == 1) {

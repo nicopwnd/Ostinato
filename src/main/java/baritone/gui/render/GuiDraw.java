@@ -18,13 +18,10 @@
 
 package baritone.gui.render;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.item.ItemStack;
-import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,30 +77,45 @@ public final class GuiDraw {
     /** Last GuiGraphics handed to a draw call; item icons and scissor use it. */
     private static GuiGraphics cur;
 
-    @FunctionalInterface
-    private interface Quads {
-        void draw(VertexConsumer bb, Matrix4f m);
-    }
-
-    private static void quads(GuiGraphics g, Quads q) {
+    private static void quads(GuiGraphics g, Runnable q) {
         cur = g;
-        Matrix4f m = new Matrix4f(g.pose().last().pose());
-        g.drawSpecial(src -> q.draw(src.getBuffer(RenderType.gui()), m));
+        q.run();
     }
 
-    private static void vtx(VertexConsumer bb, Matrix4f m, float x, float y, int argb) {
-        bb.addVertex(m, x, y, 0f).setColor(withAlpha(argb));
-    }
-
-    /** Quad with per-corner colours: top-left, top-right, bottom-right, bottom-left. */
-    private static void quad(VertexConsumer bb, Matrix4f m, float x1, float y1, float x2, float y2, int tl, int tr, int br, int bl) {
+    /** Fractional-coordinate fill: the pose matrix carries the sub-pixel placement. */
+    private static void quad(GuiGraphics g, float x1, float y1, float x2, float y2, int tl, int tr, int br, int bl) {
         if (x2 <= x1 || y2 <= y1) {
             return;
         }
-        vtx(bb, m, x1, y1, tl);
-        vtx(bb, m, x1, y2, bl);
-        vtx(bb, m, x2, y2, br);
-        vtx(bb, m, x2, y1, tr);
+        tl = withAlpha(tl);
+        tr = withAlpha(tr);
+        br = withAlpha(br);
+        bl = withAlpha(bl);
+        g.pose().pushMatrix();
+        g.pose().translate(x1, y1);
+        g.pose().scale(x2 - x1, y2 - y1);
+        if (tl == tr && bl == br) {
+            if (tl == bl) {
+                g.fill(0, 0, 1, 1, tl);
+            } else {
+                g.fillGradient(0, 0, 1, 1, tl, bl);
+            }
+        } else {
+            int n = 16; // horizontal gradient: vertical strips
+            for (int i = 0; i < n; i++) {
+                int c = lerp(tl, tr, (i + 0.5f) / n), cb = lerp(bl, br, (i + 0.5f) / n);
+                g.pose().pushMatrix();
+                g.pose().translate(i / (float) n, 0);
+                g.pose().scale(1f / n, 1f);
+                if (c == cb) {
+                    g.fill(0, 0, 1, 1, c);
+                } else {
+                    g.fillGradient(0, 0, 1, 1, c, cb);
+                }
+                g.pose().popMatrix();
+            }
+        }
+        g.pose().popMatrix();
     }
 
     public static void rect(GuiGraphics ms, float x1, float y1, float x2, float y2, int argb) {
@@ -119,7 +131,7 @@ public final class GuiDraw {
     }
 
     private static void gradient(GuiGraphics ms, float x1, float y1, float x2, float y2, int tl, int tr, int br, int bl) {
-        quads(ms, (bb, m) -> quad(bb, m, x1, y1, x2, y2, tl, tr, br, bl));
+        quads(ms, () -> quad(ms, x1, y1, x2, y2, tl, tr, br, bl));
     }
 
     /** Rounded rectangle, solid. */
@@ -139,20 +151,20 @@ public final class GuiDraw {
         float px = (float) (1.0 / scale);
         int rp = (int) Math.round(Math.min(r, Math.min(x2 - x1, y2 - y1) / 2f) * scale);
         float h = y2 - y1;
-        quads(ms, (bb, m) -> {
+        quads(ms, () -> {
         for (int i = 0; i < rp; i++) {
             double dy = rp - i - 0.5;
             float ins = (float) Math.round(rp - Math.sqrt(Math.max(0, rp * rp - dy * dy))) * px;
             float ta = y1 + i * px, tb = ta + px;
             int c1 = lerp(top, bottom, (ta - y1) / h), c2 = lerp(top, bottom, (tb - y1) / h);
-            quad(bb, m, x1 + ins, ta, x2 - ins, tb, c1, c1, c2, c2);
+            quad(ms, x1 + ins, ta, x2 - ins, tb, c1, c1, c2, c2);
             float ba = y2 - (i + 1) * px, bbv = ba + px;
             int c3 = lerp(top, bottom, (ba - y1) / h), c4 = lerp(top, bottom, (bbv - y1) / h);
-            quad(bb, m, x1 + ins, ba, x2 - ins, bbv, c3, c3, c4, c4);
+            quad(ms, x1 + ins, ba, x2 - ins, bbv, c3, c3, c4, c4);
         }
         float my1 = y1 + rp * px, my2 = y2 - rp * px;
         int cm1 = lerp(top, bottom, (my1 - y1) / h), cm2 = lerp(top, bottom, (my2 - y1) / h);
-        quad(bb, m, x1, my1, x2, my2, cm1, cm1, cm2, cm2);
+        quad(ms, x1, my1, x2, my2, cm1, cm1, cm2, cm2);
         });
     }
 
@@ -176,12 +188,12 @@ public final class GuiDraw {
     }
 
     public static void icon(GuiGraphics ms, String[] rows, float x, float y, int argb, float k) {
-        quads(ms, (bb, m) -> {
+        quads(ms, () -> {
         for (int j = 0; j < rows.length; j++) {
             String row = rows[j];
             for (int i = 0; i < row.length(); i++) {
                 if (row.charAt(i) == '#') {
-                    quad(bb, m, x + i * k, y + j * k, x + (i + 1) * k, y + (j + 1) * k, argb, argb, argb, argb);
+                    quad(ms, x + i * k, y + j * k, x + (i + 1) * k, y + (j + 1) * k, argb, argb, argb, argb);
                 }
             }
         }
@@ -210,13 +222,13 @@ public final class GuiDraw {
         String str = bold ? BOLD + s : s;
         if (((c >>> 24) & 0xFF) >= 6) { // the font renders alpha < 4 as opaque
             cur = ms;
-            ms.pose().pushPose();
-            ms.pose().translate(x, y, 0);
+            ms.pose().pushMatrix();
+            ms.pose().translate(x, y);
             if (k != 1f) {
-                ms.pose().scale(k, k, 1f);
+                ms.pose().scale(k, k);
             }
             ms.drawString(font(), str, 0, 0, c, shadow);
-            ms.pose().popPose();
+            ms.pose().popMatrix();
         }
         return font().width(str) * k;
     }
@@ -270,11 +282,11 @@ public final class GuiDraw {
         if (cur == null) {
             return;
         }
-        cur.pose().pushPose();
-        cur.pose().translate(x, y, 0);
-        cur.pose().scale(size / 16f, size / 16f, 1f);
+        cur.pose().pushMatrix();
+        cur.pose().translate(x, y);
+        cur.pose().scale(size / 16f, size / 16f);
         cur.renderItem(stack, 0, 0);
-        cur.pose().popPose();
+        cur.pose().popMatrix();
     }
 
     /** Clip to a GUI-space rectangle. */

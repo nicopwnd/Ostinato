@@ -120,7 +120,7 @@ public final class FreecamBehavior extends Behavior implements Helper {
         flying = p.getAbilities().flying;
         jumpHeld = true;
         jumpTapTicks = 0;
-        camera.absMoveTo(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
+        camera.snapTo(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
         camera.syncPrev();
         active = camera;
         mc.setCameraEntity(camera);
@@ -274,7 +274,7 @@ public final class FreecamBehavior extends Behavior implements Helper {
         if (key.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) {
             return km.isDown();
         }
-        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().getWindow(), key.getValue());
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().handle(), key.getValue());
     }
 
     /** Keeps the camera within the bot's render distance (horizontal circle) and the world's height. */
@@ -385,11 +385,11 @@ public final class FreecamBehavior extends Behavior implements Helper {
         }
 
         @Override
-        protected void readAdditionalSaveData(CompoundTag nbt) {
+        protected void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput nbt) {
         }
 
         @Override
-        protected void addAdditionalSaveData(CompoundTag nbt) {
+        protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput nbt) {
         }
 
         @Override

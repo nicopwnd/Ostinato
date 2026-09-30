@@ -24,7 +24,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -341,7 +341,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     }
 
     private void select(Player me, int slot) {
-        if (slot >= 0) me.getInventory().selected = slot;
+        if (slot >= 0) me.getInventory().setSelectedSlot(slot);
     }
 
     private void hit(Player me) {
