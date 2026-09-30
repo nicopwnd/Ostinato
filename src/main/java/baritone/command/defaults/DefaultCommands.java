@@ -45,6 +45,7 @@ public final class DefaultCommands {
                 //new SchematicaCommand(baritone),
                 new LitematicaCommand(baritone),
                 new ComeCommand(baritone),
+                new FreecamCommand(baritone),
                 new AxisCommand(baritone),
                 new ForceCancelCommand(baritone),
                 new GcCommand(baritone),
@@ -69,7 +70,9 @@ public final class DefaultCommands {
                 new CommandAlias(baritone, "sethome", "Sets your home waypoint", "waypoints save home"),
                 new CommandAlias(baritone, "home", "Path to your home waypoint", "waypoints goto home"),
                 new SelCommand(baritone),
-                new ElytraCommand(baritone)
+                new ElytraCommand(baritone),
+                new TasksCommand(baritone),
+                new SwarmCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);
         commands.add(prc.pauseCommand);

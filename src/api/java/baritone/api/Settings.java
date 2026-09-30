@@ -1272,6 +1272,16 @@ public final class Settings {
     public final Setting<Integer> followRadius = new Setting<>(3);
 
     /**
+     * Freecam flight speed multiplier (1 = vanilla walking and creative flight)
+     */
+    public final Setting<Double> freecamSpeed = new Setting<>(1D);
+
+    /**
+     * Opacity of the bot's ghost body while freecam is on (0 = invisible, 1 = solid)
+     */
+    public final Setting<Float> freecamGhostOpacity = new Setting<>(0.35f);
+
+    /**
      * The maximum distance to the entity you're following
      */
     public final Setting<Integer> followTargetMaxDistance = new Setting<>(0);
@@ -1631,6 +1641,172 @@ public final class Settings {
     public final Setting<Boolean> allowWalkOnMagmaBlocks = new Setting<>(false);
 
     /**
+     * Multi-bot builds: how a schematic is split into one region per bot ({@code IBuilderProcess#buildRegion}).
+     * {@code strips} (full-height strips along one horizontal axis, independent), {@code grid} (full-height columns x rows,
+     * independent) or {@code layers} (Y bands, must be built bottom-up). Cuts balance non-air blocks, not volume.
+     */
+    public final Setting<String> buildPartitionStrategy = new Setting<>("strips");
+
+    /**
+     * Multi-bot builds: horizontal axis that {@code strips} cuts (and {@code grid} cuts into columns first).
+     * {@code auto} (the longer of X and Z), {@code x} or {@code z}. Ignored by {@code layers}.
+     */
+    public final Setting<String> buildPartitionAxis = new Setting<>("auto");
+
+    /**
+     * Multi-bot builds: number of {@code grid} columns along {@link #buildPartitionAxis}. 0 picks it from the schematic's footprint.
+     */
+    public final Setting<Integer> buildPartitionGridColumns = new Setting<>(0);
+
+    /**
+     * Multi-bot builds: thickness in blocks of the seam band on each cut between two regions. Seam blocks still belong to
+     * exactly one region (the lower-index one keeps the extra layer), but can be built separately after the interiors so
+     * neighbouring bots don't work on the same face at once. 0 disables seams.
+     */
+    public final Setting<Integer> buildPartitionSeamWidth = new Setting<>(1);
+
+    /**
+     * Multi-bot builds: while building a region, never break or place (pathing, scaffolding) inside the other regions of
+     * the same schematic, so this bot doesn't trample other bots' work. Blocks outside the schematic are unaffected.
+     */
+    public final Setting<Boolean> buildRegionProtectForeign = new Setting<>(true);
+
+    /**
+     * Swarm messaging: SIGIL wire format used to seal frames, {@code S2} (sigil's default since 0.4.0)
+     * or {@code S1} (for peers on sigil 0.3 or older). Both are always accepted on receive. Unknown
+     * values fall back to {@code S2}.
+     */
+    public final Setting<String> swarmWireVersion = new Setting<>("S2");
+
+    /**
+     * Swarm messaging: longest chat line the server accepts. Every swarm frame is sealed as one
+     * sigil token ({@link #swarmWireVersion}) that fits in this minus {@link #swarmLineReserveChars}. There is no plaintext mode.
+     */
+    public final Setting<Integer> swarmMaxLineChars = new Setting<>(256);
+
+    /**
+     * Swarm messaging: characters of each line kept free for the transport prefix
+     * (for example {@code "/msg <16-char name> "}).
+     */
+    public final Setting<Integer> swarmLineReserveChars = new Setting<>(22);
+
+    /**
+     * Swarm messaging: max bytes of one swarm frame (envelope header plus body) before sealing.
+     * 0 means the most that still fits one sealed line.
+     */
+    public final Setting<Integer> swarmMaxFrameBytes = new Setting<>(0);
+
+    /**
+     * Swarm messaging: max frames one message may be split into; larger messages are refused
+     * on send and on receive.
+     */
+    public final Setting<Integer> swarmMaxChunks = new Setting<>(8);
+
+    /**
+     * Swarm messaging: how long a partially received message waits for its missing frames
+     * before it is dropped, in milliseconds.
+     */
+    public final Setting<Long> swarmReassemblyTimeoutMs = new Setting<>(30000L);
+
+    /**
+     * Swarm messaging: max partially received messages held at once; further new messages are
+     * refused until some complete or expire.
+     */
+    public final Setting<Integer> swarmMaxPendingMessages = new Setting<>(64);
+
+    /**
+     * Swarm messaging: replay window, in sequence numbers per sender. Each sequence number is
+     * accepted once; ones this far below the newest seen are refused.
+     */
+    public final Setting<Integer> swarmReplayWindow = new Setting<>(256);
+
+    /**
+     * Swarm messaging: refuse frames whose sender timestamp differs from our clock by more than
+     * this many seconds. 0 (default) turns the check off, so bot clocks need not be synced;
+     * sequence numbers still stop replays.
+     */
+    public final Setting<Integer> swarmMaxClockSkewSec = new Setting<>(0);
+
+    /**
+     * Swarm messaging: max distinct senders tracked for replay protection; new senders beyond
+     * this are refused.
+     */
+    public final Setting<Integer> swarmMaxPeers = new Setting<>(64);
+
+    /**
+     * Swarm messaging: spool directory for the same-machine test/sim transport. Empty means
+     * {@code baritone/swarm-spool} in the game directory. Only sealed lines are written there.
+     */
+    public final Setting<String> swarmLocalSpoolDir = new Setting<>("");
+
+    /**
+     * Swarm: turn on the in-game chat transport and the {@code #swarm} control commands. Needs a
+     * roster ({@link #swarmRosterFile}) and a sigil keyring ({@link #swarmSigilHome}). Every line
+     * sent is a sealed sigil token; there is no plaintext mode.
+     */
+    public final Setting<Boolean> swarmEnabled = new Setting<>(false);
+
+    /**
+     * Swarm: only accept messages signed by a pinned member signet (S2S), and sign what we send. Needs
+     * {@code signet-*.json} records in the sigil home. Off accepts unsigned circle messages (S1C/S2C).
+     */
+    public final Setting<Boolean> swarmRequireSignedSender = new Setting<>(true);
+
+    /**
+     * Swarm: roster file, relative to the {@code baritone} directory unless absolute. Lines look like
+     * {@code group builders circle=my-circle members=Alice,Bob lead=Alice}. It holds names only,
+     * never keys or passphrases.
+     */
+    public final Setting<String> swarmRosterFile = new Setting<>("swarm.txt");
+
+    /**
+     * Swarm: sigil home holding the {@code circle-*.json} keyring. Empty means the
+     * {@code SIGIL_HOME} environment variable. The keyring is read in place and never copied.
+     */
+    public final Setting<String> swarmSigilHome = new Setting<>("");
+
+    /**
+     * Swarm: chat channel for swarm lines: {@code whisper} (one private message per recipient),
+     * {@code global} (public chat) or {@code team} ({@code /teammsg}). A roster group can override it.
+     */
+    public final Setting<String> swarmChannel = new Setting<>("whisper");
+
+    /**
+     * Swarm: command template for {@link #swarmChannel}, using <code>{to}</code> (whisper only) and
+     * <code>{msg}</code>, e.g. <code>/tell {to} {msg}</code> or <code>/w {to} {msg}</code>. Empty, or a
+     * template missing a placeholder, means the channel default (<code>/msg {to} {msg}</code>,
+     * <code>{msg}</code>, <code>/teammsg {msg}</code>).
+     */
+    public final Setting<String> swarmCommandTemplate = new Setting<>("");
+
+    /**
+     * Swarm: steady outgoing chat lines per second (token bucket). Vanilla 1.16.1 adds 20 to a spam
+     * counter per chat message or command, removes 1 per server tick and kicks above 200, so the
+     * neutral rate is 1 line/s at 20 TPS and less when the server lags. Clamped to at most 0.9
+     * unless {@link #swarmAllowUnsafeRate} is on. The default stays safe down to 10 TPS.
+     */
+    public final Setting<Double> swarmSendRatePerSec = new Setting<>(0.5D);
+
+    /**
+     * Swarm: outgoing burst size (token bucket capacity). Vanilla kicks on the 11th back-to-back
+     * message; clamped to at most 8 unless {@link #swarmAllowUnsafeRate} is on. Keep some headroom
+     * for chat you type yourself.
+     */
+    public final Setting<Integer> swarmSendBurst = new Setting<>(5);
+
+    /**
+     * Swarm: allow {@link #swarmSendRatePerSec} and {@link #swarmSendBurst} above the vanilla-safe
+     * clamp, for servers with a different (or no) spam limit. You can be kicked for spam.
+     */
+    public final Setting<Boolean> swarmAllowUnsafeRate = new Setting<>(false);
+
+    /**
+     * Swarm: outgoing lines waiting for the rate limiter. When full, the newest lower-priority line
+     * is dropped for a higher-priority one; otherwise the new line is dropped.
+     */
+    public final Setting<Integer> swarmSendQueueMax = new Setting<>(64);
+
+    /**
      * A map of lowercase setting field names to their respective setting
      */
     public final Map<String, Setting<?>> byLowerName;
@@ -1716,6 +1892,32 @@ public final class Settings {
      * Drive plain walking stretches of a path with a physics look-ahead controller instead of per-movement logic
      */
     public final Setting<Boolean> kinematicTravel = new Setting<>(false);
+
+    /**
+     * Receives movement failures as (code, evidence), e.g. so a bot can record them in its fault log.
+     * Codes: M01 kinematic stuck, M02 off path, M03 movement timeout, M04 movement failed.
+     */
+    public final Setting<java.util.function.BiConsumer<String, String>> movementFault = new Setting<>((code, evidence) -> {});
+
+    /**
+     * Experimental: drive land stretches with keys found by searching simulated player physics.
+     */
+    public final Setting<Boolean> physicsTravel = new Setting<>(false);
+
+    /**
+     * Key that opens the Ostinato settings screen in game, polled every client tick while no screen is open.
+     * Takes a key name such as {@code RCONTROL}, {@code RSHIFT}, {@code F8}, {@code K} or {@code NONE} to disable.
+     */
+    public final Setting<String> guiKeybind = new Setting<>("RCONTROL");
+
+    /** Show the Ostinato path status card on the HUD while pathing. Hidden while F3 is open. */
+    public final Setting<Boolean> renderPathHud = new Setting<>(true);
+
+    /** Where the path status card sits: {@code RIGHT}, {@code LEFT}, {@code TOP_RIGHT} or {@code TOP_LEFT}. */
+    public final Setting<String> pathHudAnchor = new Setting<>("RIGHT");
+
+    /** Accent color of the Ostinato settings screen and path status card. */
+    public final Setting<Color> guiAccentColor = new Setting<>(new Color(79, 209, 197));
 
     
     /**

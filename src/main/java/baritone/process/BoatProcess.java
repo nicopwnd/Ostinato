@@ -316,8 +316,21 @@ public final class BoatProcess extends BaritoneProcessHelper {
                     return c;
                 }
                 // Boats only go on the water's top surface (or a block top with room), so aim at it from above.
-                look(launch.getX() + 0.5, surfaceY + 0.85, launch.getZ() + 0.5);
-                if (phaseTicks % 5 == 4) Minecraft.getInstance().gameMode.useItem(ctx.player(), InteractionHand.MAIN_HAND);
+                // A boat is 1.375 wide and placement fails if it would touch a block, so a hit at the middle of a
+                // shore cell clips the bank; aim half a block further out, away from the bank.
+                double ax = launch.getX() + 0.5, az = launch.getZ() + 0.5;
+                if (bank != null) {
+                    ax += 0.5 * Integer.signum(launch.getX() - bank.getX());
+                    az += 0.5 * Integer.signum(launch.getZ() - bank.getZ());
+                }
+                Rotation aim = look(ax, surfaceY + 0.85, az);
+                if (phaseTicks % 2 == 1) {
+                    // the look target only lands on the next player tick; useItem raycasts (and sends) the current
+                    // rotation, so face the surface now or the use misses and we wait for the next retry
+                    ctx.player().setYRot(aim.getYaw());
+                    ctx.player().setXRot(aim.getPitch());
+                    Minecraft.getInstance().gameMode.useItem(ctx.player(), InteractionHand.MAIN_HAND);
+                }
                 return pause();
             }
             case MOUNT: {
@@ -331,7 +344,7 @@ public final class BoatProcess extends BaritoneProcessHelper {
                 if (b == null || phaseTicks > 100) return abort("could not board");
                 if (ctx.player().distanceTo(b) > 3) return new PathingCommand(new GoalNear(b.blockPosition(), 1), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
                 look(b.getX(), b.getY() + 0.3, b.getZ());
-                if (phaseTicks % 4 == 3) Minecraft.getInstance().gameMode.interact(ctx.player(), b, InteractionHand.MAIN_HAND);
+                if (phaseTicks % 2 == 1) Minecraft.getInstance().gameMode.interact(ctx.player(), b, InteractionHand.MAIN_HAND);
                 return pause();
             }
             case SAIL:
@@ -427,11 +440,13 @@ public final class BoatProcess extends BaritoneProcessHelper {
         return null;
     }
 
-    private void look(double x, double y, double z) {
+    private Rotation look(double x, double y, double z) {
         double dx = x - ctx.player().getX(), dy = y - ctx.player().getEyeY(), dz = z - ctx.player().getZ();
         float yaw = (float) (Mth.atan2(dz, dx) * 180 / Math.PI) - 90;
         float pitch = (float) -(Mth.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI);
-        baritone.getLookBehavior().updateTarget(new Rotation(yaw, pitch), true);
+        Rotation r = new Rotation(yaw, pitch);
+        baritone.getLookBehavior().updateTarget(r, true);
+        return r;
     }
 
     private static net.minecraft.world.phys.Vec3 center(BlockPos p) {

@@ -8,6 +8,7 @@
     "defaultRequire": 1
   },
   "client": [
+    "MixinChatComponent",
     "MixinChunkArray",
     "MixinClientChunkProvider",
     "MixinClientPlayerEntity",
@@ -16,19 +17,21 @@
     "MixinEntity",
     "MixinEntityRenderManager",
     "MixinFireworkRocketEntity",
+    "MixinIngameGui",
     "MixinItemStack",
     "MixinLivingEntity",
     "MixinLootContextBuilder",
     "MixinLootTable",
     "MixinMinecraft",
+    "MixinMouseHandler",
+    "MixinPlayerRenderer",
+    "MixinLivingEntityRenderer",
     "MixinNetworkManager",
     "MixinPalettedContainer",
     "MixinPalettedContainer$Data",
-    "MixinPlayer",
     "MixinPlayerController",
     "MixinScreen",
-    "MixinWorldRenderer",
-    "MixinVec3i"
+    "MixinWorldRenderer"
   ],
   "mixins": [
   ]
