@@ -54,7 +54,7 @@ public final class OstinatoGui implements AbstractGameEventListener {
         TaskService.INSTANCE.tick();
         Minecraft mc = Minecraft.getInstance();
         int key = KeyNames.parse(Baritone.settings().guiKeybind.value);
-        boolean down = key != KeyNames.NONE && InputConstants.isKeyDown(mc.getWindow().handle(), key);
+        boolean down = key != KeyNames.NONE && InputConstants.isKeyDown(mc.getWindow(), key);
         if (down && !wasDown && mc.screen == null && mc.player != null) {
             mc.setScreen(new OstinatoScreen());
         }

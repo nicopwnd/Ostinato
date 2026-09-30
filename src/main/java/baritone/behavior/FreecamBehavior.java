@@ -274,7 +274,7 @@ public final class FreecamBehavior extends Behavior implements Helper {
         if (key.getType() != com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM) {
             return km.isDown();
         }
-        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().handle(), key.getValue());
+        return com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow(), key.getValue());
     }
 
     /** Keeps the camera within the bot's render distance (horizontal circle) and the world's height. */

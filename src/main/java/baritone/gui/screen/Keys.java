@@ -9,7 +9,7 @@ final class Keys {
     private Keys() {}
 
     private static boolean down(int a, int b) {
-        long h = Minecraft.getInstance().getWindow().handle();
+        var h = Minecraft.getInstance().getWindow();
         return InputConstants.isKeyDown(h, a) || InputConstants.isKeyDown(h, b);
     }
 
