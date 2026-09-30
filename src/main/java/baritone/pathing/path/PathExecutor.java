@@ -29,6 +29,7 @@ import baritone.api.utils.input.Input;
 import baritone.behavior.PathingBehavior;
 import baritone.pathing.calc.AbstractNodeCostSearch;
 import baritone.pathing.kinematic.KinematicController;
+import baritone.pathing.physics.PhysicsTravel;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
@@ -76,6 +77,12 @@ public class PathExecutor implements IPathExecutor, Helper {
     private final PathingBehavior behavior;
     private final IPlayerContext ctx;
     private final KinematicController kinematic;
+    private final PhysicsTravel physics;
+
+    /** Which mover drove the player on the last tick; read-only status for the HUD. */
+    public enum Driver { BARITONE, KINEMATIC, PHYSICS }
+
+    private volatile Driver lastDriver = Driver.BARITONE;
 
     private boolean sprintNextTick;
 
@@ -83,6 +90,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         this.behavior = behavior;
         this.ctx = behavior.ctx;
         this.kinematic = new KinematicController(ctx);
+        this.physics = new PhysicsTravel(ctx);
         this.path = path;
         this.pathPosition = 0;
     }
@@ -94,6 +102,21 @@ public class PathExecutor implements IPathExecutor, Helper {
      * not sneaking out over lava), false otherwise
      */
     public boolean onTick() {
+        // A movement that succeeds immediately after a rewind to it would otherwise bounce between the two forever.
+        if (tickDepth > 8) {
+            return false;
+        }
+        tickDepth++;
+        try {
+            return tickOnce();
+        } finally {
+            tickDepth--;
+        }
+    }
+
+    private int tickDepth;
+
+    private boolean tickOnce() {
         if (pathPosition == path.length() - 1) {
             pathPosition++;
         }
@@ -101,7 +124,14 @@ public class PathExecutor implements IPathExecutor, Helper {
             return true; // stop bugging me, I'm done
         }
         Movement movement = (Movement) path.movements().get(pathPosition);
-        int driven = kinematic.tick(behavior.baritone, path, pathPosition);
+        int driven = physics.tick(behavior.baritone, path, pathPosition);
+        lastDriver = driven >= 0 ? Driver.PHYSICS : Driver.BARITONE;
+        if (driven < 0) {
+            driven = kinematic.tick(behavior.baritone, path, pathPosition);
+            if (driven >= 0) {
+                lastDriver = Driver.KINEMATIC;
+            }
+        }
         if (driven >= 0) {
             if (driven != pathPosition) {
                 pathPosition = driven;
@@ -144,6 +174,7 @@ public class PathExecutor implements IPathExecutor, Helper {
             System.out.println("FAR AWAY FROM PATH FOR " + ticksAway + " TICKS. Current distance: " + status.getA() + ". Threshold: " + MAX_DIST_FROM_PATH);
             if (ticksAway > MAX_TICKS_AWAY) {
                 logDebug("Too far away from path for too long, cancelling path");
+                Baritone.settings().movementFault.value.accept("M02", "off path for too long at " + ctx.playerFeet());
                 cancel();
                 return false;
             }
@@ -152,6 +183,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         }
         if (possiblyOffPath(status, MAX_MAX_DIST_FROM_PATH)) { // ok, stop right away, we're way too far.
             logDebug("too far from path");
+            Baritone.settings().movementFault.value.accept("M02", "too far from path at " + ctx.playerFeet());
             cancel();
             return false;
         }
@@ -238,6 +270,7 @@ public class PathExecutor implements IPathExecutor, Helper {
         MovementStatus movementStatus = movement.update();
         if (movementStatus == UNREACHABLE || movementStatus == FAILED) {
             logDebug("Movement returns status " + movementStatus);
+            Baritone.settings().movementFault.value.accept("M04", movement.getClass().getSimpleName() + " " + movementStatus + " at " + ctx.playerFeet());
             cancel();
             return true;
         }
@@ -259,6 +292,7 @@ public class PathExecutor implements IPathExecutor, Helper {
                 // ticksOnCurrent is greater than recalculateCost + 100
                 // this is why we cache cost at the beginning, and don't recalculate for this comparison every tick
                 logDebug("This movement has taken too long (" + ticksOnCurrent + " ticks, expected " + currentMovementOriginalCostEstimate + ") " + movement.getClass().getSimpleName() + " " + movement.getSrc() + "->" + movement.getDest() + ". Cancelling.");
+                Baritone.settings().movementFault.value.accept("M03", movement.getClass().getSimpleName() + " " + movement.getSrc() + "->" + movement.getDest() + " took " + ticksOnCurrent + " ticks");
                 cancel();
                 return true;
             }
@@ -707,6 +741,14 @@ public class PathExecutor implements IPathExecutor, Helper {
             return ret;
         }
         return this;
+    }
+
+    /**
+     * @return the mover that drove the player on the most recent tick (Baritone's per-movement logic, the
+     * kinematic look-ahead, or physics travel). Status only; has no effect on execution.
+     */
+    public Driver getLastDriver() {
+        return lastDriver;
     }
 
     @Override

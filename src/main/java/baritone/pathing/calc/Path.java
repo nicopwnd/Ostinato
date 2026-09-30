@@ -134,7 +134,7 @@ class Path extends PathBase {
         double bestCost = ActionCosts.COST_INF;
         for (Moves moves : Moves.values()) {
             Movement move = moves.apply0(context, src);
-            if (move.getDest().equals(dest)) {
+            if (move != null && move.getDest().equals(dest)) {
                 if (first == null) first = move;
                 double c = move.calculateCost(context);
                 if (c < bestCost) {

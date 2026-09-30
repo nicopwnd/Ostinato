@@ -33,6 +33,7 @@ import org.spongepowered.asm.mixin.injection.Group;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -156,5 +157,14 @@ public class MixinClientPlayerEntity {
             return false;
         }
         return instance.tryToStartFallFlying();
+    }
+
+    // Vanilla only applies movement input and sends position packets for the player that is the camera
+    // entity; with freecam on the bot must keep walking (and the server must see it).
+    @Inject(method = "isControlledCamera", at = @At("HEAD"), cancellable = true)
+    private void freecamControlsPlayer(CallbackInfoReturnable<Boolean> cir) {
+        if (baritone.behavior.FreecamBehavior.activeCamera() != null) {
+            cir.setReturnValue(true);
+        }
     }
 }

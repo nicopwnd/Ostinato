@@ -271,7 +271,7 @@ public class MovementDiagonal extends Movement {
                 && MovementHelper.isLiquid(ctx, src.below()) && MovementHelper.isLiquid(ctx, dest.below());
         if (ctx.playerFeet().equals(dest) || (swim && MovementHelper.atSwum(ctx, dest))) {
             return state.setStatus(MovementStatus.SUCCESS);
-        } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above()))) {
+        } else if (!playerInValidPosition() && !(MovementHelper.isLiquid(ctx, src) && getValidPositions().contains(ctx.playerFeet().above())) && !nearDest()) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
         if (dest.y > src.y && ctx.player().position().y < src.y + 0.1 && ctx.player().horizontalCollision) {
@@ -333,5 +333,12 @@ public class MovementDiagonal extends Movement {
         }
         toWalkIntoCached = result;
         return toWalkIntoCached;
+    }
+
+    /** Mid-hop just past the corner (e.g. handed over from the kinematic driver): keep steering, it lands on dest. */
+    private boolean nearDest() {
+        double dx = ctx.player().position().x - (dest.x + 0.5), dz = ctx.player().position().z - (dest.z + 0.5);
+        double y = ctx.player().position().y;
+        return dx * dx + dz * dz < 1.5 * 1.5 && y >= dest.y && y < dest.y + 1.3;
     }
 }

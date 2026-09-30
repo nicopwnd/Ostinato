@@ -45,6 +45,7 @@ public final class DefaultCommands {
                 //new SchematicaCommand(baritone),
                 new LitematicaCommand(baritone),
                 new ComeCommand(baritone),
+                new FreecamCommand(baritone),
                 new AxisCommand(baritone),
                 new ForceCancelCommand(baritone),
                 new GcCommand(baritone),
@@ -53,6 +54,7 @@ public final class DefaultCommands {
                 new RenderCommand(baritone),
                 new FarmCommand(baritone),
                 new FollowCommand(baritone),
+                new PvpCommand(baritone),
                 new PickupCommand(baritone),
                 new ExploreFilterCommand(baritone),
                 new ReloadAllCommand(baritone),
@@ -69,6 +71,7 @@ public final class DefaultCommands {
                 new CommandAlias(baritone, "home", "Path to your home waypoint", "waypoints goto home"),
                 new SelCommand(baritone),
                 new ElytraCommand(baritone),
+                new TasksCommand(baritone),
                 new SwarmCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);

@@ -1,0 +1,32 @@
+Ostinato is a Baritone fork built for [TenorClef](https://github.com/vexrypt-rgb/TenorClef): AltoClef
+integration hooks, a kinematic travel controller, and an encrypted multi-bot swarm link.
+
+## Downloads
+
+One set of jars per Minecraft version (`ostinato-mc<version>-*`). For a normal install use
+`ostinato-mc<version>-unoptimized-fabric-*.jar` with Fabric Loader; `standalone` is obfuscated and
+`api` keeps the public API for other mods.
+
+| Minecraft | Branch | Java |
+| --- | --- | --- |
+| 1.21.4 | `main` | 21 |
+| 26.3 | `26.3` | 25 |
+| 1.21.11 | `1.21.11` | 21 |
+| 1.16.1 | `1.16.1` | 8 |
+
+## Highlights
+
+- **Swarm link** (`#swarm`): sealed, signed chat messages between bots in a roster group (sigil S2S,
+  Ed25519 per member), with `#swarm ping`, `status`, `reload`, `build` and `stop`. Settings `swarm*`,
+  off by default (`swarmEnabled`).
+- **Coordinated region builds** (`#swarm build <group> <file> [x y z]`): the group lead splits a
+  schematic into one region per member (`strips`, `grid`, or bottom-up `layers`); every member builds
+  only its own region. See `docs/REGION_BUILD.md`.
+- **Kinematic travel, parkour and swimming** improvements, pitfall avoidance.
+- **26.3** support (unobfuscated Minecraft), merged from upstream Baritone 26.2.
+
+## Notes
+
+- Not every build has been tested in a live game; please report problems with the Minecraft version,
+  the jar name and `latest.log`.
+- Ostinato is LGPL-3.0, like Baritone. The 1.16.1 jars include BouncyCastle's Ed25519 classes (MIT).

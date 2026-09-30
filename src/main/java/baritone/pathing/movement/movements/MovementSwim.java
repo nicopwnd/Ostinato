@@ -59,7 +59,13 @@ public class MovementSwim extends Movement {
 
     @Override
     protected Set<BetterBlockPos> calculateValidPositions() {
-        return ImmutableSet.of(src, dest, new BetterBlockPos(dest.x, src.y, dest.z), new BetterBlockPos(src.x, dest.y, src.z));
+        if (src.x == dest.x && src.z == dest.z) {
+            return ImmutableSet.of(src, dest, new BetterBlockPos(dest.x, src.y, dest.z), new BetterBlockPos(src.x, dest.y, src.z));
+        }
+        // A swim lane is held loosely: breathing or bobbing lifts us off it (see the arrival rule in updateState),
+        // and the next lane must accept where the last one left us, or the executor rewinds forever.
+        return ImmutableSet.of(src, dest, new BetterBlockPos(dest.x, src.y, dest.z), new BetterBlockPos(src.x, dest.y, src.z),
+                src.above(), src.above(2), src.above(3), src.below());
     }
 
     private static boolean water(CalculationContext c, int x, int y, int z) {
@@ -135,6 +141,11 @@ public class MovementSwim extends Movement {
         return !f.isSource() && !f.getValue(net.minecraft.world.level.material.FlowingFluid.FALLING);
     }
 
+    private static boolean falling(CalculationContext c, int x, int y, int z) {
+        net.minecraft.world.level.material.FluidState f = c.get(x, y, z).getFluidState();
+        return !f.isEmpty() && !f.isSource() && f.getValue(net.minecraft.world.level.material.FlowingFluid.FALLING);
+    }
+
     public static double cost(CalculationContext c, int x, int y, int z, int dx, int dy, int dz) {
         if (!Baritone.settings().swimInWater.value) return COST_INF;
         int tx = x + dx, ty = y + dy, tz = z + dz;
@@ -147,6 +158,8 @@ public class MovementSwim extends Movement {
         // A stream down steps is wading depth: walk it (ascend/traverse), there's nothing to swim in.
         // Rising into sideways-flowing water fights the current: take the step as an ascend instead.
         if (dy > 0 && ((water(c, x, y, z) && shallow(c, x, y, z)) || ((dx != 0 || dz != 0) && water(c, tx, ty, tz) && current(c, tx, ty, tz)))) return COST_INF;
+        // Falling water shoves down harder than a diagonal swim climbs: stuck at the foot of a waterfall. Straight up still works.
+        if (dy > 0 && (dx != 0 || dz != 0) && (falling(c, tx, ty, tz) || falling(c, tx, y, tz))) return COST_INF;
         // Swimming, not walking: both ends must be in water with room for the head.
         // Dest may be the air block just above the surface (surfacing); it must sit on water.
         if (!water(c, x, y, z) && !dugShaft(c, x, y, z)) return COST_INF;
@@ -176,6 +189,8 @@ public class MovementSwim extends Movement {
         return SWIM_ONE_BLOCK_COST * dist;
     }
 
+    private int stallTicks;
+
     @Override
     public MovementState updateState(MovementState state) {
         super.updateState(state);
@@ -204,7 +219,10 @@ public class MovementSwim extends Movement {
         // Block-level arrival is enough: sprint-swimming carries momentum, so demanding the column
         // centre made the bot orbit the target (and drown). The next movement steers from here.
         boolean vertical = dest.x == src.x && dest.z == src.z;
-        if (feet.equals(dest) && (!vertical || horiz < 0.5)) {
+        if ((feet.equals(dest) && (!vertical || horiz < 0.5))
+                || (!vertical && dest.y <= src.y && MovementHelper.atSwum(ctx, dest) && !MovementHelper.isWater(ctx, dest.above()))
+                // Rising for air (or bobbing) through the lane: the column counts, or it overshoots and turns back.
+                || (breathing && !vertical && feet.x == dest.x && feet.z == dest.z && feet.y > dest.y && feet.y <= dest.y + 3)) {
             return state.setStatus(MovementStatus.SUCCESS);
         }
         if (!playerInValidPosition() && !MovementHelper.isWater(ctx, feet)) {
@@ -253,7 +271,21 @@ public class MovementSwim extends Movement {
         state.setInput(Input.MOVE_FORWARD, true);
         // Against a step edge (a stream down stairs) or sagging below the lane: jumping in water
         // against a wall is vanilla's climb-out boost; it also keeps us up in a current.
-        if (dest.y >= feet.y && (ctx.player().horizontalCollision || pos.y < dest.y - 0.1)) {
+        if (++stallTicks % 40 == 0) {
+            net.minecraft.world.entity.player.Player pl = ctx.player();
+            logDebug(String.format("swim stall %s->%s pos=%.2f,%.2f,%.2f swim=%b sprint=%b food=%d hcol=%b vcol=%b eye=%b",
+                    src, dest, pos.x, pos.y, pos.z, pl.isSwimming(), pl.isSprinting(), pl.getFoodData().getFoodLevel(),
+                    pl.horizontalCollision, pl.verticalCollision, pl.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)));
+        }
+        // A shore shelf counts too: floating, the feet hang below the feet block, into the lip of the block under dest.
+        boolean step = !MovementHelper.isWater(ctx, new BetterBlockPos(dest.x, feet.y, dest.z))
+                || (pos.y < feet.y && !MovementHelper.isWater(ctx, new BetterBlockPos(dest.x, feet.y - 1, dest.z))
+                    && !ctx.world().getBlockState(new BetterBlockPos(dest.x, feet.y - 1, dest.z)).getCollisionShape(ctx.world(), new BetterBlockPos(dest.x, feet.y - 1, dest.z)).isEmpty());
+        if (ctx.player().horizontalCollision && !step) {
+            // Head against a roof lip over open water: sink under it, jumping only wedges us into the edge.
+            // keep MOVE_FORWARD: without it applySwim never runs and the bot just floats against the lip
+            state.setInput(Input.SNEAK, true);
+        } else if (dest.y >= feet.y && ((ctx.player().horizontalCollision && step) || pos.y < dest.y - 0.1)) {
             state.setInput(Input.JUMP, true);
         }
         return state;
