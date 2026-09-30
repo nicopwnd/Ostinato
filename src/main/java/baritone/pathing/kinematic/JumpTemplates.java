@@ -86,7 +86,7 @@ public final class JumpTemplates {
 
     public static void main(String[] args) throws Exception {
         List<int[]> dests = new ArrayList<>(); // a, dy, b, wall
-        for (int a = 2; a <= 5; a++) for (int b = 0; b <= 4; b++) for (int dy = 1; dy >= -2; dy--) {
+        for (int a = 2; a <= 7; a++) for (int b = 0; b <= 4; b++) for (int dy = 1; dy >= -3; dy--) {
             if (b == 0 && dy >= 0 && a < (dy == 0 ? 5 : 4)) continue; // MovementParkour's straight gaps
             dests.add(new int[]{a, dy, b, 0});
         }

@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.ArrayList;
@@ -62,5 +63,11 @@ public final class ClientWorld implements PlayerSim.World {
     public float slipperiness(int x, int y, int z) {
         pos.set(x, y, z);
         return ctx.world().getBlockState(pos).getBlock().getFriction();
+    }
+
+    @Override
+    public boolean bouncy(int x, int y, int z) {
+        pos.set(x, y, z);
+        return ctx.world().getBlockState(pos).getBlock() == Blocks.SLIME_BLOCK;
     }
 }
