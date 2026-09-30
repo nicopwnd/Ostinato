@@ -40,7 +40,7 @@ public final class VexBench implements AbstractGameEventListener {
     private static final String[] ANCHOR_KIT = {
             "armor.head with diamond_helmet", "armor.chest with diamond_chestplate", "armor.legs with diamond_leggings",
             "armor.feet with diamond_boots", "weapon.offhand with totem_of_undying", "hotbar.0 with diamond_sword",
-            "hotbar.1 with respawn_anchor 32", "hotbar.2 with glowstone 64", "hotbar.3 with golden_apple 16",
+            "hotbar.1 with respawn_anchor 32", "hotbar.2 with glowstone 64", "hotbar.3 with golden_apple 16", "hotbar.4 with obsidian 16",
             "inventory.0 with totem_of_undying", "inventory.1 with totem_of_undying", "inventory.2 with totem_of_undying"};
     // -Dostinato.vex.kit=sword|crystal|anchor picks which of VexBot's combat modes the round exercises
     private static final String[] KIT = switch (System.getProperty("ostinato.vex.kit", "sword")) {
