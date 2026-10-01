@@ -63,6 +63,9 @@ public final class VexBench implements AbstractGameEventListener {
         case "cobweb" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with cobweb 64", "hotbar.2 with golden_apple 8");
         case "potion" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with splash_potion[potion_contents={potion:\"minecraft:strong_harming\"}] 8",
                 "hotbar.2 with splash_potion[potion_contents={potion:\"minecraft:strong_healing\"}] 8", "hotbar.3 with golden_apple 8");
+        case "fire" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with bow", "hotbar.2 with arrow 64", "hotbar.3 with soul_sand 16",
+                "hotbar.4 with flint_and_steel", "hotbar.5 with golden_apple 8");
+        case "pillar" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with cobblestone 64", "hotbar.2 with ender_pearl 4");
         case "mace" -> gear("hotbar.0 with mace", "hotbar.1 with wind_charge 64", "hotbar.2 with diamond_sword", "hotbar.3 with golden_apple 8");
         case "elytramace" -> new String[]{"armor.head with diamond_helmet", "armor.chest with elytra", "armor.legs with diamond_leggings",
                 "armor.feet with diamond_boots", "weapon.offhand with shield", "hotbar.0 with mace", "hotbar.1 with wind_charge 64",

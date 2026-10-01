@@ -130,6 +130,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         boolean los = me.hasLineOfSight(target);
 
         if (pearlCool > 0) pearlCool--;
+        if (fireCool > 0) fireCool--;
         if (spearCool > 0) spearCool--;
         if (hp <= 6 && !canHeal(me) && target.getHealth() + target.getAbsorptionAmount() > 6 && !targetEating) {
             return flee(me, dist);
@@ -242,6 +243,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return pause();
     }
 
+    private int fireCool, fireStage, fireTicks, fleeTicks;
+    private BlockPos firePos;
     private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
 
     /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
@@ -382,6 +385,43 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 return pause();
             }
         }
+        // soul sand + flint and steel + any bow: shoot through the fire to set the target alight
+        if (slotOf(me, Items.SOUL_SAND) >= 0 && slotOf(me, Items.FLINT_AND_STEEL) >= 0 && slotOf(me, Items.BOW) >= 0
+                && slotOf(me, Items.ARROW) >= 0 && los && dist > (fireStage > 0 ? 6 : 11) && dist < 22 && (fireStage > 0 || (fireCool == 0 && target.onGround() && me.onGround() && !target.isOnFire()))) {
+            if (fireStage == 0) {
+                Vec3 dir = new Vec3(target.getX() - me.getX(), 0, target.getZ() - me.getZ()).normalize();
+                BlockPos g = BlockPos.containing(me.getX() + dir.x * 2, me.getY() - 1, me.getZ() + dir.z * 2);
+                if (!ctx.world().getBlockState(g).isSolid() || !ctx.world().getBlockState(g.above()).isAir() || !ctx.world().getBlockState(g.above(2)).isAir()) {
+                    fireStage = -1;
+                } else {
+                    firePos = g;
+                    fireStage = 1;
+                    fireTicks = 0;
+                }
+            }
+            if (fireStage > 0) {
+                if (++fireTicks > 80) {
+                    fireStage = 0;
+                    fireCool = 400;
+                } else if (fireStage == 1) {
+                    if (place(me, Items.SOUL_SAND, firePos)) fireStage = 2;
+                    return pause();
+                } else if (fireStage == 2) {
+                    if (place(me, Items.FLINT_AND_STEEL, firePos.above())) fireStage = 3;
+                    return pause();
+                } else {
+                    if (!ctx.world().getBlockState(firePos.above(2)).isAir() && ctx.world().getBlockState(firePos.above(2)).getBlock() != net.minecraft.world.level.block.Blocks.FIRE
+                            && ctx.world().getBlockState(firePos.above()).getBlock() != net.minecraft.world.level.block.Blocks.SOUL_FIRE
+                            && ctx.world().getBlockState(firePos.above()).getBlock() != net.minecraft.world.level.block.Blocks.FIRE) fireStage = 0;
+                    if (target.isOnFire() || fireTicks > 70) { fireStage = 0; fireCool = 400; }
+                    return bow(me);
+                }
+            }
+        } else if (fireStage < 0 && (!target.onGround() || dist < 5)) {
+            fireStage = 0;
+        } else if (fireStage > 0) {
+            fireStage = 0;
+        }
         int xb = slotOf(me, Items.CROSSBOW);
         if (xb >= 0 && los && dist > 5 && slotOf(me, Items.ARROW) >= 0) {
             select(me, xb);
@@ -427,6 +467,16 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return -1;
     }
 
+    private int blockSlot(Player me) {
+        for (int i = 0; i < 9; i++) {
+            ItemStack st = me.getInventory().getItem(i);
+            if (st.getItem() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() != net.minecraft.world.level.block.Blocks.SOUL_SAND
+                    && bi.getBlock().defaultBlockState().isSolid() && !(bi.getBlock() instanceof net.minecraft.world.level.block.FallingBlock)
+                    && bi.getBlock() != net.minecraft.world.level.block.Blocks.TNT) return i;
+        }
+        return -1;
+    }
+
     private boolean canHeal(Player me) {
         return me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING || slotOf(me, Items.GOLDEN_APPLE) >= 0
                 || slotOf(me, Items.ENCHANTED_GOLDEN_APPLE) >= 0 || potion(me, MobEffects.INSTANT_HEALTH) >= 0;
@@ -448,7 +498,19 @@ public final class PvpProcess extends BaritoneProcessHelper {
             pearlCool = 160;
             return pause();
         }
-        if (dist > 16) return pause(); // clear of it: stand and regenerate
+        if (dist > 16) {
+            fleeTicks = 0;
+            return pause(); // clear of it: stand and regenerate
+        }
+        int blk = blockSlot(me);
+        if (++fleeTicks > 40 && dist < 6 && blk >= 0 && me.getY() - target.getY() < 5) {
+            // can't shake it: tower up out of melee
+            select(me, blk);
+            me.setXRot(90f);
+            if (me.onGround()) me.jumpFromGround();
+            else if (me.getDeltaMovement().y < 0.1 && ctx.world().getBlockState(me.blockPosition().below()).isAir()) click(me, me.blockPosition().below().below());
+            return pause();
+        }
         return new PathingCommand(new baritone.api.pathing.goals.GoalRunAway(18, target.blockPosition()), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
     }
 
