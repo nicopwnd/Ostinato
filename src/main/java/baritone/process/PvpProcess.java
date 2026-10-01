@@ -101,7 +101,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return enemies.contains(e.getUUID()) || (filter != null && filter.test(e));
     }
 
-    public boolean addEnemy(Player p) {
+    public boolean addEnemy(LivingEntity p) {
         Player me = ctx.player();
         if (me == null || p == null || p == me) return false;
         boolean added = enemies.add(p.getUUID());

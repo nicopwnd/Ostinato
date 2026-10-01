@@ -1284,6 +1284,11 @@ public final class Settings {
     public final Setting<Double> freecamSpeed = new Setting<>(1D);
 
     /**
+     * Let the freecam enemy list (middle-click, or attacked while in freecam) include mobs, not just players
+     */
+    public final Setting<Boolean> enemyMobs = new Setting<>(false);
+
+    /**
      * Key that toggles freecam, as a Minecraft key name (e.g. key.keyboard.f8, key.keyboard.unknown to disable).
      */
     public final Setting<String> freecamKey = new Setting<>("key.keyboard.f8");

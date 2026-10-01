@@ -223,6 +223,7 @@
  "freecamGhostOpacity": "Opacity of the bot's ghost body while freecam is on (0 = invisible, 1 = solid)",
  "freecamSpeed": "Freecam flight speed multiplier (1 = vanilla walking and creative flight)",
  "freecamKey": "Key that toggles freecam, as a Minecraft key name (e.g. key.keyboard.f8; key.keyboard.unknown disables)",
+ "enemyMobs": "Let the freecam enemy list (middle-click, or attacked while in freecam) include mobs, not just players",
  "followTargetMaxDistance": "The maximum distance to the entity you're following",
  "allowWalkOnMagmaBlocks": "Sneak when magma blocks are under feet",
  "allowPlaceInFluidsSource": "Allow Baritone to place blocks in fluid source blocks",

@@ -213,8 +213,8 @@ public final class FreecamBehavior extends Behavior implements Helper {
     /** While freecam is on, whoever just hurt the bot becomes an enemy. */
     private void markAttackers(LocalPlayer p) {
         net.minecraft.world.entity.LivingEntity by = p.getLastHurtByMob();
-        if (by instanceof net.minecraft.world.entity.player.Player && by != p && p.tickCount - p.getLastHurtByMobTimestamp() < 5
-                && ((Baritone) baritone).getPvpProcess().addEnemy((net.minecraft.world.entity.player.Player) by)) {
+        if (by != null && by != p && markable(by) && p.tickCount - p.getLastHurtByMobTimestamp() < 5
+                && ((Baritone) baritone).getPvpProcess().addEnemy(by)) {
             logDirect(by.getName().getString() + " attacked the bot: added to enemies");
         }
     }
@@ -359,16 +359,21 @@ public final class FreecamBehavior extends Behavior implements Helper {
         }
     }
 
+    /** Players always; other living things only with the enemyMobs setting. */
+    private static boolean markable(net.minecraft.world.entity.LivingEntity e) {
+        return e instanceof net.minecraft.world.entity.player.Player || Baritone.settings().enemyMobs.value;
+    }
+
     private void markEnemy() {
         Entity hit = entityUnderCrosshair();
-        if (hit instanceof net.minecraft.world.entity.player.Player pl) {
+        if (hit instanceof net.minecraft.world.entity.LivingEntity pl && markable(pl)) {
             if (((Baritone) baritone).getPvpProcess().addEnemy(pl)) {
                 logDirect("Enemy added: " + pl.getName().getString());
             } else {
                 logDirect(pl.getName().getString() + " is already an enemy");
             }
         } else {
-            logDirect("Middle-click a player to mark an enemy");
+            logDirect("Middle-click a player to mark an enemy" + (Baritone.settings().enemyMobs.value ? " or mob" : ""));
         }
     }
 
