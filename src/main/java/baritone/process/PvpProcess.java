@@ -226,12 +226,26 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return pause();
     }
 
-    private int macePhase, maceTicks, maceCool, chargeTicks;
+    private int windCool, macePhase, maceTicks, maceCool, chargeTicks;
 
     /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
     private PathingCommand special(Player me, double dist, boolean los) {
         if (maceCool > 0) maceCool--;
         int mace = slotOf(me, Items.MACE), wind = slotOf(me, Items.WIND_CHARGE);
+        if (windCool > 0) windCool--;
+        // an airborne opponent diving at us: a wind charge on its predicted path knocks it off the smash
+        if (wind >= 0 && macePhase == 0 && windCool == 0 && !target.onGround() && dist < 12 && dist > 2
+                && (target.getDeltaMovement().y < -0.1 || target.getY() > me.getY() + 2)) {
+            Vec3 at = target.getBoundingBox().getCenter().add(target.getDeltaMovement().scale(dist / 1.5));
+            Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+            select(me, wind);
+            me.setYRot(r.getYaw());
+            me.setXRot(r.getPitch());
+            ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            me.swing(InteractionHand.MAIN_HAND);
+            windCool = 12;
+            return pause();
+        }
         if (mace >= 0) {
             boolean canJump = me.onGround() && !me.isInWater();
             if (macePhase == 0 && canJump && maceCool == 0 && dist > 2.5 && dist < 24 && los && wind >= 0) {
@@ -244,13 +258,15 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 maceTicks++;
                 select(me, wind);
                 if (me.getDeltaMovement().y < 0.12 || maceTicks > 8) {
-                    look(me.position().add(0, -1.5, 0));
+                    me.setXRot(90f); // the look behavior is smoothed; the charge must leave straight down this tick
                     ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
                     me.swing(InteractionHand.MAIN_HAND);
                     macePhase = 2;
                     maceTicks = 0;
                 } else {
                     look(target.getEyePosition());
+                    key(Input.MOVE_FORWARD);
+                    me.setSprinting(true);
                 }
                 return pause();
             }
@@ -259,6 +275,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 select(me, mace);
                 look(aimPoint(me, target));
                 key(Input.MOVE_FORWARD);
+                me.setSprinting(true);
                 if (me.onGround() && maceTicks > 3 || maceTicks > 120) {
                     macePhase = 0;
                     maceCool = 25;
