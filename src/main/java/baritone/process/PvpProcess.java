@@ -234,6 +234,24 @@ public final class PvpProcess extends BaritoneProcessHelper {
         int mace = slotOf(me, Items.MACE), wind = slotOf(me, Items.WIND_CHARGE);
         if (windCool > 0) windCool--;
         boolean overhead = !target.onGround() && target.getY() > me.getY() + 3;
+        // arrows, tridents, fireballs, potions: a wind charge on the projectile's path deflects it
+        if (wind >= 0 && macePhase == 0 && windCool == 0) {
+            for (net.minecraft.world.entity.projectile.Projectile pr : ctx.world().getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
+                    me.getBoundingBox().inflate(14), e -> e.getOwner() != me && !e.onGround() && e.getDeltaMovement().lengthSqr() > 0.09)) {
+                Vec3 v = pr.getDeltaMovement(), rel = me.getEyePosition().subtract(pr.position());
+                double d = rel.length();
+                if (d < 3.5 || d > 13 || v.dot(rel) <= 0 || v.normalize().dot(rel.normalize()) < 0.85) continue;
+                Vec3 at = pr.position().add(v.scale(d / (v.length() + 1.5)));
+                Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+                select(me, wind);
+                me.setYRot(r.getYaw());
+                me.setXRot(r.getPitch());
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                me.swing(InteractionHand.MAIN_HAND);
+                windCool = 8;
+                return pause();
+            }
+        }
         // an airborne opponent diving at us: a wind charge on its predicted path knocks it off the smash
         if (wind >= 0 && macePhase == 0 && windCool == 0 && !target.onGround() && dist < 12 && dist > 2
                 && (target.getDeltaMovement().y < -0.1 || target.getY() > me.getY() + 2)) {
