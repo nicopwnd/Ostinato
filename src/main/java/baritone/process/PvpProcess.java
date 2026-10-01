@@ -61,6 +61,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private int targetSwingTick, lastAxeTick = -1000;
     private boolean critArmed;
     private float lastHealth = -1;
+    private final PvpRecorder recorder = new PvpRecorder();
 
     public int attacks, crits, sprintHits, axeHits, blocks, gapples;
     public float damageTaken;
@@ -111,13 +112,19 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (lastHealth >= 0 && hp < lastHealth) damageTaken += lastHealth - hp;
         lastHealth = hp;
 
+        LivingEntity prevTarget = target;
         if (target == null || !target.isAlive() || target.isRemoved() || me.distanceTo(target) > CHASE) target = pick(me);
+        if (target != null && me.tickCount % 5 == 0 && macePhase == 0) retarget(me);
         baritone.getInputOverrideHandler().clearAllKeys();
         if (target == null) {
+            if (prevTarget != null && !prevTarget.isAlive()) recorder.markWin();
+            recorder.end(me, "lost");
             use(false);
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
         keepTotem(me);
+        if (!recorder.active()) recorder.begin(me, target, label);
+        recorder.tick(me, target, eyeToBox(me, target), others(me) + " m" + macePhase + " p" + pearlStage + " f" + fleeTicks + " e" + eatTicks + " s" + me.getInventory().selected, attacks);
 
         boolean targetEating = target.isUsingItem() && target.getUseItem().has(net.minecraft.core.component.DataComponents.FOOD);
         boolean safe = eyeToBox(me, target) > 4.5 || targetEating;
@@ -494,7 +501,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                         && (me.fallDistance >= 3 || !ctx.world().noCollision(me, me.getBoundingBox().move(0, -1.3, 0)))) {
                     hit(me);
                     macePhase = 0;
-                    maceCool = 25;
+                    maceCool = 14;
                 }
                 return pause();
             }
@@ -613,7 +620,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
     /** Hotbar slot of a spear (anything with a piercing attack), or -1. */
     private int spearSlot(Player me) {
-        // no spear component in 1.21.4
+        // 1.21.4 has no spear component
         return -1;
     }
 
@@ -810,6 +817,26 @@ public final class PvpProcess extends BaritoneProcessHelper {
             r = new Rotation(r.getYaw() + (float) wanderY, Mth.clamp(r.getPitch() + (float) wanderP, -90f, 90f));
         }
         baritone.getLookBehavior().updateTarget(r, true);
+    }
+
+    /** With several opponents in reach, finish the weakest one rather than whichever was nearest first. */
+    private void retarget(Player me) {
+        java.util.function.ToDoubleFunction<LivingEntity> score = e -> e.getHealth() + e.getAbsorptionAmount() + 0.6 * me.distanceTo(e);
+        LivingEntity best = ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(7),
+                        e -> e != me && e.isAlive() && !e.isRemoved() && filter.test(e))
+                .stream().min(Comparator.comparingDouble(score)).orElse(null);
+        if (best != null && best != target && score.applyAsDouble(best) < score.applyAsDouble(target) - 3) target = best;
+    }
+
+    /** Recorder tag: opponents within 12 blocks as "n<count>:<nearest-other dist>". */
+    private String others(Player me) {
+        double near = 99;
+        int n = 0;
+        for (LivingEntity e : ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(12), x -> x != me && x != target && x.isAlive() && filter.test(x))) {
+            n++;
+            near = Math.min(near, me.distanceTo(e));
+        }
+        return n == 0 ? "n0" : String.format("n%d:%.1f", n, near);
     }
 
     private LivingEntity pick(Player me) {
@@ -1027,6 +1054,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
     @Override
     public void onLostControl() {
+        recorder.end(ctx.player(), "lost");
         filter = null;
         target = null;
         eatTicks = blockTicks = 0;
