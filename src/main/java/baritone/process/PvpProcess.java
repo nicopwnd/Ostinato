@@ -333,7 +333,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (potCool > 0) potCool--;
         if (potCool == 0) {
-            int heal = potion(me, MobEffects.INSTANT_HEALTH), harm = potion(me, MobEffects.INSTANT_DAMAGE);
+            int heal = potion(me, MobEffects.HEAL), harm = potion(me, MobEffects.HARM);
             if (heal >= 0 && me.getHealth() <= 9) {
                 select(me, heal);
                 me.setXRot(90f);
