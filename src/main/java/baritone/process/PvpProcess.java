@@ -285,11 +285,67 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return pause();
         }
         // a diver still coming (no charge, or too close to counter): block the smash with the shield
-        if (macePhase == 0 && !target.onGround() && target.getDeltaMovement().y < -0.3 && dist < 7 && target.getY() > me.getY() + 1
+        if (macePhase == 0 && !target.onGround() && target.getDeltaMovement().y < -0.3 && dist < 11 && target.getY() > me.getY() + 1
                 && (me.getOffhandItem().getItem() == Items.SHIELD || slotOf(me, Items.SHIELD) >= 0)) {
             if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
             look(target.getEyePosition());
             use(true);
+            return pause();
+        }
+        int rocket = slotOf(me, Items.FIREWORK_ROCKET);
+        if (mace >= 0 && rocket >= 0 && me.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem() == Items.ELYTRA
+                && (macePhase >= 5 || macePhase == 0 && me.onGround() && maceCool == 0 && !overhead && target.getDeltaMovement().y > -0.3 && dist > 3 && dist < 40 && los)) {
+            // elytra mace: take off, rocket up above the target, dive and smash
+            maceTicks++;
+            if (macePhase == 0) {
+                me.jumpFromGround();
+                macePhase = 5;
+                maceTicks = 0;
+                return pause();
+            }
+            Vec3 tp = aimPoint(me, target);
+            if (macePhase == 5) { // rising: open the wings once falling
+                if (me.getDeltaMovement().y < 0 && !me.onGround()) {
+                    ctx.minecraft().getConnection().send(new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(me,
+                            net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
+                    me.startFallFlying();
+                    macePhase = 6;
+                    maceTicks = 0;
+                } else if (maceTicks > 30) {
+                    macePhase = 0;
+                    maceCool = 40;
+                }
+                return pause();
+            }
+            // macePhase 6: gliding
+            boolean climbing = me.getY() < target.getY() + 14 && maceTicks < 70;
+            Vec3 aim = climbing ? new Vec3(tp.x, me.getEyeY() + 30, tp.z).add(tp.subtract(me.position()).multiply(0.0, 0, 0)) : tp;
+            if (climbing) {
+                Vec3 flat = new Vec3(tp.x - me.getX(), 0, tp.z - me.getZ());
+                flat = flat.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : flat.normalize();
+                aim = me.getEyePosition().add(flat.scale(12)).add(0, 14, 0); // ~50 degrees up
+            }
+            Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), aim, ctx.playerRotations());
+            me.setYRot(r.getYaw());
+            me.setXRot(r.getPitch());
+            double speed = me.getDeltaMovement().length();
+            if (climbing && speed < 1.2 && maceTicks % 12 == 3) {
+                select(me, rocket);
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            } else if (!climbing) {
+                select(me, mace);
+                if (exactReach(me, target) <= REACH - 0.05) {
+                    hit(me);
+                    macePhase = 0;
+                    maceCool = 10;
+                }
+            } else {
+                select(me, mace);
+            }
+            if (me.onGround() || !me.isFallFlying() && maceTicks > 6 || maceTicks > 200) {
+                macePhase = 0;
+                maceCool = 40;
+            }
             return pause();
         }
         if (mace >= 0) {
