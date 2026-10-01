@@ -162,6 +162,52 @@ public final class KinematicController {
         return s + 0.5 * Math.sqrt(sim.vx * sim.vx + sim.vz * sim.vz);
     }
 
+    /**
+     * Combat chase: would a sprint-jump now toward (tx, tz) land safely and close at least as much ground as running on?
+     * Simulates both options for a few ticks; a jump into lava, a gap or a drop is refused.
+     */
+    public boolean jumpHelps(double tx, double tz) {
+        if (ctx.player().isInWater() || ctx.player().isInLava()) {
+            return false;
+        }
+        world.reset();
+        Vec3 p = ctx.player().position();
+        Vec3 m = ctx.player().getDeltaMovement();
+        real.x = p.x; real.y = p.y; real.z = p.z;
+        real.vx = m.x; real.vy = m.y; real.vz = m.z;
+        real.onGround = ctx.player().onGround();
+        real.sprinting = true;
+        real.collidedH = ctx.player().horizontalCollision;
+        float yaw = (float) Math.toDegrees(Math.atan2(-(tx - real.x), tz - real.z));
+        double[] closed = new double[2];
+        for (int j = 0; j < 2; j++) {
+            sim.copyFrom(real);
+            boolean ok = true;
+            for (int t = 0; t < 14; t++) {
+                sim.tick(yaw, true, true, j == 1 && t == 0);
+                if (sim.y < real.y - 1.5 || hazard(sim.x, sim.y, sim.z)) {
+                    ok = false;
+                    break;
+                }
+            }
+            for (int t = 0; ok && t < 10 && !sim.onGround; t++) {
+                sim.tick(yaw, true, true, false);
+                if (sim.y < real.y - 1.5 || hazard(sim.x, sim.y, sim.z)) {
+                    ok = false;
+                }
+            }
+            if (!ok || !sim.onGround) {
+                closed[j] = j == 0 ? 0 : -1e9;
+                if (j == 0 && !ok) {
+                    return false; // running straight on is no better; let the caller decide
+                }
+                continue;
+            }
+            closed[j] = -Math.hypot(sim.x - tx, sim.z - tz);
+        }
+        return closed[1] > closed[0] - 0.05;
+    }
+
     private float aim(double x, double z, double s) {
         double[] tgt = pointAt(s + 1.6);
         return (float) Math.toDegrees(Math.atan2(-(tgt[0] - x), tgt[2] - z));

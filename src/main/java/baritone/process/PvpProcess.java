@@ -244,6 +244,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
     }
 
     private static final boolean HUMANIZE = !"false".equals(System.getProperty("ostinato.humanize"));
+    private static final boolean KINEMATIC = !"false".equals(System.getProperty("ostinato.kinematic"));
+    private baritone.pathing.kinematic.KinematicController kin;
     private double wanderY, wanderP, wanderVy, wanderVp;
     private int fireCool, fireStage, fireTicks, fleeTicks;
     private BlockPos firePos;
@@ -592,7 +594,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (dist > 3.5) {
             // it's backing off to heal: run it down in a straight line, sprint-jumping for speed
-            if (me.onGround() && me.isSprinting() && !me.isInWater()) me.jumpFromGround();
+            if (me.onGround() && me.isSprinting() && !me.isInWater() && (!KINEMATIC || (kin != null ? kin : (kin = new baritone.pathing.kinematic.KinematicController(ctx))).jumpHelps(target.getX(), target.getZ()))) me.jumpFromGround();
             return;
         }
         key(strafeDir > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT);
