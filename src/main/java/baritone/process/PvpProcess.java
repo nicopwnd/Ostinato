@@ -257,7 +257,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (macePhase == 1) { // rising: throw the charge under our feet near the apex
                 maceTicks++;
                 select(me, wind);
-                if (me.getDeltaMovement().y < 0.12 || maceTicks > 8) {
+                if (maceTicks >= 2) {
                     me.setXRot(90f); // the look behavior is smoothed; the charge must leave straight down this tick
                     ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
                     me.swing(InteractionHand.MAIN_HAND);
@@ -279,7 +279,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 if (me.onGround() && maceTicks > 3 || maceTicks > 120) {
                     macePhase = 0;
                     maceCool = 25;
-                } else if (me.fallDistance > 1.5 && exactReach(me, target) <= REACH - 0.05) {
+                } else if (me.fallDistance > 1.5 && exactReach(me, target) <= REACH - 0.05
+                        && (me.fallDistance >= 3 || !ctx.world().noCollision(me, me.getBoundingBox().move(0, -1.3, 0)))) {
                     hit(me);
                     macePhase = 0;
                     maceCool = 25;
