@@ -291,7 +291,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
             hit(me); // its shield is on cooldown: land the follow-up as soon as the sword is charged
             return pause();
         }
-        if (!breached && canJump && dist <= REACH + 0.8 && cd >= 0.55f && !immune && groundedJumps < 4) {
+        boolean diving = !target.onGround() && tv().y < -0.2 && target.getY() > me.getY() + 1.5;
+        if (!breached && !diving && canJump && dist <= REACH + 0.8 && cd >= 0.55f && !immune && groundedJumps < 4) {
             me.jumpFromGround();
             groundedJumps++;
             return pause();
@@ -383,30 +384,33 @@ public final class PvpProcess extends BaritoneProcessHelper {
             use(true);
             return pause();
         }
-        // pearl strike: lob a pearl so it peaks above the target, pop it mid-air with a wind charge to teleport there, then drop the mace
-        if (mace >= 0 && wind >= 0 && macePhase == 0 && (pearlStage > 0 || pearlCool == 0 && maceCool == 0 && me.onGround() && los && dist > 7 && dist < 22
-                && slotOf(me, Items.ENDER_PEARL) >= 0 && target.onGround() && !overhead)) {
+        // pearl strike: lob a lead-aimed pearl onto a stationary target, then wind-charge jump off the arrival and smash with the mace
+        // (a pearl can't be hit by a charge, so there is no mid-air pop)
+        if (mace >= 0 && wind >= 0 && macePhase == 0 && (pearlStage > 0 || pearlCool == 0 && maceCool == 0 && me.onGround() && los && dist > 7 && dist < 30
+                && slotOf(me, Items.ENDER_PEARL) >= 0 && target.onGround() && !overhead && tv().horizontalDistance() < 0.08)) {
             if (pearlStage == 0) {
                 float bestPitch = 0;
                 double bestErr = 1e9;
                 Vec3 eye = me.getEyePosition();
                 Vec3 flat = new Vec3(target.getX() - me.getX(), 0, target.getZ() - me.getZ()).normalize();
-                for (float pitch = -80; pitch <= -25; pitch += 1.5f) {
+                for (float pitch = -60; pitch <= 12; pitch += 0.5f) {
                     double pr = Math.toRadians(pitch);
                     Vec3 v = new Vec3(flat.x * Math.cos(pr), -Math.sin(pr), flat.z * Math.cos(pr)).scale(1.5);
-                    Vec3 p = eye;
-                    for (int t = 0; t < 80; t++) {
+                    Vec3 p = eye.add(0, -0.1, 0);
+                    for (int t = 0; t < 120; t++) {
                         p = p.add(v);
                         v = v.scale(0.99).add(0, -0.03, 0);
-                        double h = Math.hypot(p.x - target.getX(), p.z - target.getZ());
-                        if (p.y > target.getY() + 5 && p.y < target.getY() + 14 && h < bestErr) {
-                            bestErr = h;
-                            bestPitch = pitch;
+                        if (v.y < 0 && p.y <= target.getY() + 0.9) {
+                            double h = Math.hypot(p.x - target.getX(), p.z - target.getZ());
+                            if (h < bestErr) {
+                                bestErr = h;
+                                bestPitch = pitch;
+                            }
+                            break;
                         }
-                        if (p.y < eye.y - 2 && v.y < 0) break;
                     }
                 }
-                if (bestErr > 2.0) {
+                if (bestErr > 1.2) {
                     pearlCool = 80;
                     return null;
                 }
@@ -422,50 +426,16 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 return pause();
             }
             pearlTicks++;
-            if (pearlStage == 1) {
-                net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl pearl = null;
-                for (net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl e : ctx.world().getEntitiesOfClass(net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl.class, me.getBoundingBox().inflate(60), x -> x.getOwner() == me)) pearl = e;
-                if (pearl != null) pearlLast = pearl.position();
-                if (pearl == null || pearlTicks > 90) {
-                   
-                    pearlStage = 0;
-                    pearlCool = pearl == null && pearlTicks <= 3 ? 0 : 120;
-                    return null;
-                }
-                select(me, wind);
-                Vec3 pv = pearl.getDeltaMovement();
-                Vec3 pp = pearl.position(), vv = pv;
-                int n = 1;
-                boolean ok = false;
-                for (; n < 80; n++) { // first tick the pearl is over the target, high enough
-                    pp = pp.add(vv);
-                    vv = vv.scale(0.99).add(0, -0.03, 0);
-                    Vec3 tpn = target.position().add(tv().scale(n));
-                    if (Math.hypot(pp.x - tpn.x, pp.z - tpn.z) < 1.3 && pp.y > tpn.y + 4) {
-                        ok = true;
-                        break;
-                    }
-                    if (pp.y < me.getY() - 3) break;
-                }
-                look(pearl.position());
-                if (ok && pp.distanceTo(me.getEyePosition()) / 1.5 >= n - 1) { // the charge needs about as long to arrive as the pearl does
-                    Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), pp, ctx.playerRotations());
-                    me.setYRot(r.getYaw());
-                    me.setXRot(r.getPitch());
-                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-                    me.swing(InteractionHand.MAIN_HAND);
-                    pearlStage = 2;
-                    pearlTicks = 0;
-                }
-                return pause();
-            }
-            // stage 2: wait for the teleport, then fall on it
-            if (me.position().distanceTo(pearlFrom) > 5) {
+            select(me, wind);
+            if (me.position().distanceTo(pearlFrom) > 5) { // teleported: jump and boost off the charge
                 pearlStage = 0;
                 pearlCool = 200;
-                macePhase = 2;
-                maceTicks = 0;
-            } else if (pearlTicks > 40) {
+                if (me.onGround()) {
+                    me.jumpFromGround();
+                    macePhase = 1;
+                    maceTicks = 0;
+                }
+            } else if (pearlTicks > 100 || dist < 4) {
                 pearlStage = 0;
                 pearlCool = 200;
             }
