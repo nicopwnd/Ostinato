@@ -80,6 +80,8 @@ public final class VexBench implements AbstractGameEventListener {
     private final int rounds;
     private int round = -1, ticks, wait = 100;
     private String bot;
+    private static final int COUNT = Integer.getInteger("ostinato.vex.count", 1);
+    private final List<String> bots = new ArrayList<>();
     private boolean seen, done, setup;
     private float botDmg;
     private int wins;
@@ -117,23 +119,32 @@ public final class VexBench implements AbstractGameEventListener {
                             "time set day", "difficulty normal", "gamemode survival @a", "kill @e[type=!player]");
                     next();
                 } else {
-                    run("tp " + bot + " " + Integer.getInteger("ostinato.vex.dist", 8) + " ~ 0 90 0", "clear " + bot);
-                    gear(bot);
-                    if (!"default".equals(style()))
-                        run(System.getProperty("ostinato.vex.style", "vexbot playstyle {style} {name}").replace("{style}", style()).replace("{name}", bot));
-                    baritone.getPvpProcess().attackPlayer(bot);
+                    for (int i = 0; i < bots.size(); i++) {
+                        String b = bots.get(i);
+                        run("tp " + b + " " + Integer.getInteger("ostinato.vex.dist", 8) + " ~ " + (i - (bots.size() - 1) / 2.0) * 5 + " 90 0", "clear " + b);
+                        gear(b);
+                        if (!"default".equals(style()))
+                            run(System.getProperty("ostinato.vex.style", "vexbot playstyle {style} {name}").replace("{style}", style()).replace("{name}", b));
+                    }
+                    final String prefix = bot;
+                    baritone.getPvpProcess().attack(e -> e instanceof net.minecraft.world.entity.player.Player && e.getName().getString().toLowerCase().startsWith(prefix), prefix);
                 }
             }
             return;
         }
         ticks++;
-        ServerPlayer b = server.getPlayerList().getPlayerByName(bot);
-        if (b != null && b.isAlive()) {
-            seen = true;
-            botDmg = b.getMaxHealth() - b.getHealth();
+        int alive = 0;
+        botDmg = 0;
+        for (String n : bots) {
+            ServerPlayer b = server.getPlayerList().getPlayerByName(n);
+            if (b != null && b.isAlive()) {
+                seen = true;
+                alive++;
+                botDmg += b.getMaxHealth() - b.getHealth();
+            }
         }
         boolean dead = me.isDeadOrDying();
-        boolean botDead = seen && (b == null || !b.isAlive());
+        boolean botDead = seen && alive == 0;
         if (!seen && ticks > 100) {
             log("no bot named " + bot + " spawned; check -Dostinato.vex.spawn");
             finish();
@@ -153,12 +164,14 @@ public final class VexBench implements AbstractGameEventListener {
     }
 
     private void next() {
-        if (bot != null) run(System.getProperty("ostinato.vex.kill", "vexbot kill {name}").replace("{name}", bot));
+        for (String n : bots) run(System.getProperty("ostinato.vex.kill", "vexbot kill {name}").replace("{name}", n));
+        bots.clear();
         if (++round >= rounds) {
             finish();
             return;
         }
-        bot = "vex" + round; // VexBot lowercases names
+        bot = "vex" + round; // VexBot lowercases names; extra opponents are vex<round>b, vex<round>c...
+        for (int i = 0; i < COUNT; i++) bots.add(COUNT == 1 ? bot : bot + (char) ('a' + i));
         run("kill @e[type=!player]", "kill @a[name=!" + Minecraft.getInstance().player.getGameProfile().name() + "]", "kill @e[type=item]",
                 // explosive rounds leave craters, anchors and obsidian; rebuild the superflat arena
                 "fill -16 -60 -16 16 -50 16 air", "fill -16 -63 -16 16 -62 16 dirt", "fill -16 -61 -16 16 -61 16 grass_block");
@@ -176,8 +189,8 @@ public final class VexBench implements AbstractGameEventListener {
         gear(Minecraft.getInstance().player.getGameProfile().name());
         String diff = DIFFS[round % DIFFS.length];
 
-        run(System.getProperty("ostinato.vex.difficulty", "vexbot difficulty preset {diff}").replace("{diff}", diff),
-                System.getProperty("ostinato.vex.spawn", "vexbot spawn {name}").replace("{name}", bot));
+        run(System.getProperty("ostinato.vex.difficulty", "vexbot difficulty preset {diff}").replace("{diff}", diff));
+        for (String n : bots) run(System.getProperty("ostinato.vex.spawn", "vexbot spawn {name}").replace("{name}", n));
         wait = 20; // VexBot's fake player joins, then gets geared and teleported
     }
 
