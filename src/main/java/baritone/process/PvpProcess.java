@@ -173,6 +173,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
         keepTotem(me);
+        trackTarget();
         if (!recorder.active()) recorder.begin(me, target, label);
         recorder.tick(me, target, eyeToBox(me, target), others(me) + " m" + macePhase + " p" + pearlStage + " f" + fleeTicks + " e" + eatTicks + " s" + me.getInventory().getSelectedSlot(), attacks);
 
@@ -315,6 +316,26 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private Vec3 pearlFrom, pearlLast;
     private int fireCool, fireStage, fireTicks, fleeTicks;
     private BlockPos firePos;
+    private LivingEntity tvTarget;
+    private Vec3 tvPos = Vec3.ZERO, tvVel = Vec3.ZERO;
+
+    /** Remote players report no velocity client-side, so derive it from their position change per tick. */
+    private void trackTarget() {
+        if (target != tvTarget || tvTarget == null) {
+            tvTarget = target;
+            tvVel = Vec3.ZERO;
+        } else {
+            Vec3 d = target.position().subtract(tvPos);
+            tvVel = d.length() > 4 ? Vec3.ZERO : tvVel.scale(0.5).add(d.scale(0.5));
+        }
+        tvPos = target.position();
+    }
+
+    private Vec3 tv() {
+        Vec3 own = target.getDeltaMovement();
+        return own.lengthSqr() > 1e-4 ? own : tvVel;
+    }
+
     private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
 
     /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
@@ -343,8 +364,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         // an airborne opponent diving at us: a wind charge on its predicted path knocks it off the smash
         if (wind >= 0 && macePhase == 0 && windCool == 0 && !target.onGround() && dist < 12 && dist > 2
-                && (target.getDeltaMovement().y < -0.1 || target.getY() > me.getY() + 2)) {
-            Vec3 at = target.getBoundingBox().getCenter().add(target.getDeltaMovement().scale(dist / 1.5));
+                && (tv().y < -0.1 || target.getY() > me.getY() + 2)) {
+            Vec3 at = target.getBoundingBox().getCenter().add(tv().scale(dist / 1.5));
             Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
             select(me, wind);
             me.setYRot(r.getYaw());
@@ -355,7 +376,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return pause();
         }
         // a diver still coming (no charge, or too close to counter): block the smash with the shield
-        if (macePhase == 0 && !target.onGround() && target.getDeltaMovement().y < -0.3 && dist < 11 && target.getY() > me.getY() + 1
+        if (macePhase == 0 && !target.onGround() && tv().y < -0.3 && dist < 11 && target.getY() > me.getY() + 1
                 && (me.getOffhandItem().getItem() == Items.SHIELD || slotOf(me, Items.SHIELD) >= 0)) {
             if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
             look(target.getEyePosition());
@@ -419,7 +440,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 for (; n < 80; n++) { // first tick the pearl is over the target, high enough
                     pp = pp.add(vv);
                     vv = vv.scale(0.99).add(0, -0.03, 0);
-                    Vec3 tpn = target.position().add(target.getDeltaMovement().scale(n));
+                    Vec3 tpn = target.position().add(tv().scale(n));
                     if (Math.hypot(pp.x - tpn.x, pp.z - tpn.z) < 1.3 && pp.y > tpn.y + 4) {
                         ok = true;
                         break;
@@ -452,7 +473,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         int rocket = slotOf(me, Items.FIREWORK_ROCKET);
         if (mace >= 0 && rocket >= 0 && me.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem() == Items.ELYTRA
-                && (macePhase >= 5 || macePhase == 0 && me.onGround() && maceCool == 0 && !overhead && target.getDeltaMovement().y > -0.3 && dist > 3 && dist < 40 && los)) {
+                && (macePhase >= 5 || macePhase == 0 && me.onGround() && maceCool == 0 && !overhead && tv().y > -0.3 && dist > 3 && dist < 40 && los)) {
             // elytra mace: take off, rocket up above the target, dive and smash
             maceTicks++;
             if (macePhase == 0) {
@@ -588,7 +609,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 return pause();
             }
             if (harm >= 0 && los && dist > 3 && dist < 12) {
-                Vec3 at = target.position().add(target.getDeltaMovement().scale(dist / 0.5)).add(0, 0.2, 0);
+                Vec3 at = target.position().add(tv().scale(dist / 0.5)).add(0, 0.2, 0);
                 Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at.add(0, dist * 0.12, 0), ctx.playerRotations());
                 select(me, harm);
                 me.setYRot(r.getYaw());
@@ -639,7 +660,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         int xb = slotOf(me, Items.CROSSBOW);
         if (xb >= 0 && los && dist > 5 && dist < 70 && (slotOf(me, Items.ARROW) >= 0 || net.minecraft.world.item.CrossbowItem.isCharged(me.getInventory().getItem(xb)))) {
             select(me, xb);
-            Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), target.getDeltaMovement(), 3.15);
+            Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), tv(), 3.15);
             look(at);
             ItemStack held = me.getMainHandItem();
             if (net.minecraft.world.item.CrossbowItem.isCharged(held)) {
@@ -847,7 +868,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         select(me, slotOf(me, Items.BOW));
         if (me.getMainHandItem().getItem() != Items.BOW) return pause();
         // lead: arrow ~3 b/t at full draw, gravity 0.05
-        Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), target.getDeltaMovement(), 3.0);
+        Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), tv(), 3.0);
         look(at);
         if (me.isUsingItem() && me.getTicksUsingItem() >= 21) {
             use(false);
@@ -940,7 +961,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
         if (HUMANIZE) {
             // a hand on a mouse never tracks perfectly: a slow wander around the aim point, bigger when the target moves fast
-            double energy = 0.5 + Math.min(1.0, target == null ? 0 : target.getDeltaMovement().horizontalDistance() * 3);
+            double energy = 0.5 + Math.min(1.0, target == null ? 0 : tv().horizontalDistance() * 3);
             wanderVy = (wanderVy + rng.nextGaussian() * 0.12 * energy) * 0.82;
             wanderVp = (wanderVp + rng.nextGaussian() * 0.07 * energy) * 0.82;
             wanderY = Mth.clamp((wanderY + wanderVy) * 0.96, -1.8, 1.8);
