@@ -244,7 +244,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
     }
 
     private static final boolean HUMANIZE = !"false".equals(System.getProperty("ostinato.humanize"));
+    private static final boolean KINEMATIC = !"false".equals(System.getProperty("ostinato.kinematic"));
+    private baritone.pathing.kinematic.KinematicController kin;
     private double wanderY, wanderP, wanderVy, wanderVp;
+    private int pearlStage, pearlTicks;
+    private Vec3 pearlFrom, pearlLast;
     private int fireCool, fireStage, fireTicks, fleeTicks;
     private BlockPos firePos;
     private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
@@ -292,6 +296,94 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
             look(target.getEyePosition());
             use(true);
+            return pause();
+        }
+        // pearl strike: lob a pearl so it peaks above the target, pop it mid-air with a wind charge to teleport there, then drop the mace
+        if (mace >= 0 && wind >= 0 && macePhase == 0 && (pearlStage > 0 || pearlCool == 0 && maceCool == 0 && me.onGround() && los && dist > 7 && dist < 22
+                && slotOf(me, Items.ENDER_PEARL) >= 0 && target.onGround() && !overhead)) {
+            if (pearlStage == 0) {
+                float bestPitch = 0;
+                double bestErr = 1e9;
+                Vec3 eye = me.getEyePosition();
+                Vec3 flat = new Vec3(target.getX() - me.getX(), 0, target.getZ() - me.getZ()).normalize();
+                for (float pitch = -80; pitch <= -25; pitch += 1.5f) {
+                    double pr = Math.toRadians(pitch);
+                    Vec3 v = new Vec3(flat.x * Math.cos(pr), -Math.sin(pr), flat.z * Math.cos(pr)).scale(1.5);
+                    Vec3 p = eye;
+                    for (int t = 0; t < 80; t++) {
+                        p = p.add(v);
+                        v = v.scale(0.99).add(0, -0.03, 0);
+                        double h = Math.hypot(p.x - target.getX(), p.z - target.getZ());
+                        if (p.y > target.getY() + 5 && p.y < target.getY() + 14 && h < bestErr) {
+                            bestErr = h;
+                            bestPitch = pitch;
+                        }
+                        if (p.y < eye.y - 2 && v.y < 0) break;
+                    }
+                }
+                if (bestErr > 2.0) {
+                    pearlCool = 80;
+                    return null;
+                }
+                select(me, slotOf(me, Items.ENDER_PEARL));
+                Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), eye.add(flat.scale(10)), ctx.playerRotations());
+                me.setYRot(r.getYaw());
+                me.setXRot(bestPitch);
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                me.swing(InteractionHand.MAIN_HAND);
+                pearlStage = 1;
+                pearlTicks = 0;
+                pearlFrom = me.position();
+                return pause();
+            }
+            pearlTicks++;
+            if (pearlStage == 1) {
+                net.minecraft.world.entity.projectile.ThrownEnderpearl pearl = null;
+                for (net.minecraft.world.entity.projectile.ThrownEnderpearl e : ctx.world().getEntitiesOfClass(net.minecraft.world.entity.projectile.ThrownEnderpearl.class, me.getBoundingBox().inflate(60), x -> x.getOwner() == me)) pearl = e;
+                if (pearl != null) pearlLast = pearl.position();
+                if (pearl == null || pearlTicks > 90) {
+                   
+                    pearlStage = 0;
+                    pearlCool = pearl == null && pearlTicks <= 3 ? 0 : 120;
+                    return null;
+                }
+                select(me, wind);
+                Vec3 pv = pearl.getDeltaMovement();
+                Vec3 pp = pearl.position(), vv = pv;
+                int n = 1;
+                boolean ok = false;
+                for (; n < 80; n++) { // first tick the pearl is over the target, high enough
+                    pp = pp.add(vv);
+                    vv = vv.scale(0.99).add(0, -0.03, 0);
+                    Vec3 tpn = target.position().add(target.getDeltaMovement().scale(n));
+                    if (Math.hypot(pp.x - tpn.x, pp.z - tpn.z) < 1.3 && pp.y > tpn.y + 4) {
+                        ok = true;
+                        break;
+                    }
+                    if (pp.y < me.getY() - 3) break;
+                }
+                look(pearl.position());
+                if (ok && pp.distanceTo(me.getEyePosition()) / 1.5 >= n - 1) { // the charge needs about as long to arrive as the pearl does
+                    Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), pp, ctx.playerRotations());
+                    me.setYRot(r.getYaw());
+                    me.setXRot(r.getPitch());
+                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                    me.swing(InteractionHand.MAIN_HAND);
+                    pearlStage = 2;
+                    pearlTicks = 0;
+                }
+                return pause();
+            }
+            // stage 2: wait for the teleport, then fall on it
+            if (me.position().distanceTo(pearlFrom) > 5) {
+                pearlStage = 0;
+                pearlCool = 200;
+                macePhase = 2;
+                maceTicks = 0;
+            } else if (pearlTicks > 40) {
+                pearlStage = 0;
+                pearlCool = 200;
+            }
             return pause();
         }
         int rocket = slotOf(me, Items.FIREWORK_ROCKET);
@@ -592,7 +684,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (dist > 3.5) {
             // it's backing off to heal: run it down in a straight line, sprint-jumping for speed
-            if (me.onGround() && me.isSprinting() && !me.isInWater()) me.jumpFromGround();
+            if (me.onGround() && me.isSprinting() && !me.isInWater() && true) me.jumpFromGround();
             return;
         }
         key(strafeDir > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT);
