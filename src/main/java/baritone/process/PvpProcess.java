@@ -61,6 +61,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private int targetSwingTick, lastAxeTick = -1000;
     private boolean critArmed;
     private float lastHealth = -1;
+    private final PvpRecorder recorder = new PvpRecorder();
 
     public int attacks, crits, sprintHits, axeHits, blocks, gapples;
     public float damageTaken;
@@ -111,14 +112,19 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (lastHealth >= 0 && hp < lastHealth) damageTaken += lastHealth - hp;
         lastHealth = hp;
 
+        LivingEntity prevTarget = target;
         if (target == null || !target.isAlive() || target.isRemoved() || me.distanceTo(target) > CHASE) target = pick(me);
         if (target != null && me.tickCount % 5 == 0 && macePhase == 0) retarget(me);
         baritone.getInputOverrideHandler().clearAllKeys();
         if (target == null) {
+            if (prevTarget != null && !prevTarget.isAlive()) recorder.markWin();
+            recorder.end(me, "lost");
             use(false);
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
         keepTotem(me);
+        if (!recorder.active()) recorder.begin(me, target, label);
+        recorder.tick(me, target, eyeToBox(me, target), "m" + macePhase + " p" + pearlStage + " f" + fleeTicks + " e" + eatTicks + " s" + me.getInventory().getSelectedSlot(), attacks);
 
         boolean targetEating = target.isUsingItem() && target.getUseItem().has(net.minecraft.core.component.DataComponents.FOOD);
         boolean safe = eyeToBox(me, target) > 4.5 || targetEating;
@@ -1037,6 +1043,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
     @Override
     public void onLostControl() {
+        recorder.end(ctx.player(), "lost");
         filter = null;
         target = null;
         eatTicks = blockTicks = 0;
