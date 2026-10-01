@@ -126,6 +126,9 @@ public final class VexBench implements AbstractGameEventListener {
                         if (!"default".equals(style()))
                             run(System.getProperty("ostinato.vex.style", "vexbot playstyle {style} {name}").replace("{style}", style()).replace("{name}", b));
                     }
+                    for (String b : bots) // opponents go after Ostinato on their own
+                        run(System.getProperty("ostinato.vex.aggro", "vexbot attack {me} {name}").replace("{name}", b)
+                                .replace("{me}", Minecraft.getInstance().player.getGameProfile().name()));
                     final String prefix = bot;
                     if (!Boolean.getBoolean("ostinato.vex.passive")) baritone.getPvpProcess().attack(e -> e instanceof net.minecraft.world.entity.player.Player && e.getName().getString().toLowerCase().startsWith(prefix), prefix);
                 }
