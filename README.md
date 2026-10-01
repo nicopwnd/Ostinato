@@ -1,23 +1,29 @@
 # Ostinato
 
-Ostinato is a Baritone-derived pathfinding and automation engine for Minecraft. It
-maintains the AltoClef-compatible APIs required by [TenorClef](https://github.com/vexrypt-rgb/TenorClef)
-while tracking a modern Cabaletta Baritone base.
+Ostinato is a Baritone-derived pathfinding and automation engine for Minecraft.
+It keeps the AltoClef-compatible APIs required by
+[TenorClef](https://github.com/vexrypt-rgb/TenorClef) while tracking a modern
+Cabaletta Baritone base.
 
-TenorClef decides what to do; Ostinato provides movement, mining, building,
-inventory, and schematic processes to make it happen.
+TenorClef decides what to do. Ostinato provides movement, mining, building,
+inventory, and schematic processes to make it happen. Multi-bot coordination
+(`#swarm`) uses the [SIGIL](https://github.com/vexrypt-rgb/sigil) wire format
+for sealed whispers.
 
 ## Compatibility
 
+`gradle.properties` on this branch is the source of truth for the Minecraft
+version of `main`.
+
 | Minecraft | Branch | Java | Status |
 | --- | --- | --- | --- |
-| 1.21.11 | `main` | 21 | Primary target |
-| 1.16.1 | `1.16.1` | branch-specific | Legacy target |
+| 1.21.4 | `main` | 21 | Primary. Pairs with TenorClef `:1.21.4`. |
+| 1.16.1 | `1.16.1` | 8 | Legacy. Pairs with TenorClef `:1.16.1`. Gradle 4.9; do not build with JDK 21. |
+| 1.21.11 | `1.21.11` | 21 | Experimental. TenorClef's 1.21.11 module is not a release target. |
+| 26.3 | `26.3` | 25 | Upstream 26.x line. Not a TenorClef pairing. |
 
-Ostinato `main` is intended for TenorClef's experimental 1.21.11 port. That port does
-not currently compile, so it is not a supported release pairing. TenorClef 1.21.1 and
-1.21 intentionally resolve matching Baritone artifacts rather than loading an
-incompatible Ostinato 1.21.11 jar. See [TenorClef's wiring guide](https://github.com/vexrypt-rgb/TenorClef/blob/main/docs/OSTINATO_WIRING.md).
+Do not point a 1.21.4 TenorClef build at a jar from `1.21.11` or `26.3`. See
+[TenorClef's wiring guide](https://github.com/vexrypt-rgb/TenorClef/blob/main/docs/OSTINATO_WIRING.md).
 
 ## Build
 
@@ -35,25 +41,29 @@ On macOS or Linux:
 ./gradlew build
 ```
 
-The first build may take some time: Unimined downloads and remaps Minecraft for the
-enabled loaders (Fabric, Forge, NeoForge, and Tweaker). Build outputs are written to
-`dist/`. To build the Fabric artifact used by TenorClef, run `:fabric:build`.
+The first build may take some time: Unimined downloads and remaps Minecraft for
+the enabled loaders. `available_loaders` on `main` is Fabric. Build outputs go
+to `dist/`. The Fabric artifact TenorClef consumes is `:fabric:build`.
 
 ## TenorClef integration
 
-For the legacy 1.16.1 integration, build the matching Ostinato branch first, then
-build TenorClef from a sibling directory. Do not point a 1.21 or 1.21.1 TenorClef
-build at an artifact produced from `main`.
+Keep the trees as siblings. Build Ostinato first, then TenorClef.
 
-Before shipping a 1.21.11 paired release, finish TenorClef's source port, tag and
-publish the matching Fabric artifact under a pinned version coordinate, then make
-TenorClef consume that coordinate.
+| TenorClef module | Ostinato branch | Typical staged jar |
+| --- | --- | --- |
+| `:1.21.4` | `main` | `dist/baritone-unoptimized-fabric-*.jar` → TenorClef `libs/baritone-unoptimized-fabric-1.21.4.jar` |
+| `:1.16.1` | `1.16.1` | `libs/baritone-unoptimized-fabric-1.16.1.jar` |
+| `:1.21.11` | `1.21.11` | experimental; TenorClef does not yet compile this module |
+
+Before shipping a 1.21.11 paired release, finish TenorClef's source port, tag
+and publish the matching Fabric artifact under a pinned version coordinate,
+then make TenorClef consume that coordinate.
 
 ## Movement backends
 
-Ostinato's default pathing behavior is Baritone-compatible. On the primary modern
-target, an optional Tungsten physics A* backend can handle goto/custom-goal travel;
-mining, digging, schematics, and inventory remain on classic Ostinato processes.
+Default pathing is Baritone-compatible. On the modern target, an optional
+Tungsten physics A* backend can handle goto / custom-goal travel. Mining,
+digging, schematics, and inventory stay on classic Ostinato processes.
 
 | Setting | Values | Behavior |
 | --- | --- | --- |
@@ -61,34 +71,49 @@ mining, digging, schematics, and inventory remain on classic Ostinato processes.
 | `movementBackend` | `tungsten` | Prefer Tungsten; use Baritone if unavailable |
 | `movementBackend` | `auto` | Use Tungsten when present, otherwise Baritone |
 
-Install a compatible Tungsten Fabric jar beside Ostinato in the game instance, then
-choose it with `#set movementBackend tungsten`. If Tungsten is absent, the current
-fallback is Baritone. Backend selection should be visible in logs; treat unexpected
-fallback as a configuration issue worth reporting.
+Install a compatible Tungsten Fabric jar beside Ostinato, then
+`#set movementBackend tungsten`. If Tungsten is absent, the fallback is
+Baritone. Backend selection should be visible in logs; treat an unexpected
+fallback as a configuration issue.
 
 ## Movement features
 
 Beyond upstream Baritone, Ostinato adds:
 
-- **Kinematic travel** (`#set kinematicTravel true`, off by default): plain walking
-  stretches of a path (traverse, diagonal, 1-block ascend, drops up to 3 blocks) are
-  driven by a per-tick physics look-ahead. The controller simulates a set of yaw and jump
-  choices with a copy of vanilla player movement, then presses the keys of the one that
-  gets furthest along the path while staying on it. Anything it cannot model (breaking,
-  placing, water, ladders, parkour) goes back to Baritone. This setting is experimental
-  and is being benchmarked with TenorClef's PathBench.
-- **Pitfall avoidance** (`pitfallAvoidance`, on by default): the pathfinder never
-  stands on sand, gravel or concrete powder resting on a block without collision (air,
-  an open fence gate, a sign...), since it can drop out from under the player.
-- **Water and air**: swimming, surface travel, and air management that uses bubble and
-  magma columns.
-- **Boats and elytra**: boat travel, including handling boats occupied by mobs, plus
-  elytra gliding with rocket-free descent.
-- **Sprint-jumping** on land.
+- **Kinematic travel** (`#set kinematicTravel true`, off by default): plain
+  walking stretches of a path (traverse, diagonal, 1-block ascend, drops up to
+  3 blocks) are driven by a per-tick physics look-ahead. The controller
+  simulates a set of yaw and jump choices with a copy of vanilla player
+  movement, then presses the keys of the one that gets furthest along the path
+  while staying on it. Anything it cannot model (breaking, placing, water,
+  ladders, parkour) goes back to Baritone. Experimental; benchmarked with
+  TenorClef's PathBench.
+- **Pitfall avoidance** (`pitfallAvoidance`, on by default): the pathfinder
+  never stands on sand, gravel or concrete powder resting on a block without
+  collision (air, an open fence gate, a sign…), since it can drop out from
+  under the player.
+- **Water and air**: 3D swim moves, underwater digging, surface travel, and
+  air management that uses bubble and magma columns.
+- **Boats and elytra**: boat travel, including refusing boats occupied by
+  mobs, plus elytra gliding with rocket-free descent.
+- **Sprint-jumping** on land (`sprintJump`, off by default on current
+  benches).
+
+## Swarm and region builds
+
+Bots running Ostinato can form a signed, whisper-based group, share status,
+and split a schematic across the roster with `#swarm build`. Partitioning is
+deterministic so every member computes the same plan locally. Tokens on the
+wire are SIGIL S2 (including S2S when a sender must be proven).
+
+- [Region builds](docs/REGION_BUILD.md)
+- [SIGIL](https://github.com/vexrypt-rgb/sigil)
 
 ## Development documentation
 
 - [Porting and upstream notes](docs/PORTING.md)
+- [TenorClef pairing](docs/TENORCLEF.md)
+- [Movement engine](docs/MOVEMENT_ENGINE.md)
 - [Upstream Baritone documentation](README.baritone.md)
 - [Features](FEATURES.md)
 - [Setup](SETUP.md)
@@ -96,5 +121,17 @@ Beyond upstream Baritone, Ostinato adds:
 
 ## License
 
-Ostinato is licensed under LGPL-3.0 with upstream Baritone's anime exception. See
-[LICENSE](LICENSE) and preserve all applicable notices when redistributing artifacts.
+Ostinato is licensed under LGPL-3.0 with upstream Baritone's anime exception.
+See [LICENSE](LICENSE) and preserve all applicable notices when redistributing
+artifacts.
+
+## Vibe coding / AI use
+
+Large parts of this repository were written or edited with AI assistants
+(Claude, Grok, and similar). That is vibe coding: a person set the
+direction; a model produced a lot of the text. A green CI run or a
+commit message is not proof that a human understood every line.
+
+Read the diff before you run or merge it. Do not treat this as audited
+software. File bugs. Do not assume the model already considered your
+case.
