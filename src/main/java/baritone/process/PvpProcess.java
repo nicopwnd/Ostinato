@@ -144,6 +144,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (dist <= DRIVE) steer(me, dist);
             return pause();
         }
+        PathingCommand sp = special(me, dist, los);
+        if (sp != null) return sp;
         if (!los && dist <= 3) { // right there but walled off (a crawl gap under our feet, a hole): dig through
             BlockHitResult wall = ctx.world().clip(new net.minecraft.world.level.ClipContext(me.getEyePosition(), target.getEyePosition(),
                     net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, me));
@@ -222,6 +224,83 @@ public final class PvpProcess extends BaritoneProcessHelper {
             groundedJumps = 0;
         }
         return pause();
+    }
+
+    private int macePhase, maceTicks, maceCool, chargeTicks;
+
+    /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
+    private PathingCommand special(Player me, double dist, boolean los) {
+        if (maceCool > 0) maceCool--;
+        int mace = slotOf(me, Items.MACE), wind = slotOf(me, Items.WIND_CHARGE);
+        if (mace >= 0) {
+            boolean canJump = me.onGround() && !me.isInWater();
+            if (macePhase == 0 && canJump && maceCool == 0 && dist > 2.5 && dist < 24 && los && wind >= 0) {
+                select(me, wind);
+                me.jumpFromGround();
+                macePhase = 1;
+                maceTicks = 0;
+            }
+            if (macePhase == 1) { // rising: throw the charge under our feet near the apex
+                maceTicks++;
+                select(me, wind);
+                if (me.getDeltaMovement().y < 0.12 || maceTicks > 8) {
+                    look(me.position().add(0, -1.5, 0));
+                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                    me.swing(InteractionHand.MAIN_HAND);
+                    macePhase = 2;
+                    maceTicks = 0;
+                } else {
+                    look(target.getEyePosition());
+                }
+                return pause();
+            }
+            if (macePhase == 2) { // flying: steer to the target, smash while falling
+                maceTicks++;
+                select(me, mace);
+                look(aimPoint(me, target));
+                key(Input.MOVE_FORWARD);
+                if (me.onGround() && maceTicks > 3 || maceTicks > 120) {
+                    macePhase = 0;
+                    maceCool = 25;
+                } else if (me.fallDistance > 1.5 && exactReach(me, target) <= REACH - 0.05) {
+                    hit(me);
+                    macePhase = 0;
+                    maceCool = 25;
+                }
+                return pause();
+            }
+            if (wind < 0 || maceCool > 0 || dist <= 3) {
+                int alt = weapon(me);
+                if (alt < 0) alt = mace;
+                select(me, alt);
+            }
+            return null;
+        }
+        int xb = slotOf(me, Items.CROSSBOW);
+        if (xb >= 0 && los && dist > 5 && slotOf(me, Items.ARROW) >= 0) {
+            select(me, xb);
+            look(target.getEyePosition().add(target.getDeltaMovement().scale(Math.min(dist, 30) / 3.0)));
+            if (net.minecraft.world.item.CrossbowItem.isCharged(me.getMainHandItem())) {
+                use(false);
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            } else {
+                use(true);
+            }
+            return pause();
+        }
+        int tr = slotOf(me, Items.TRIDENT);
+        if (tr >= 0 && los && dist > 5 && dist < 40) {
+            select(me, tr);
+            look(target.getEyePosition().add(0, dist * 0.04, 0));
+            if (++chargeTicks > 14) {
+                use(false);
+                chargeTicks = -8;
+            } else if (chargeTicks > 0) {
+                use(true);
+            }
+            return pause();
+        }
+        return null;
     }
 
     private PathingCommand pause() {
