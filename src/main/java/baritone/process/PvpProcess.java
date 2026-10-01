@@ -728,7 +728,6 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (me.tickCount - lastAxeTick < 90) return false; // its shield is on cooldown: press
         if (!(target.getMainHandItem().is(net.minecraft.tags.ItemTags.SWORDS) || target.getMainHandItem().is(net.minecraft.tags.ItemTags.AXES)
-                || target.getMainHandItem().has(net.minecraft.core.component.DataComponents.PIERCING_WEAPON)
                 || target.getMainHandItem().getItem() == Items.MACE)) return false;
         float cd = me.getAttackStrengthScale(0.5f);
         boolean holding = blockTicks > 0 && me.isUsingItem();
