@@ -114,7 +114,7 @@ public final class VexBench implements AbstractGameEventListener {
                     next();
                 } else {
                     run("tp " + bot + " 8 ~ 0 90 0", "clear " + bot);
-                    for (String k : KIT) run("item replace entity " + bot + " " + k);
+                    gear(bot);
                     if (!"default".equals(style()))
                         run(System.getProperty("ostinato.vex.style", "vexbot playstyle {style} {name}").replace("{style}", style()).replace("{name}", bot));
                     baritone.getPvpProcess().attackPlayer(bot);
@@ -169,12 +169,40 @@ public final class VexBench implements AbstractGameEventListener {
         setup = false;
         run("clear @a", "effect clear @a", "tp @a 0 ~ 0 -90 0",
                 "effect give @a instant_health 1 10", "effect give @a saturation 1 10");
-        for (String k : KIT) run("item replace entity @a " + k);
+        gear(Minecraft.getInstance().player.getGameProfile().name());
         String diff = DIFFS[round % DIFFS.length];
 
         run(System.getProperty("ostinato.vex.difficulty", "vexbot difficulty preset {diff}").replace("{diff}", diff),
                 System.getProperty("ostinato.vex.spawn", "vexbot spawn {name}").replace("{name}", bot));
         wait = 20; // VexBot's fake player joins, then gets geared and teleported
+    }
+
+    private static final boolean RANDOM = "random".equals(System.getProperty("ostinato.vex.kit"));
+
+    /** Gives {@code name} the bench kit; "random" uses VexBot's own generator, seeded per round so both sides get the same gear. */
+    private void gear(String name) {
+        if (!RANDOM) {
+            for (String k : KIT) run("item replace entity " + name + " " + k);
+            return;
+        }
+        MinecraftServer server = Minecraft.getInstance().getSingleplayerServer();
+        long seed = Long.getLong("ostinato.vex.seed", 1000) + round;
+        server.submit(() -> {
+            ServerPlayer p = server.getPlayerList().getPlayerByName(name);
+            if (p == null) return;
+            try {
+                Class.forName("vexbot.bot.loadout.RandomGearGenerator").getMethod("apply", ServerPlayer.class, java.util.Random.class)
+                        .invoke(null, p, new java.util.Random(seed));
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                    var st = p.getInventory().getItem(i);
+                    if (!st.isEmpty()) sb.append(i).append('=').append(st.getCount()).append('x').append(st.getItem()).append(' ');
+                }
+                log("kit " + name + " seed=" + seed + " " + sb);
+            } catch (Exception e) {
+                log("random gear failed: " + e);
+            }
+        }).join();
     }
 
     private String style() {
