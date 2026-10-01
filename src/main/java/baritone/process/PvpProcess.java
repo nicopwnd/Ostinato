@@ -248,7 +248,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private baritone.pathing.kinematic.KinematicController kin;
     private double wanderY, wanderP, wanderVy, wanderVp;
     private int pearlStage, pearlTicks;
-    private Vec3 pearlFrom;
+    private Vec3 pearlFrom, pearlLast;
     private int fireCool, fireStage, fireTicks, fleeTicks;
     private BlockPos firePos;
     private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
@@ -340,7 +340,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (pearlStage == 1) {
                 net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl pearl = null;
                 for (net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl e : ctx.world().getEntitiesOfClass(net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownEnderpearl.class, me.getBoundingBox().inflate(60), x -> x.getOwner() == me)) pearl = e;
+                if (pearl != null) pearlLast = pearl.position();
                 if (pearl == null || pearlTicks > 90) {
+                   
                     pearlStage = 0;
                     pearlCool = pearl == null && pearlTicks <= 3 ? 0 : 120;
                     return null;
@@ -349,14 +351,19 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 Vec3 pv = pearl.getDeltaMovement();
                 Vec3 pp = pearl.position(), vv = pv;
                 int n = 1;
-                for (; n < 60; n++) { // first tick the charge (1.5 b/t, straight) can meet the pearl
+                boolean ok = false;
+                for (; n < 80; n++) { // first tick the pearl is over the target, high enough
                     pp = pp.add(vv);
                     vv = vv.scale(0.99).add(0, -0.03, 0);
-                    if (pp.distanceTo(me.getEyePosition()) <= 1.5 * n) break;
+                    Vec3 tpn = target.position().add(target.getDeltaMovement().scale(n));
+                    if (Math.hypot(pp.x - tpn.x, pp.z - tpn.z) < 1.3 && pp.y > tpn.y + 4) {
+                        ok = true;
+                        break;
+                    }
+                    if (pp.y < me.getY() - 3) break;
                 }
-                Vec3 tp = target.position().add(target.getDeltaMovement().scale(n));
                 look(pearl.position());
-                if (Math.hypot(pp.x - tp.x, pp.z - tp.z) < 1.5 && pp.y > tp.y + 4) {
+                if (ok && pp.distanceTo(me.getEyePosition()) / 1.5 >= n - 1) { // the charge needs about as long to arrive as the pearl does
                     Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), pp, ctx.playerRotations());
                     me.setYRot(r.getYaw());
                     me.setXRot(r.getPitch());
