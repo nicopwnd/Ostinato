@@ -124,7 +124,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         keepTotem(me);
         if (!recorder.active()) recorder.begin(me, target, label);
-        recorder.tick(me, target, eyeToBox(me, target), "m" + macePhase + " p" + pearlStage + " f" + fleeTicks + " e" + eatTicks + " s" + me.getInventory().getSelectedSlot(), attacks);
+        recorder.tick(me, target, eyeToBox(me, target), others(me) + " m" + macePhase + " p" + pearlStage + " f" + fleeTicks + " e" + eatTicks + " s" + me.getInventory().getSelectedSlot(), attacks);
 
         boolean targetEating = target.isUsingItem() && target.getUseItem().has(net.minecraft.core.component.DataComponents.FOOD);
         boolean safe = eyeToBox(me, target) > 4.5 || targetEating;
@@ -826,6 +826,17 @@ public final class PvpProcess extends BaritoneProcessHelper {
                         e -> e != me && e.isAlive() && !e.isRemoved() && filter.test(e))
                 .stream().min(Comparator.comparingDouble(score)).orElse(null);
         if (best != null && best != target && score.applyAsDouble(best) < score.applyAsDouble(target) - 3) target = best;
+    }
+
+    /** Recorder tag: opponents within 12 blocks as "n<count>:<nearest-other dist>". */
+    private String others(Player me) {
+        double near = 99;
+        int n = 0;
+        for (LivingEntity e : ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(12), x -> x != me && x != target && x.isAlive() && filter.test(x))) {
+            n++;
+            near = Math.min(near, me.distanceTo(e));
+        }
+        return n == 0 ? "n0" : String.format("n%d:%.1f", n, near);
     }
 
     private LivingEntity pick(Player me) {

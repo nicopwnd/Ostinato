@@ -35,7 +35,7 @@ def summary(path):
         it = ent(r[1])["item"]; items[it] = items.get(it, 0) + 1
     states = {}
     for r in rows:
-        k = r[4].split()[0:2]; k = " ".join(k); states[k] = states.get(k, 0) + 1
+        k = r[4].split()[1:3]; k = " ".join(k); states[k] = states.get(k, 0) + 1
     close = sum(1 for d in dist if d < 3.5) / len(dist)
     print(f"   ticks={len(rows)} avgDist={sum(dist)/len(dist):.1f} timeWithin3.5={close:.0%}")
     print("   my held items:", dict(sorted(items.items(), key=lambda kv: -kv[1])[:5]))
