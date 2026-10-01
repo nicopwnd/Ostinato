@@ -494,7 +494,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                         && (me.fallDistance >= 3 || !ctx.world().noCollision(me, me.getBoundingBox().move(0, -1.3, 0)))) {
                     hit(me);
                     macePhase = 0;
-                    maceCool = 25;
+                    maceCool = 14;
                 }
                 return pause();
             }
