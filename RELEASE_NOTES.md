@@ -22,6 +22,12 @@ One set of jars per Minecraft version (`ostinato-mc<version>-*`). For a normal i
 - **Coordinated region builds** (`#swarm build <group> <file> [x y z]`): the group lead splits a
   schematic into one region per member (`strips`, `grid`, or bottom-up `layers`); every member builds
   only its own region. See `docs/REGION_BUILD.md`.
+- **PvP** (`#pvp <name|players|hostiles>`): crits, W-taps, shield/axe play, bow, crossbow, cobwebs, potions,
+  crystals, anchors, TNT carts, and every mace style (wind charge, elytra, spear, trident, pearl strike),
+  plus multi-opponent retargeting and automatic fight recording (`pvplogs/`, read with `tools/pvplog.py`).
+- **Freecam enemy list**: toggle freecam with the `freecamKey` setting (F8 by default), middle-click a
+  player to mark an enemy, and anyone who hits the bot while in freecam is added. Mobs are included only
+  with `enemyMobs` (off by default). The list clears on death or a non-pearl teleport.
 - **Kinematic travel, parkour and swimming** improvements, pitfall avoidance.
 - **26.3** support (unobfuscated Minecraft), merged from upstream Baritone 26.2.
 
