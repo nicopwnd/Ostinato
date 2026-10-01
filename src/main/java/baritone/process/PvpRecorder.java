@@ -23,7 +23,7 @@ import java.util.zip.GZIPOutputStream;
  * t | me: x y z vx vy vz yaw pitch hp abs gnd item flags | tg: same | dist | state | events
  * #end    result, ticks, damage dealt/taken, attacks
  * </pre>
- * Flags: B blocking, U using item, S swinging, P sprinting, F fall distance&gt;1.5, W wet. Events: A=we attacked, D=damage taken, H=damage dealt.
+ * Flags: B blocking, U using item, S swinging, P sprinting, F fall distance&gt;1.5, W wet. Events: A=we attacked, X=target hurt flash (hit landed), D=damage taken, H=damage dealt.
  */
 public final class PvpRecorder {
     public static final boolean ENABLED = !"false".equals(System.getProperty("ostinato.record"));
@@ -31,7 +31,7 @@ public final class PvpRecorder {
     private Path file;
     private int ticks;
     private float dealt, taken, lastTargetHp, lastMyHp;
-    private int attacks, lastAttacks;
+    private int attacks, lastAttacks, hits, lastTargetHurt;
     private String targetName;
     private boolean targetDied;
 
@@ -51,7 +51,7 @@ public final class PvpRecorder {
             targetName = target.getName().getString();
             file = dir.resolve("fight-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-" + targetName.replaceAll("[^A-Za-z0-9_]", "") + ".log.gz");
             out = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(Files.newOutputStream(file), true), StandardCharsets.UTF_8));
-            ticks = attacks = lastAttacks = 0;
+            ticks = attacks = lastAttacks = hits = lastTargetHurt = 0;
             dealt = taken = 0;
             targetDied = false;
             lastTargetHp = target.getHealth() + target.getAbsorptionAmount();
@@ -84,6 +84,12 @@ public final class PvpRecorder {
                 ev.append("H").append(f(lastTargetHp - tHp));
                 dealt += lastTargetHp - tHp;
             }
+            // servers that don't sync other players' health leave tHp frozen: count hits off the hurt flash instead
+            if (target.hurtTime > lastTargetHurt && target.hurtTime >= target.hurtDuration - 1) {
+                hits++;
+                ev.append('X');
+            }
+            lastTargetHurt = target.hurtTime;
             lastMyHp = myHp;
             lastTargetHp = tHp;
             line(ticks + "|" + ent(me) + "|" + ent(target) + "|" + f(dist) + "|" + state + "|" + ev);
@@ -96,8 +102,10 @@ public final class PvpRecorder {
     public void end(Player me, String reason) {
         if (out == null) return;
         try {
-            String result = targetDied ? "win" : me.isDeadOrDying() || me.getHealth() <= 0 ? "death" : reason;
-            line("#end result=" + result + " ticks=" + ticks + " dealt=" + f(dealt) + " taken=" + f(taken) + " attacks=" + attacks);
+            // a respawn (health snapping back from near zero) means the fight was lost even if the death screen never ticked
+            boolean died = me.isDeadOrDying() || me.getHealth() <= 0 || lastMyHp < 5 && me.getHealth() + me.getAbsorptionAmount() > lastMyHp + 8;
+            String result = died ? "death" : targetDied ? "win" : reason;
+            line("#end result=" + result + " ticks=" + ticks + " dealt=" + f(dealt) + " taken=" + f(taken) + " attacks=" + attacks + " hits=" + hits);
             out.close();
             System.out.println("PvpRecorder: " + file + " (" + result + ", " + ticks + " ticks)");
         } catch (Exception e) {
