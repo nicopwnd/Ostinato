@@ -220,8 +220,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                     net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, me));
             if (wall.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
                 look(wall.getLocation());
-                ctx.minecraft().gameMode.continueDestroyBlock(wall.getBlockPos(), wall.getDirection());
-                me.swing(InteractionHand.MAIN_HAND);
+                key(Input.CLICK_LEFT); // hold the attack key on the wall
                 return pause();
             }
         }
@@ -238,14 +237,14 @@ public final class PvpProcess extends BaritoneProcessHelper {
         // attribute swap: a spear's longer reach on a target that just slipped out of sword range
         int spear = spearSlot(me);
         if (spear >= 0 && !inReach && dist <= 4.2 && los && me.getAttackStrengthScale(0.5f) >= 0.95f) {
-            select(me, spear);
+            if (!select(me, spear)) return pause();
             look(aimPoint(me, target));
             hit(me);
             return pause();
         }
         // a disabled shield stays "raised" for its 5s cooldown; don't keep throwing uncharged axe swings at it
         boolean axeTime = shieldUp && inReach && me.tickCount - lastAxeTick > 60 && best(me, AXES) >= 0;
-        select(me, axeTime ? best(me, AXES) : weapon(me));
+        if (!select(me, axeTime ? best(me, AXES) : weapon(me))) return pause();
         look(aimPoint(me, target));
 
         float cd = me.getAttackStrengthScale(0.5f);
@@ -256,7 +255,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         boolean canJump = me.onGround() && !me.isInWater() && !me.isInLava() && !me.onClimbable();
 
         steer(me, dist);
-        if (me.hurtTime == me.hurtDuration - 1 && canJump) me.jumpFromGround(); // jump reset
+        if (me.hurtTime == me.hurtDuration - 1 && canJump) key(Input.JUMP); // jump reset
 
         if (axeTime && inReach) { // an axe disables a raised shield whatever the charge
             hit(me);
@@ -276,7 +275,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return pause();
         }
         if (!me.onGround() && me.getDeltaMovement().y < 0.08 && dist <= REACH + 0.6 && cd >= 0.75f) {
-            me.setSprinting(false); // a sprinting hit is never a crit
+            wtap = Math.max(wtap, 1); // let go of forward for a tick so the sprint drops: a sprinting hit is never a crit
             critArmed = true;
         }
         if (!me.onGround() && !critArmed && inReach && cd >= 0.95f && !immune) {
@@ -293,7 +292,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         boolean diving = !target.onGround() && tv().y < -0.2 && target.getY() > me.getY() + 1.5;
         if (!breached && !diving && canJump && dist <= REACH + 0.8 && cd >= 0.55f && !immune && groundedJumps < 4) {
-            me.jumpFromGround();
+            key(Input.JUMP);
             groundedJumps++;
             return pause();
         }
@@ -354,11 +353,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 if (d < 3.5 || d > 13 || v.dot(rel) <= 0 || v.normalize().dot(rel.normalize()) < 0.85) continue;
                 Vec3 at = pr.position().add(v.scale(d / (v.length() + 1.5)));
                 Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
-                select(me, wind);
-                me.setYRot(r.getYaw());
-                me.setXRot(r.getPitch());
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-                me.swing(InteractionHand.MAIN_HAND);
+                if (!select(me, wind)) return pause();
+                if (!face(r.getYaw(), r.getPitch(), 2.5f)) return pause();
+                press(ctx.minecraft().options.keyUse);
                 windCool = 8;
                 return pause();
             }
@@ -368,11 +365,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 && (tv().y < -0.1 || target.getY() > me.getY() + 2)) {
             Vec3 at = target.getBoundingBox().getCenter().add(tv().scale(dist / 1.5));
             Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
-            select(me, wind);
-            me.setYRot(r.getYaw());
-            me.setXRot(r.getPitch());
-            ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-            me.swing(InteractionHand.MAIN_HAND);
+            if (!select(me, wind)) return pause();
+            if (!face(r.getYaw(), r.getPitch(), 2.5f)) return pause();
+            press(ctx.minecraft().options.keyUse);
             windCool = 12;
             return pause();
         }
@@ -412,12 +407,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
                     pearlCool = 80;
                     return null;
                 }
-                select(me, slotOf(me, Items.ENDER_PEARL));
+                if (!select(me, slotOf(me, Items.ENDER_PEARL))) return pause();
                 Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), eye.add(flat.scale(10)), ctx.playerRotations());
-                me.setYRot(r.getYaw());
-                me.setXRot(bestPitch);
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-                me.swing(InteractionHand.MAIN_HAND);
+                if (!face(r.getYaw(), bestPitch, 2.5f)) return pause();
+                press(ctx.minecraft().options.keyUse);
                 pearlStage = 1;
                 pearlTicks = 0;
                 pearlFrom = me.position();
@@ -434,7 +427,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                     pearlCool = pearl == null && pearlTicks <= 3 ? 0 : 120;
                     return null;
                 }
-                select(me, wind);
+                if (!select(me, wind)) return pause();
                 Vec3 pv = pearl.getDeltaMovement();
                 Vec3 pp = pearl.position(), vv = pv;
                 int n = 1;
@@ -452,10 +445,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 look(pearl.position());
                 if (ok && pp.distanceTo(me.getEyePosition()) / 1.5 >= n - 1) { // the charge needs about as long to arrive as the pearl does
                     Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), pp, ctx.playerRotations());
-                    me.setYRot(r.getYaw());
-                    me.setXRot(r.getPitch());
-                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-                    me.swing(InteractionHand.MAIN_HAND);
+                    if (!face(r.getYaw(), r.getPitch(), 2.5f)) return pause();
+                    press(ctx.minecraft().options.keyUse);
                     pearlStage = 2;
                     pearlTicks = 0;
                 }
@@ -479,7 +470,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
             // elytra mace: take off, rocket up above the target, dive and smash
             maceTicks++;
             if (macePhase == 0) {
-                me.jumpFromGround();
+                key(Input.JUMP);
                 macePhase = 5;
                 maceTicks = 0;
                 return pause();
@@ -507,21 +498,20 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 aim = me.getEyePosition().add(flat.scale(12)).add(0, 14, 0); // ~50 degrees up
             }
             Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), aim, ctx.playerRotations());
-            me.setYRot(r.getYaw());
-            me.setXRot(r.getPitch());
+            baritone.getLookBehavior().updateTarget(r, true);
             double speed = me.getDeltaMovement().length();
             if (climbing && speed < 1.2 && maceTicks % 12 == 3) {
-                select(me, rocket);
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                if (!select(me, rocket)) return pause();
+                press(ctx.minecraft().options.keyUse);
             } else if (!climbing) {
-                select(me, mace);
+                if (!select(me, mace)) return pause();
                 if (exactReach(me, target) <= REACH - 0.05) {
                     hit(me);
                     macePhase = 0;
                     maceCool = 10;
                 }
             } else {
-                select(me, mace);
+                if (!select(me, mace)) return pause();
             }
             if (me.onGround() || !me.isFallFlying() && maceTicks > 6 || maceTicks > 200) {
                 macePhase = 0;
@@ -532,44 +522,43 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (mace >= 0) {
             boolean canJump = me.onGround() && !me.isInWater();
             if (macePhase == 0 && canJump && maceCool == 0 && !overhead && dist > 2.5 && dist < 24 && los && wind >= 0) {
-                select(me, wind);
-                me.jumpFromGround();
+                if (!select(me, wind)) return pause();
+                key(Input.JUMP);
                 macePhase = 1;
                 maceTicks = 0;
             }
             if (macePhase == 1) { // rising: throw the charge under our feet near the apex
                 maceTicks++;
-                select(me, wind);
+                if (!select(me, wind)) return pause();
                 if (maceTicks >= 2) {
-                    me.setXRot(90f); // the look behavior is smoothed; the charge must leave straight down this tick
-                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-                    me.swing(InteractionHand.MAIN_HAND);
+                    if (!face(me.getYRot(), 90f, 2.5f)) return pause();
+                    press(ctx.minecraft().options.keyUse);
                     macePhase = 2;
                     maceTicks = 0;
                 } else {
                     look(target.getEyePosition());
                     key(Input.MOVE_FORWARD);
-                    me.setSprinting(true);
+                    key(Input.SPRINT);
                 }
                 return pause();
             }
             if (macePhase == 2) { // flying: steer to the target, smash while falling
                 maceTicks++;
-                select(me, mace);
+                if (!select(me, mace)) return pause();
                 look(aimPoint(me, target));
                 key(Input.MOVE_FORWARD);
-                me.setSprinting(true);
+                key(Input.SPRINT);
                 int sp = spearSlot(me), axe = best(me, AXES);
                 boolean shielded = target.isBlocking() || target.isUsingItem() && target.getUseItem().getItem() == Items.SHIELD;
                 if (shielded && axe >= 0 && me.fallDistance > 1.5 && me.tickCount - lastAxeTick > 20 && exactReach(me, target) <= REACH - 0.05) {
-                    select(me, axe); // breach slam: the axe drops the shield, the mace lands on the next tick
+                    if (!select(me, axe)) return pause(); // breach slam: the axe drops the shield, the mace lands on the next tick
                     hit(me);
                     axeHits++;
                     lastAxeTick = me.tickCount;
                     return pause();
                 }
                 if (sp >= 0 && spearCool == 0 && !me.onGround() && dist > 4 && dist < 20 && me.getFoodData().getFoodLevel() >= 7) {
-                    select(me, sp); // spear lunge: horizontal momentum in the air, at the cost of hunger
+                    if (!select(me, sp)) return pause(); // spear lunge: horizontal momentum in the air, at the cost of hunger
                     net.minecraft.client.KeyMapping.click(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(0));
                     spearCool = 30;
                     return pause();
@@ -588,7 +577,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (wind < 0 || maceCool > 0 || dist <= 3) {
                 int alt = weapon(me);
                 if (alt < 0) alt = mace;
-                select(me, alt);
+                if (!select(me, alt)) return pause();
             }
             return null;
         }
@@ -604,20 +593,18 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (potCool == 0) {
             int heal = potion(me, MobEffects.INSTANT_HEALTH), harm = potion(me, MobEffects.INSTANT_DAMAGE);
             if (heal >= 0 && me.getHealth() <= 9) {
-                select(me, heal);
-                me.setXRot(90f);
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                if (!select(me, heal)) return pause();
+                if (!face(me.getYRot(), 90f, 2.5f)) return pause();
+                press(ctx.minecraft().options.keyUse);
                 potCool = 12;
                 return pause();
             }
             if (harm >= 0 && los && dist > 3 && dist < 12) {
                 Vec3 at = target.position().add(tv().scale(dist / 0.5)).add(0, 0.2, 0);
                 Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at.add(0, dist * 0.12, 0), ctx.playerRotations());
-                select(me, harm);
-                me.setYRot(r.getYaw());
-                me.setXRot(r.getPitch());
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-                me.swing(InteractionHand.MAIN_HAND);
+                if (!select(me, harm)) return pause();
+                if (!face(r.getYaw(), r.getPitch(), 2.5f)) return pause();
+                press(ctx.minecraft().options.keyUse);
                 potCool = 25;
                 return pause();
             }
@@ -661,7 +648,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         int xb = slotOf(me, Items.CROSSBOW);
         if (xb >= 0 && los && dist > 5 && dist < 70 && (slotOf(me, Items.ARROW) >= 0 || net.minecraft.world.item.CrossbowItem.isCharged(me.getInventory().getItem(xb)))) {
-            select(me, xb);
+            if (!select(me, xb)) return pause();
             Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), tv(), 3.15);
             look(at);
             ItemStack held = me.getMainHandItem();
@@ -669,7 +656,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 // loaded: shoot only once the aim has settled on the arc, not on the way there
                 if (aimedAt(me, at, 3f) || ++xbWait > 40) {
                     use(false);
-                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                    press(ctx.minecraft().options.keyUse);
                     attacks++;
                     xbWait = 0;
                 }
@@ -679,13 +666,13 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 else use(true);
             } else {
                 use(true);
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                press(ctx.minecraft().options.keyUse);
             }
             return pause();
         }
         int tr = slotOf(me, Items.TRIDENT);
         if (tr >= 0 && los && dist > 5 && dist < 40) {
-            select(me, tr);
+            if (!select(me, tr)) return pause();
             look(target.getEyePosition().add(0, dist * 0.04, 0));
             if (++chargeTicks > 14) {
                 use(false);
@@ -739,11 +726,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
             away = away.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : away.normalize();
             Vec3 at = me.getEyePosition().add(away.scale(24)).add(0, 7, 0);
             Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
-            select(me, slotOf(me, Items.ENDER_PEARL));
-            me.setYRot(r.getYaw());
-            me.setXRot(r.getPitch());
-            ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
-            me.swing(InteractionHand.MAIN_HAND);
+            if (!select(me, slotOf(me, Items.ENDER_PEARL))) return pause();
+            if (!face(r.getYaw(), r.getPitch(), 2.5f)) return pause();
+            press(ctx.minecraft().options.keyUse);
             pearlCool = 160;
             return pause();
         }
@@ -754,9 +739,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
         int blk = blockSlot(me);
         if (++fleeTicks > 40 && dist < 6 && blk >= 0 && me.getY() - target.getY() < 5) {
             // can't shake it: tower up out of melee
-            select(me, blk);
-            me.setXRot(90f);
-            if (me.onGround()) me.jumpFromGround();
+            if (!select(me, blk)) return pause();
+            baritone.getLookBehavior().updateTarget(new Rotation(me.getYRot(), 90f), true);
+            if (me.onGround()) key(Input.JUMP);
             else if (me.getDeltaMovement().y < 0.1 && ctx.world().getBlockState(me.blockPosition().below()).isAir()) click(me, me.blockPosition().below().below());
             return pause();
         }
@@ -774,16 +759,15 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (wtap > 0) {
             wtap--;
-            me.setSprinting(false);
         } else if (dist > 2.4) {
             key(Input.MOVE_FORWARD);
-            if (!critArmed && me.getFoodData().getFoodLevel() > 6) me.setSprinting(true);
+            if (!critArmed && me.getFoodData().getFoodLevel() > 6) key(Input.SPRINT);
         } else if (dist < 1.2) {
             key(Input.MOVE_BACK);
         }
         if (dist > 3.5) {
             // it's backing off to heal: run it down in a straight line, sprint-jumping for speed
-            if (me.onGround() && me.isSprinting() && !me.isInWater() && (!KINEMATIC || (kin != null ? kin : (kin = new baritone.pathing.kinematic.KinematicController(ctx))).jumpHelps(target.getX(), target.getZ()))) me.jumpFromGround();
+            if (me.onGround() && me.isSprinting() && !me.isInWater() && (!KINEMATIC || (kin != null ? kin : (kin = new baritone.pathing.kinematic.KinematicController(ctx))).jumpHelps(target.getX(), target.getZ()))) key(Input.JUMP);
             return;
         }
         key(strafeDir > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT);
@@ -867,7 +851,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     }
 
     private PathingCommand bow(Player me) {
-        select(me, slotOf(me, Items.BOW));
+        if (!select(me, slotOf(me, Items.BOW))) return pause();
         if (me.getMainHandItem().getItem() != Items.BOW) return pause();
         // lead: arrow ~3 b/t at full draw, gravity 0.05
         Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), tv(), 3.0);
@@ -888,11 +872,10 @@ public final class PvpProcess extends BaritoneProcessHelper {
             eatTicks = 0;
             return false;
         }
-        select(me, slotOf(me, apple));
+        if (!select(me, slotOf(me, apple))) return true;
         if (me.getMainHandItem().getItem() != apple) return true;
         if (eatTicks++ == 0) gapples++;
         key(Input.MOVE_BACK); // back off while chewing
-        me.setSprinting(false);
         use(true);
         look(target.getEyePosition());
         if (eatTicks > 36) {
@@ -913,7 +896,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         for (int i = 0; i < 36; i++) if (me.getInventory().getItem(i).getItem() == item) { slot = i; break; }
         if (slot < 0) return;
         int menuSlot = slot < 9 ? 36 + slot : slot;
-        ctx.playerController().windowClick(me.inventoryMenu.containerId, menuSlot, 40, ClickType.SWAP, me);
+        invSwap(me, menuSlot, 40);
     }
 
     /** Hotbar slot of the item, pulling it into the hotbar (slot 8) if it's only in the main inventory. */
@@ -921,8 +904,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         for (int i = 0; i < 9; i++) if (me.getInventory().getItem(i).getItem() == item) return i;
         for (int i = 9; i < 36; i++) {
             if (me.getInventory().getItem(i).getItem() == item) {
-                ctx.playerController().windowClick(me.inventoryMenu.containerId, i, 8, ClickType.SWAP, me);
-                return 8;
+                return invSwap(me, i, 8) ? 8 : -1;
             }
         }
         return -1;
@@ -941,14 +923,54 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return s >= 0 ? s : best(me, AXES);
     }
 
-    private void select(Player me, int slot) {
-        if (slot >= 0) me.getInventory().setSelectedSlot(slot);
+    /** Press the hotbar key; the slot changes at the start of the next tick, so true only once it is already held. */
+    private boolean select(Player me, int slot) {
+        if (slot < 0) return false;
+        if (me.getInventory().getSelectedSlot() == slot) return true;
+        press(ctx.minecraft().options.keyHotbarSlots[slot]);
+        return false;
+    }
+
+    /** A real key press: queued like a keyboard or mouse event and handled at the start of the next client tick. */
+    private void press(net.minecraft.client.KeyMapping km) {
+        net.minecraft.client.KeyMapping.click(com.mojang.blaze3d.platform.InputConstants.getKey(km.saveString()));
+    }
+
+    /** Turn the view toward the angles with the smoothed look; true once it already points there within tol degrees. */
+    private boolean face(float yaw, float pitch, float tol) {
+        baritone.getLookBehavior().updateTarget(new Rotation(yaw, pitch), true);
+        Player me = ctx.player();
+        return Math.abs(Mth.wrapDegrees(yaw - me.getYRot())) <= tol && Math.abs(pitch - me.getXRot()) <= tol;
+    }
+
+    /** Left-click only if the crosshair is on the entity, as the mouse button would. */
+    private boolean hit(Player me, Entity e) {
+        if (!(ctx.minecraft().hitResult instanceof net.minecraft.world.phys.EntityHitResult er) || er.getEntity() != e) return false;
+        press(ctx.minecraft().options.keyAttack);
+        return true;
     }
 
     private void hit(Player me) {
-        ctx.minecraft().gameMode.attack(me, target);
-        me.swing(InteractionHand.MAIN_HAND);
-        attacks++;
+        look(target.getBoundingBox().getCenter());
+        if (hit(me, target)) attacks++;
+    }
+
+    private int invTick = -99;
+
+    /** A swap through the inventory screen: opened on one tick, clicked on a later one, then closed. */
+    private boolean invSwap(Player me, int menuSlot, int button) {
+        net.minecraft.client.Minecraft mc = ctx.minecraft();
+        if (!(mc.screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen)) {
+            if (mc.screen == null) {
+                mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(me));
+                invTick = me.tickCount;
+            }
+            return false;
+        }
+        if (me.tickCount <= invTick) return false;
+        ctx.playerController().windowClick(me.inventoryMenu.containerId, menuSlot, button, ClickType.SWAP, me);
+        mc.setScreen(null);
+        return true;
     }
 
     private void key(Input in) {
@@ -1037,8 +1059,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         }
         if (hitIt != null) {
             look(hitIt.position());
-            ctx.minecraft().gameMode.attack(me, hitIt);
-            me.swing(InteractionHand.MAIN_HAND);
+            if (aimedAt(me, hitIt.getBoundingBox().getCenter(), 6f)) hit(me, hitIt);
             return true;
         }
         Level w = ctx.world();
@@ -1107,11 +1128,11 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 if (it != Items.GLOWSTONE && it != Items.RESPAWN_ANCHOR) { slot = i; break; }
             }
             if (slot < 0) return false;
-            select(me, slot);
+            if (!select(me, slot)) return true;
             return click(me, boom);
         }
         if (charge != null && slotOf(me, Items.GLOWSTONE) >= 0) {
-            select(me, slotOf(me, Items.GLOWSTONE));
+            if (!select(me, slotOf(me, Items.GLOWSTONE))) return true;
             return me.getMainHandItem().getItem() == Items.GLOWSTONE && click(me, charge);
         }
         // a charged anchor that would hurt us: wall it off at leg height, which is where most of the blast lands
@@ -1159,14 +1180,13 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private boolean click(Player me, BlockPos on) {
         Vec3 face = Vec3.atCenterOf(on).add(0, 0.5, 0);
         look(face);
-        ctx.minecraft().gameMode.useItemOn(ctx.minecraft().player, InteractionHand.MAIN_HAND, new BlockHitResult(face, Direction.UP, on, false));
-        me.swing(InteractionHand.MAIN_HAND);
+        if (ctx.minecraft().hitResult instanceof BlockHitResult b && b.getBlockPos().equals(on)) press(ctx.minecraft().options.keyUse);
         return true;
     }
 
     /** Right-click the top of {@code on} with {@code item}. */
     private boolean place(Player me, Item item, BlockPos on) {
-        select(me, slotOf(me, item));
+        if (!select(me, slotOf(me, item))) return true;
         if (me.getMainHandItem().getItem() != item) return false;
         return click(me, on);
     }
