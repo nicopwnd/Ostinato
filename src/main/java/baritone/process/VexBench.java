@@ -117,7 +117,7 @@ public final class VexBench implements AbstractGameEventListener {
                             "time set day", "difficulty normal", "gamemode survival @a", "kill @e[type=!player]");
                     next();
                 } else {
-                    run("tp " + bot + " 8 ~ 0 90 0", "clear " + bot);
+                    run("tp " + bot + " " + Integer.getInteger("ostinato.vex.dist", 8) + " ~ 0 90 0", "clear " + bot);
                     gear(bot);
                     if (!"default".equals(style()))
                         run(System.getProperty("ostinato.vex.style", "vexbot playstyle {style} {name}").replace("{style}", style()).replace("{name}", bot));
