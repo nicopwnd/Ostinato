@@ -112,6 +112,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         lastHealth = hp;
 
         if (target == null || !target.isAlive() || target.isRemoved() || me.distanceTo(target) > CHASE) target = pick(me);
+        if (target != null && me.tickCount % 5 == 0 && macePhase == 0) retarget(me);
         baritone.getInputOverrideHandler().clearAllKeys();
         if (target == null) {
             use(false);
@@ -810,6 +811,15 @@ public final class PvpProcess extends BaritoneProcessHelper {
             r = new Rotation(r.getYaw() + (float) wanderY, Mth.clamp(r.getPitch() + (float) wanderP, -90f, 90f));
         }
         baritone.getLookBehavior().updateTarget(r, true);
+    }
+
+    /** With several opponents in reach, finish the weakest one rather than whichever was nearest first. */
+    private void retarget(Player me) {
+        java.util.function.ToDoubleFunction<LivingEntity> score = e -> e.getHealth() + e.getAbsorptionAmount() + 0.6 * me.distanceTo(e);
+        LivingEntity best = ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(7),
+                        e -> e != me && e.isAlive() && !e.isRemoved() && filter.test(e))
+                .stream().min(Comparator.comparingDouble(score)).orElse(null);
+        if (best != null && best != target && score.applyAsDouble(best) < score.applyAsDouble(target) - 3) target = best;
     }
 
     private LivingEntity pick(Player me) {
