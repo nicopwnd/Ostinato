@@ -336,6 +336,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return own.lengthSqr() > 1e-4 ? own : tvVel;
     }
 
+    private Item chestSaved;
+    private boolean boosted;
     private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
 
     /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
@@ -465,32 +467,50 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return pause();
         }
         int rocket = slotOf(me, Items.FIREWORK_ROCKET);
-        if (mace >= 0 && rocket >= 0 && me.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem() == Items.ELYTRA
+        net.minecraft.world.entity.EquipmentSlot chestSlot = net.minecraft.world.entity.EquipmentSlot.CHEST;
+        Item worn = me.getItemBySlot(chestSlot).getItem();
+        if (mace >= 0 && worn != Items.ELYTRA && macePhase == 0 && maceCool == 0 && me.onGround() && los && dist > 6 && dist < 40 && !overhead
+                && (rocket >= 0 || wind >= 0) && slotOf(me, Items.ELYTRA) >= 0) {
+            // the wings are in the hotbar, not on the chest: put them on (the chestplate goes where they were)
+            chestSaved = worn;
+            invSwap(me, 6, slotOf(me, Items.ELYTRA));
+            return pause();
+        }
+        if (worn == Items.ELYTRA && chestSaved != null && chestSaved != Items.AIR && macePhase == 0 && me.onGround() && maceCool > 0) {
+            // landed: the chestplate is worth more than the wings in a melee
+            if (slotOf(me, chestSaved) >= 0 && invSwap(me, 6, slotOf(me, chestSaved))) chestSaved = null;
+            return pause();
+        }
+        if (mace >= 0 && (rocket >= 0 || wind >= 0) && worn == Items.ELYTRA
                 && (macePhase >= 5 || macePhase == 0 && me.onGround() && maceCool == 0 && !overhead && tv().y > -0.3 && dist > 3 && dist < 40 && los)) {
             // elytra mace: take off, rocket up above the target, dive and smash
             maceTicks++;
             if (macePhase == 0) {
                 key(Input.JUMP);
+                boosted = false;
                 macePhase = 5;
                 maceTicks = 0;
                 return pause();
             }
             Vec3 tp = aimPoint(me, target);
-            if (macePhase == 5) { // rising: open the wings once falling
-                if (me.getDeltaMovement().y < 0 && !me.onGround()) {
-                    ctx.minecraft().getConnection().send(new net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket(me,
-                            net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action.START_FALL_FLYING));
-                    me.startFallFlying();
+            if (macePhase == 5) { // rising: boost with a wind charge, then press jump in the air to open the wings
+                if (me.isFallFlying()) {
                     macePhase = 6;
                     maceTicks = 0;
-                } else if (maceTicks > 30) {
+                } else if (rocket < 0 && !boosted && maceTicks >= 2 && wind >= 0) {
+                    if (!select(me, wind) || !face(me.getYRot(), 90f, 2.5f)) return pause();
+                    press(ctx.minecraft().options.keyUse);
+                    boosted = true;
+                } else if (me.getDeltaMovement().y < 0 && !me.onGround() && (rocket >= 0 || boosted)) {
+                    if (maceTicks % 2 == 0) key(Input.JUMP);
+                } else if (maceTicks > 40) {
                     macePhase = 0;
                     maceCool = 40;
                 }
                 return pause();
             }
             // macePhase 6: gliding
-            boolean climbing = me.getY() < target.getY() + 14 && maceTicks < 70;
+            boolean climbing = rocket >= 0 && me.getY() < target.getY() + 14 && maceTicks < 70;
             Vec3 aim = climbing ? new Vec3(tp.x, me.getEyeY() + 30, tp.z).add(tp.subtract(me.position()).multiply(0.0, 0, 0)) : tp;
             if (climbing) {
                 Vec3 flat = new Vec3(tp.x - me.getX(), 0, tp.z - me.getZ());
