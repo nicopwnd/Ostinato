@@ -233,6 +233,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (maceCool > 0) maceCool--;
         int mace = slotOf(me, Items.MACE), wind = slotOf(me, Items.WIND_CHARGE);
         if (windCool > 0) windCool--;
+        boolean overhead = !target.onGround() && target.getY() > me.getY() + 3;
         // an airborne opponent diving at us: a wind charge on its predicted path knocks it off the smash
         if (wind >= 0 && macePhase == 0 && windCool == 0 && !target.onGround() && dist < 12 && dist > 2
                 && (target.getDeltaMovement().y < -0.1 || target.getY() > me.getY() + 2)) {
@@ -246,9 +247,17 @@ public final class PvpProcess extends BaritoneProcessHelper {
             windCool = 12;
             return pause();
         }
+        // a diver still coming (no charge, or too close to counter): block the smash with the shield
+        if (macePhase == 0 && !target.onGround() && target.getDeltaMovement().y < -0.3 && dist < 7 && target.getY() > me.getY() + 1
+                && (me.getOffhandItem().getItem() == Items.SHIELD || slotOf(me, Items.SHIELD) >= 0)) {
+            if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
+            look(target.getEyePosition());
+            use(true);
+            return pause();
+        }
         if (mace >= 0) {
             boolean canJump = me.onGround() && !me.isInWater();
-            if (macePhase == 0 && canJump && maceCool == 0 && dist > 2.5 && dist < 24 && los && wind >= 0) {
+            if (macePhase == 0 && canJump && maceCool == 0 && !overhead && dist > 2.5 && dist < 24 && los && wind >= 0) {
                 select(me, wind);
                 me.jumpFromGround();
                 macePhase = 1;
