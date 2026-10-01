@@ -58,6 +58,7 @@ public final class VexBench implements AbstractGameEventListener {
         case "anchor" -> ANCHOR_KIT;
         case "axe" -> gear("hotbar.0 with diamond_axe", "hotbar.1 with golden_apple 8");
         case "bow" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with bow", "hotbar.2 with arrow 64", "hotbar.3 with golden_apple 8");
+        case "deflect" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with bow", "hotbar.2 with arrow 64", "hotbar.3 with wind_charge 64", "hotbar.4 with golden_apple 8");
         case "crossbow" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with crossbow", "hotbar.2 with arrow 64", "hotbar.3 with golden_apple 8");
         case "cobweb" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with cobweb 64", "hotbar.2 with golden_apple 8");
         case "potion" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with splash_potion[potion_contents={potion:\"minecraft:strong_harming\"}] 8",
