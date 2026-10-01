@@ -59,7 +59,7 @@ public class MixinWorldRenderer {
     // Vanilla skips the local player unless it is the camera entity; while freecam is on, let the bot's
     // (translucent) body render.
     @Redirect(
-            method = "collectVisibleEntities",
+            method = "extractVisibleEntities",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/Camera;entity()Lnet/minecraft/world/entity/Entity;",
