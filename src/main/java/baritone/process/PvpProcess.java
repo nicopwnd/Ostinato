@@ -129,6 +129,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
         double dist = eyeToBox(me, target);
         boolean los = me.hasLineOfSight(target);
 
+        if (pearlCool > 0) pearlCool--;
+        if (spearCool > 0) spearCool--;
+        if (hp <= 6 && !canHeal(me) && target.getHealth() + target.getAbsorptionAmount() > 6 && !targetEating) {
+            return flee(me, dist);
+        }
+
         if (shouldBlock(me, dist)) {
             if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
             look(target.getEyePosition());
@@ -168,6 +174,14 @@ public final class PvpProcess extends BaritoneProcessHelper {
         boolean inReach = exactReach(me, target) <= REACH - 0.05;
         // a shield being raised blocks before isBlocking() shows it; only swap in reach, since any swap drains the charge
         boolean shieldUp = target.isBlocking() || target.isUsingItem() && target.getUseItem().getItem() == Items.SHIELD;
+        // attribute swap: a spear's longer reach on a target that just slipped out of sword range
+        int spear = spearSlot(me);
+        if (spear >= 0 && !inReach && dist <= 4.2 && los && me.getAttackStrengthScale(0.5f) >= 0.95f) {
+            select(me, spear);
+            look(aimPoint(me, target));
+            hit(me);
+            return pause();
+        }
         // a disabled shield stays "raised" for its 5s cooldown; don't keep throwing uncharged axe swings at it
         boolean axeTime = shieldUp && inReach && me.tickCount - lastAxeTick > 60 && best(me, AXES) >= 0;
         select(me, axeTime ? best(me, AXES) : weapon(me));
@@ -228,7 +242,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return pause();
     }
 
-    private int webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
+    private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
 
     /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
     private PathingCommand special(Player me, double dist, boolean los) {
@@ -305,6 +319,21 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 look(aimPoint(me, target));
                 key(Input.MOVE_FORWARD);
                 me.setSprinting(true);
+                int sp = spearSlot(me), axe = best(me, AXES);
+                boolean shielded = target.isBlocking() || target.isUsingItem() && target.getUseItem().getItem() == Items.SHIELD;
+                if (shielded && axe >= 0 && me.fallDistance > 1.5 && me.tickCount - lastAxeTick > 20 && exactReach(me, target) <= REACH - 0.05) {
+                    select(me, axe); // breach slam: the axe drops the shield, the mace lands on the next tick
+                    hit(me);
+                    axeHits++;
+                    lastAxeTick = me.tickCount;
+                    return pause();
+                }
+                if (sp >= 0 && spearCool == 0 && !me.onGround() && dist > 4 && dist < 20 && me.getFoodData().getFoodLevel() >= 7) {
+                    select(me, sp); // spear lunge: horizontal momentum in the air, at the cost of hunger
+                    net.minecraft.client.KeyMapping.click(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(0));
+                    spearCool = 30;
+                    return pause();
+                }
                 if (me.onGround() && maceTicks > 3 || maceTicks > 120) {
                     macePhase = 0;
                     maceCool = 25;
@@ -390,6 +419,36 @@ public final class PvpProcess extends BaritoneProcessHelper {
             for (net.minecraft.world.effect.MobEffectInstance ei : pc.getAllEffects()) if (ei.getEffect().equals(effect)) return i;
         }
         return -1;
+    }
+
+    /** Hotbar slot of a spear (anything with a piercing attack), or -1. */
+    private int spearSlot(Player me) {
+        return -1; // no spear component in 1.21.4
+    }
+
+    private boolean canHeal(Player me) {
+        return me.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING || slotOf(me, Items.GOLDEN_APPLE) >= 0
+                || slotOf(me, Items.ENCHANTED_GOLDEN_APPLE) >= 0 || potion(me, MobEffects.HEAL) >= 0;
+    }
+
+    /** Low on health with nothing to heal: pearl away from the target, else run. */
+    private PathingCommand flee(Player me, double dist) {
+        use(false);
+        if (dist < 10 && pearlCool == 0 && slotOf(me, Items.ENDER_PEARL) >= 0) {
+            Vec3 away = new Vec3(me.getX() - target.getX(), 0, me.getZ() - target.getZ());
+            away = away.lengthSqr() < 1e-4 ? new Vec3(1, 0, 0) : away.normalize();
+            Vec3 at = me.getEyePosition().add(away.scale(24)).add(0, 7, 0);
+            Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+            select(me, slotOf(me, Items.ENDER_PEARL));
+            me.setYRot(r.getYaw());
+            me.setXRot(r.getPitch());
+            ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            me.swing(InteractionHand.MAIN_HAND);
+            pearlCool = 160;
+            return pause();
+        }
+        if (dist > 16) return pause(); // clear of it: stand and regenerate
+        return new PathingCommand(new baritone.api.pathing.goals.GoalRunAway(18, target.blockPosition()), PathingCommandType.REVALIDATE_GOAL_AND_PATH);
     }
 
     private PathingCommand pause() {
