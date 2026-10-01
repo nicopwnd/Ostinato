@@ -243,6 +243,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return pause();
     }
 
+    private static final boolean HUMANIZE = !"false".equals(System.getProperty("ostinato.humanize"));
+    private double wanderY, wanderP, wanderVy, wanderVp;
     private int fireCool, fireStage, fireTicks, fleeTicks;
     private BlockPos firePos;
     private int pearlCool, spearCool, webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
@@ -706,6 +708,15 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
     private void look(Vec3 at) {
         Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+        if (HUMANIZE) {
+            // a hand on a mouse never tracks perfectly: a slow wander around the aim point, bigger when the target moves fast
+            double energy = 0.5 + Math.min(1.0, target == null ? 0 : target.getDeltaMovement().horizontalDistance() * 3);
+            wanderVy = (wanderVy + rng.nextGaussian() * 0.12 * energy) * 0.82;
+            wanderVp = (wanderVp + rng.nextGaussian() * 0.07 * energy) * 0.82;
+            wanderY = Mth.clamp((wanderY + wanderVy) * 0.96, -1.8, 1.8);
+            wanderP = Mth.clamp((wanderP + wanderVp) * 0.96, -1.0, 1.0);
+            r = new Rotation(r.getYaw() + (float) wanderY, Mth.clamp(r.getPitch() + (float) wanderP, -90f, 90f));
+        }
         baritone.getLookBehavior().updateTarget(r, true);
     }
 
