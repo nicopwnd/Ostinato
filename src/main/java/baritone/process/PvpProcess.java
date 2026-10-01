@@ -52,6 +52,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private static final Item[] AXES = {Items.NETHERITE_AXE, Items.DIAMOND_AXE, Items.IRON_AXE, Items.STONE_AXE, Items.GOLDEN_AXE, Items.WOODEN_AXE};
 
     private Predicate<LivingEntity> filter;
+    /** Players marked as enemies (freecam middle-click, or attacking us while freecam is on); cleared on death or a non-pearl teleport. */
+    private final java.util.Set<java.util.UUID> enemies = new java.util.LinkedHashSet<>();
+    private Player enemiesOwner;
+    private net.minecraft.world.level.Level enemiesLevel;
+    private net.minecraft.world.phys.Vec3 enemiesPos;
+    private int pearlGrace;
     private String label;
     private LivingEntity target;
     private final Random rng = new Random(7);
@@ -91,6 +97,45 @@ public final class PvpProcess extends BaritoneProcessHelper {
         attack(e -> e instanceof Enemy, "hostiles");
     }
 
+    private boolean matches(LivingEntity e) {
+        return enemies.contains(e.getUUID()) || (filter != null && filter.test(e));
+    }
+
+    public boolean addEnemy(Player p) {
+        Player me = ctx.player();
+        if (me == null || p == null || p == me) return false;
+        boolean added = enemies.add(p.getUUID());
+        if (added) {
+            enemiesOwner = me;
+            enemiesLevel = me.level();
+            enemiesPos = me.position();
+            if (filter == null) label = "enemies";
+        }
+        return added;
+    }
+
+    public void clearEnemies() {
+        enemies.clear();
+    }
+
+    public int enemyCount() {
+        return enemies.size();
+    }
+
+    /** Drops the enemy list when we die/respawn or are teleported (a pearl of ours doesn't count). */
+    private void checkEnemyReset(Player me) {
+        if (enemies.isEmpty()) return;
+        if (pearlStage > 0 || me.getMainHandItem().is(Items.ENDER_PEARL)) pearlGrace = 60;
+        else if (pearlGrace > 0) pearlGrace--;
+        boolean reset = me != enemiesOwner || !me.isAlive() || me.level() != enemiesLevel
+            || (pearlGrace == 0 && enemiesPos != null && me.position().distanceToSqr(enemiesPos) > 100);
+        enemiesPos = me.position();
+        if (reset) {
+            enemies.clear();
+            if (filter == null) target = null;
+        }
+    }
+
     public LivingEntity getTarget() {
         return target;
     }
@@ -102,12 +147,17 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
     @Override
     public boolean isActive() {
-        return filter != null && ctx.player() != null;
+        return (filter != null || !enemies.isEmpty()) && ctx.player() != null;
     }
 
     @Override
     public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
         Player me = ctx.player();
+        checkEnemyReset(me);
+        if (filter == null && enemies.isEmpty()) {
+            recorder.end(me, "lost");
+            return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+        }
         float hp = me.getHealth() + me.getAbsorptionAmount();
         if (lastHealth >= 0 && hp < lastHealth) damageTaken += lastHealth - hp;
         lastHealth = hp;
@@ -823,7 +873,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private void retarget(Player me) {
         java.util.function.ToDoubleFunction<LivingEntity> score = e -> e.getHealth() + e.getAbsorptionAmount() + 0.6 * me.distanceTo(e);
         LivingEntity best = ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(7),
-                        e -> e != me && e.isAlive() && !e.isRemoved() && filter.test(e))
+                        e -> e != me && e.isAlive() && !e.isRemoved() && matches(e))
                 .stream().min(Comparator.comparingDouble(score)).orElse(null);
         if (best != null && best != target && score.applyAsDouble(best) < score.applyAsDouble(target) - 3) target = best;
     }
@@ -832,7 +882,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     private String others(Player me) {
         double near = 99;
         int n = 0;
-        for (LivingEntity e : ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(12), x -> x != me && x != target && x.isAlive() && filter.test(x))) {
+        for (LivingEntity e : ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(12), x -> x != me && x != target && x.isAlive() && matches(x))) {
             n++;
             near = Math.min(near, me.distanceTo(e));
         }
@@ -841,7 +891,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
 
     private LivingEntity pick(Player me) {
         return ctx.world().getEntitiesOfClass(LivingEntity.class, me.getBoundingBox().inflate(CHASE),
-                        e -> e != me && e.isAlive() && !e.isRemoved() && filter.test(e))
+                        e -> e != me && e.isAlive() && !e.isRemoved() && matches(e))
                 .stream().filter(e -> me.distanceTo(e) <= CHASE)
                 .min(Comparator.comparingDouble(me::distanceToSqr)).orElse(null);
     }
@@ -1056,6 +1106,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
     public void onLostControl() {
         recorder.end(ctx.player(), "lost");
         filter = null;
+        enemies.clear();
         target = null;
         eatTicks = blockTicks = 0;
         if (ctx.minecraft().options != null) use(false);

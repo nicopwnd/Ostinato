@@ -19,7 +19,6 @@ package baritone.behavior;
 
 import baritone.api.BaritoneAPI;
 import baritone.Baritone;
-import baritone.api.BaritoneAPI;
 import baritone.api.event.events.TickEvent;
 import baritone.api.event.events.WorldEvent;
 import baritone.api.pathing.goals.GoalBlock;
@@ -154,6 +153,7 @@ public final class FreecamBehavior extends Behavior implements Helper {
 
     @Override
     public void onTick(TickEvent event) {
+        pollToggleKey();
         if (camera == null) {
             return;
         }
@@ -181,10 +181,41 @@ public final class FreecamBehavior extends Behavior implements Helper {
         if (mc.getCameraEntity() != camera) {
             mc.setCameraEntity(camera);
         }
+        markAttackers(p);
         move(mc.options);
         clamp(p);
         if (mc.screen == null) {
             handleClicks(mc.options);
+        }
+    }
+
+    private boolean toggleKeyHeld;
+
+    /** The freecam toggle key (setting freecamKey); only the primary bot reacts, and never while a screen is open. */
+    private void pollToggleKey() {
+        if (baritone != BaritoneAPI.getProvider().getPrimaryBaritone() || mc.screen != null || mc.getWindow() == null) {
+            return;
+        }
+        boolean down = false;
+        try {
+            com.mojang.blaze3d.platform.InputConstants.Key key = com.mojang.blaze3d.platform.InputConstants.getKey(Baritone.settings().freecamKey.value);
+            down = key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM && key.getValue() > 0
+                    && com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow(), key.getValue());
+        } catch (RuntimeException ignored) {
+            // bad key name in the setting: treat as unbound
+        }
+        if (down && !toggleKeyHeld && ctx.player() != null) {
+            toggle();
+        }
+        toggleKeyHeld = down;
+    }
+
+    /** While freecam is on, whoever just hurt the bot becomes an enemy. */
+    private void markAttackers(LocalPlayer p) {
+        net.minecraft.world.entity.LivingEntity by = p.getLastHurtByMob();
+        if (by instanceof net.minecraft.world.entity.player.Player && by != p && p.tickCount - p.getLastHurtByMobTimestamp() < 5
+                && ((Baritone) baritone).getPvpProcess().addEnemy((net.minecraft.world.entity.player.Player) by)) {
+            logDirect(by.getName().getString() + " attacked the bot: added to enemies");
         }
     }
 
@@ -303,6 +334,10 @@ public final class FreecamBehavior extends Behavior implements Helper {
     private void handleClicks(Options gs) {
         boolean left = false;
         boolean right = false;
+        boolean middle = false;
+        while (gs.keyPickItem.consumeClick()) {
+            middle = true;
+        }
         while (gs.keyAttack.consumeClick()) {
             left = true;
         }
@@ -312,13 +347,49 @@ public final class FreecamBehavior extends Behavior implements Helper {
         // Never let a held click reach the bot's controller (it would dig/use at the camera's crosshair).
         gs.keyAttack.setDown(false);
         gs.keyUse.setDown(false);
-        if (left) {
+        gs.keyPickItem.setDown(false);
+        if (middle) {
+            markEnemy();
+        } else if (left) {
             select();
         } else if (right) {
             BetterBlockPos pos = new BetterBlockPos(camera.getX(), camera.getY(), camera.getZ());
             baritone.getCustomGoalProcess().setGoalAndPath(new GoalBlock(pos));
             logDirect("Going to " + pos);
         }
+    }
+
+    private void markEnemy() {
+        Entity hit = entityUnderCrosshair();
+        if (hit instanceof net.minecraft.world.entity.player.Player pl) {
+            if (((Baritone) baritone).getPvpProcess().addEnemy(pl)) {
+                logDirect("Enemy added: " + pl.getName().getString());
+            } else {
+                logDirect(pl.getName().getString() + " is already an enemy");
+            }
+        } else {
+            logDirect("Middle-click a player to mark an enemy");
+        }
+    }
+
+    private Entity entityUnderCrosshair() {
+        LocalPlayer p = ctx.player();
+        Vec3 start = camera.getEyePosition(1);
+        Vec3 end = start.add(camera.getViewVector(1).scale(renderRadius() * 2));
+        HitResult block = p.level().clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, camera));
+        double hitDist = block.getType() == HitResult.Type.MISS ? Double.MAX_VALUE : block.getLocation().distanceToSqr(start);
+        Entity hit = null;
+        for (Entity e : ctx.entities()) {
+            if (e == p || e == camera || !e.isAlive()) {
+                continue;
+            }
+            Optional<Vec3> v = e.getBoundingBox().inflate(e.getPickRadius() + 0.3).clip(start, end);
+            if (v.isPresent() && v.get().distanceToSqr(start) < hitDist) {
+                hitDist = v.get().distanceToSqr(start);
+                hit = e;
+            }
+        }
+        return hit;
     }
 
     private void select() {

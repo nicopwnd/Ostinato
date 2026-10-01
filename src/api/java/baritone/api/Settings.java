@@ -1284,6 +1284,11 @@ public final class Settings {
     public final Setting<Double> freecamSpeed = new Setting<>(1D);
 
     /**
+     * Key that toggles freecam, as a Minecraft key name (e.g. key.keyboard.f8, key.keyboard.unknown to disable).
+     */
+    public final Setting<String> freecamKey = new Setting<>("key.keyboard.f8");
+
+    /**
      * Opacity of the bot's ghost body while freecam is on (0 = invisible, 1 = solid)
      */
     public final Setting<Float> freecamGhostOpacity = new Setting<>(0.35f);
