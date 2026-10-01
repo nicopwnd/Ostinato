@@ -144,6 +144,8 @@ public final class PvpProcess extends BaritoneProcessHelper {
             if (dist <= DRIVE) steer(me, dist);
             return pause();
         }
+        PathingCommand sp = special(me, dist, los);
+        if (sp != null) return sp;
         if (!los && dist <= 3) { // right there but walled off (a crawl gap under our feet, a hole): dig through
             BlockHitResult wall = ctx.world().clip(new net.minecraft.world.level.ClipContext(me.getEyePosition(), target.getEyePosition(),
                     net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, me));
@@ -222,6 +224,128 @@ public final class PvpProcess extends BaritoneProcessHelper {
             groundedJumps = 0;
         }
         return pause();
+    }
+
+    private int windCool, macePhase, maceTicks, maceCool, chargeTicks;
+
+    /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
+    private PathingCommand special(Player me, double dist, boolean los) {
+        if (maceCool > 0) maceCool--;
+        int mace = slotOf(me, Items.MACE), wind = slotOf(me, Items.WIND_CHARGE);
+        if (windCool > 0) windCool--;
+        boolean overhead = !target.onGround() && target.getY() > me.getY() + 3;
+        // arrows, tridents, fireballs, potions: a wind charge on the projectile's path deflects it
+        if (wind >= 0 && macePhase == 0 && windCool == 0) {
+            for (net.minecraft.world.entity.projectile.Projectile pr : ctx.world().getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
+                    me.getBoundingBox().inflate(14), e -> e.getOwner() != me && !e.onGround() && e.getDeltaMovement().lengthSqr() > 0.09)) {
+                Vec3 v = pr.getDeltaMovement(), rel = me.getEyePosition().subtract(pr.position());
+                double d = rel.length();
+                if (d < 3.5 || d > 13 || v.dot(rel) <= 0 || v.normalize().dot(rel.normalize()) < 0.85) continue;
+                Vec3 at = pr.position().add(v.scale(d / (v.length() + 1.5)));
+                Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+                select(me, wind);
+                me.setYRot(r.getYaw());
+                me.setXRot(r.getPitch());
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                me.swing(InteractionHand.MAIN_HAND);
+                windCool = 8;
+                return pause();
+            }
+        }
+        // an airborne opponent diving at us: a wind charge on its predicted path knocks it off the smash
+        if (wind >= 0 && macePhase == 0 && windCool == 0 && !target.onGround() && dist < 12 && dist > 2
+                && (target.getDeltaMovement().y < -0.1 || target.getY() > me.getY() + 2)) {
+            Vec3 at = target.getBoundingBox().getCenter().add(target.getDeltaMovement().scale(dist / 1.5));
+            Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+            select(me, wind);
+            me.setYRot(r.getYaw());
+            me.setXRot(r.getPitch());
+            ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            me.swing(InteractionHand.MAIN_HAND);
+            windCool = 12;
+            return pause();
+        }
+        // a diver still coming (no charge, or too close to counter): block the smash with the shield
+        if (macePhase == 0 && !target.onGround() && target.getDeltaMovement().y < -0.3 && dist < 7 && target.getY() > me.getY() + 1
+                && (me.getOffhandItem().getItem() == Items.SHIELD || slotOf(me, Items.SHIELD) >= 0)) {
+            if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
+            look(target.getEyePosition());
+            use(true);
+            return pause();
+        }
+        if (mace >= 0) {
+            boolean canJump = me.onGround() && !me.isInWater();
+            if (macePhase == 0 && canJump && maceCool == 0 && !overhead && dist > 2.5 && dist < 24 && los && wind >= 0) {
+                select(me, wind);
+                me.jumpFromGround();
+                macePhase = 1;
+                maceTicks = 0;
+            }
+            if (macePhase == 1) { // rising: throw the charge under our feet near the apex
+                maceTicks++;
+                select(me, wind);
+                if (maceTicks >= 2) {
+                    me.setXRot(90f); // the look behavior is smoothed; the charge must leave straight down this tick
+                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                    me.swing(InteractionHand.MAIN_HAND);
+                    macePhase = 2;
+                    maceTicks = 0;
+                } else {
+                    look(target.getEyePosition());
+                    key(Input.MOVE_FORWARD);
+                    me.setSprinting(true);
+                }
+                return pause();
+            }
+            if (macePhase == 2) { // flying: steer to the target, smash while falling
+                maceTicks++;
+                select(me, mace);
+                look(aimPoint(me, target));
+                key(Input.MOVE_FORWARD);
+                me.setSprinting(true);
+                if (me.onGround() && maceTicks > 3 || maceTicks > 120) {
+                    macePhase = 0;
+                    maceCool = 25;
+                } else if (me.fallDistance > 1.5 && exactReach(me, target) <= REACH - 0.05
+                        && (me.fallDistance >= 3 || !ctx.world().noCollision(me, me.getBoundingBox().move(0, -1.3, 0)))) {
+                    hit(me);
+                    macePhase = 0;
+                    maceCool = 25;
+                }
+                return pause();
+            }
+            if (wind < 0 || maceCool > 0 || dist <= 3) {
+                int alt = weapon(me);
+                if (alt < 0) alt = mace;
+                select(me, alt);
+            }
+            return null;
+        }
+        int xb = slotOf(me, Items.CROSSBOW);
+        if (xb >= 0 && los && dist > 5 && slotOf(me, Items.ARROW) >= 0) {
+            select(me, xb);
+            look(target.getEyePosition().add(target.getDeltaMovement().scale(Math.min(dist, 30) / 3.0)));
+            if (net.minecraft.world.item.CrossbowItem.isCharged(me.getMainHandItem())) {
+                use(false);
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            } else {
+                use(true);
+            }
+            return pause();
+        }
+        int tr = slotOf(me, Items.TRIDENT);
+        if (tr >= 0 && los && dist > 5 && dist < 40) {
+            select(me, tr);
+            look(target.getEyePosition().add(0, dist * 0.04, 0));
+            if (++chargeTicks > 14) {
+                use(false);
+                chargeTicks = -8;
+            } else if (chargeTicks > 0) {
+                use(true);
+            }
+            return pause();
+        }
+        return null;
     }
 
     private PathingCommand pause() {
