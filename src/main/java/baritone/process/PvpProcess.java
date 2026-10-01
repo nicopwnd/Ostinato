@@ -28,6 +28,8 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -226,7 +228,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return pause();
     }
 
-    private int windCool, macePhase, maceTicks, maceCool, chargeTicks;
+    private int webCool, potCool, windCool, macePhase, maceTicks, maceCool, chargeTicks;
 
     /** Mace, crossbow and trident play; null when the kit has none of them or they don't apply right now. */
     private PathingCommand special(Player me, double dist, boolean los) {
@@ -321,6 +323,36 @@ public final class PvpProcess extends BaritoneProcessHelper {
             }
             return null;
         }
+        if (webCool > 0) webCool--;
+        // a web in the target's feet slows it into our hits
+        if (webCool == 0 && los && dist > 2.4 && dist < 5 && target.onGround() && slotOf(me, Items.COBWEB) >= 0
+                && ctx.world().getBlockState(target.blockPosition()).isAir()) {
+            webCool = 60;
+            place(me, Items.COBWEB, target.blockPosition().below());
+            return pause();
+        }
+        if (potCool > 0) potCool--;
+        if (potCool == 0) {
+            int heal = potion(me, MobEffects.INSTANT_HEALTH), harm = potion(me, MobEffects.INSTANT_DAMAGE);
+            if (heal >= 0 && me.getHealth() <= 9) {
+                select(me, heal);
+                me.setXRot(90f);
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                potCool = 12;
+                return pause();
+            }
+            if (harm >= 0 && los && dist > 3 && dist < 12) {
+                Vec3 at = target.position().add(target.getDeltaMovement().scale(dist / 0.5)).add(0, 0.2, 0);
+                Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at.add(0, dist * 0.12, 0), ctx.playerRotations());
+                select(me, harm);
+                me.setYRot(r.getYaw());
+                me.setXRot(r.getPitch());
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                me.swing(InteractionHand.MAIN_HAND);
+                potCool = 25;
+                return pause();
+            }
+        }
         int xb = slotOf(me, Items.CROSSBOW);
         if (xb >= 0 && los && dist > 5 && slotOf(me, Items.ARROW) >= 0) {
             select(me, xb);
@@ -346,6 +378,18 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return pause();
         }
         return null;
+    }
+
+    /** Hotbar slot of a splash potion carrying the effect, or -1. */
+    private int potion(Player me, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect) {
+        for (int i = 0; i < 9; i++) {
+            ItemStack st = me.getInventory().getItem(i);
+            if (st.getItem() != Items.SPLASH_POTION) continue;
+            net.minecraft.world.item.alchemy.PotionContents pc = st.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+            if (pc == null) continue;
+            for (net.minecraft.world.effect.MobEffectInstance ei : pc.getAllEffects()) if (ei.getEffect().equals(effect)) return i;
+        }
+        return -1;
     }
 
     private PathingCommand pause() {
