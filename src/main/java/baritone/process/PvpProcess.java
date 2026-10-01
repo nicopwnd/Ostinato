@@ -117,7 +117,7 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (target != null && me.tickCount % 5 == 0 && macePhase == 0) retarget(me);
         baritone.getInputOverrideHandler().clearAllKeys();
         if (target == null) {
-            if (prevTarget != null && !prevTarget.isAlive()) recorder.markWin();
+            if (prevTarget != null && prevTarget.isDeadOrDying()) recorder.markWin();
             recorder.end(me, "lost");
             use(false);
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
@@ -143,7 +143,9 @@ public final class PvpProcess extends BaritoneProcessHelper {
             return flee(me, dist);
         }
 
-        if (shouldBlock(me, dist)) {
+        boolean meleeBlock = meleeBlock(me, dist);
+        if (meleeBlock || shouldBlock(me, dist)) {
+            if (meleeBlock) select(me, weapon(me)); // the use key must not start a bow or food in the main hand
             if (me.getOffhandItem().getItem() != Items.SHIELD) toOffhand(me, Items.SHIELD);
             look(target.getEyePosition());
             use(true);
@@ -233,7 +235,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
         if (me.onGround()) critArmed = false;
         else groundedJumps = 0;
 
-        if (canJump && dist <= REACH + 0.8 && cd >= 0.55f && !immune && groundedJumps < 4) {
+        boolean breached = me.tickCount - lastAxeTick < 90;
+        if (breached && inReach && cd >= 0.95f && !immune) {
+            hit(me); // its shield is on cooldown: land the follow-up as soon as the sword is charged
+            return pause();
+        }
+        if (!breached && canJump && dist <= REACH + 0.8 && cd >= 0.55f && !immune && groundedJumps < 4) {
             me.jumpFromGround();
             groundedJumps++;
             return pause();
@@ -580,14 +587,26 @@ public final class PvpProcess extends BaritoneProcessHelper {
             fireStage = 0;
         }
         int xb = slotOf(me, Items.CROSSBOW);
-        if (xb >= 0 && los && dist > 5 && slotOf(me, Items.ARROW) >= 0) {
+        if (xb >= 0 && los && dist > 5 && dist < 70 && (slotOf(me, Items.ARROW) >= 0 || net.minecraft.world.item.CrossbowItem.isCharged(me.getInventory().getItem(xb)))) {
             select(me, xb);
-            look(target.getEyePosition().add(target.getDeltaMovement().scale(Math.min(dist, 30) / 3.0)));
-            if (net.minecraft.world.item.CrossbowItem.isCharged(me.getMainHandItem())) {
-                use(false);
-                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+            Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), target.getDeltaMovement(), 3.15);
+            look(at);
+            ItemStack held = me.getMainHandItem();
+            if (net.minecraft.world.item.CrossbowItem.isCharged(held)) {
+                // loaded: shoot only once the aim has settled on the arc, not on the way there
+                if (aimedAt(me, at, 3f) || ++xbWait > 40) {
+                    use(false);
+                    ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
+                    attacks++;
+                    xbWait = 0;
+                }
+            } else if (me.isUsingItem()) {
+                // a crossbow only loads when the use key is let go after the full draw
+                if (me.getTicksUsingItem() >= net.minecraft.world.item.CrossbowItem.getChargeDuration(held, me)) use(false);
+                else use(true);
             } else {
                 use(true);
+                ctx.minecraft().gameMode.useItem(me, InteractionHand.MAIN_HAND);
             }
             return pause();
         }
@@ -697,6 +716,26 @@ public final class PvpProcess extends BaritoneProcessHelper {
         key(strafeDir > 0 ? Input.MOVE_RIGHT : Input.MOVE_LEFT);
     }
 
+    /**
+     * Between our own swings the opponent's sword is the only thing hurting us: hold the shield up while the
+     * weapon recharges and drop it as the swing comes back. A raised target shield is the axe's job instead.
+     */
+    private boolean meleeBlock(Player me, double dist) {
+        if (me.getOffhandItem().getItem() != Items.SHIELD && slotOf(me, Items.SHIELD) < 0) return false;
+        if (dist > 4.2 || !me.onGround() || me.isInWater() || eatTicks > 0 || macePhase != 0) return false;
+        if (target.isUsingItem() && target.getUseItem().getItem() == Items.SHIELD || target.isBlocking()) {
+            if (best(me, AXES) >= 0 && me.tickCount - lastAxeTick > 60) return false;
+        }
+        if (me.tickCount - lastAxeTick < 90) return false; // its shield is on cooldown: press
+        if (!(target.getMainHandItem().is(net.minecraft.tags.ItemTags.SWORDS) || target.getMainHandItem().is(net.minecraft.tags.ItemTags.AXES)
+                || target.getMainHandItem().has(net.minecraft.core.component.DataComponents.PIERCING_WEAPON)
+                || target.getMainHandItem().getItem() == Items.MACE)) return false;
+        float cd = me.getAttackStrengthScale(0.5f);
+        boolean holding = blockTicks > 0 && me.isUsingItem();
+        // raise early enough for the shield's warm-up, hold until the swing is nearly ready
+        return holding ? cd < 0.78f && blockTicks < 40 : cd < 0.45f && me.tickCount - targetSwingTick > 2;
+    }
+
     private boolean shouldBlock(Player me, double dist) {
         if (me.getOffhandItem().getItem() != Items.SHIELD && slotOf(me, Items.SHIELD) < 0) return false;
         ItemStack using = target.getUseItem();
@@ -711,12 +750,54 @@ public final class PvpProcess extends BaritoneProcessHelper {
         return false;
     }
 
+    private int xbWait;
+
+    /** Whether our view is within {@code deg} degrees of looking at the point. */
+    private boolean aimedAt(Player me, Vec3 at, float deg) {
+        Rotation r = RotationUtils.calcRotationFromVec3d(ctx.playerHead(), at, ctx.playerRotations());
+        return Math.abs(Mth.wrapDegrees(r.getYaw() - me.getYRot())) <= deg && Math.abs(r.getPitch() - me.getXRot()) <= deg;
+    }
+
+    /**
+     * Point to look at so an arrow of the given launch speed (blocks/tick) meets a moving target: gravity 0.05 and
+     * drag 0.99 per tick are simulated, so a far shot is lobbed over the drop instead of hitting the floor.
+     */
+    private static Vec3 arcAim(Vec3 from, Vec3 pos, Vec3 vel, double speed) {
+        Vec3 aim = pos;
+        double flight = 0;
+        for (int it = 0; it < 3; it++) {
+            Vec3 to = pos.add(vel.x * flight, vel.y * flight * 0.5, vel.z * flight);
+            double dx = Math.hypot(to.x - from.x, to.z - from.z), dy = to.y - from.y;
+            double lo = -Math.PI / 6, hi = Math.PI / 4;
+            double tFlight = dx / speed;
+            for (int i = 0; i < 24; i++) {
+                double mid = (lo + hi) / 2, vx = Math.cos(mid) * speed, vy = Math.sin(mid) * speed, x = 0, y = 0;
+                int t = 0;
+                while (x < dx && t < 400) {
+                    x += vx;
+                    y += vy;
+                    vx *= 0.99;
+                    vy = vy * 0.99 - 0.05;
+                    t++;
+                }
+                if (y < dy) lo = mid;
+                else hi = mid;
+                tFlight = t;
+            }
+            double ang = (lo + hi) / 2;
+            flight = tFlight;
+            Vec3 h = new Vec3(to.x - from.x, 0, to.z - from.z);
+            h = h.lengthSqr() < 1e-6 ? new Vec3(1, 0, 0) : h.normalize();
+            aim = from.add(h.x * Math.cos(ang) * 50, Math.sin(ang) * 50, h.z * Math.cos(ang) * 50);
+        }
+        return aim;
+    }
+
     private PathingCommand bow(Player me) {
         select(me, slotOf(me, Items.BOW));
         if (me.getMainHandItem().getItem() != Items.BOW) return pause();
         // lead: arrow ~3 b/t at full draw, gravity 0.05
-        double d = me.distanceTo(target), t = d / 3.0;
-        Vec3 at = target.getEyePosition().add(target.getDeltaMovement().scale(t)).add(0, 0.5 * 0.05 * t * t, 0);
+        Vec3 at = arcAim(me.getEyePosition(), target.getBoundingBox().getCenter(), target.getDeltaMovement(), 3.0);
         look(at);
         if (me.isUsingItem() && me.getTicksUsingItem() >= 21) {
             use(false);
