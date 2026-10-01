@@ -347,11 +347,12 @@ public final class PvpProcess extends BaritoneProcessHelper {
                 }
                 select(me, wind);
                 Vec3 pv = pearl.getDeltaMovement();
-                double n = Math.max(1, Math.min(30, Math.round(pearl.position().distanceTo(me.getEyePosition()) / 1.5)));
                 Vec3 pp = pearl.position(), vv = pv;
-                for (int t = 0; t < n; t++) {
+                int n = 1;
+                for (; n < 60; n++) { // first tick the charge (1.5 b/t, straight) can meet the pearl
                     pp = pp.add(vv);
                     vv = vv.scale(0.99).add(0, -0.03, 0);
+                    if (pp.distanceTo(me.getEyePosition()) <= 1.5 * n) break;
                 }
                 Vec3 tp = target.position().add(target.getDeltaMovement().scale(n));
                 look(pearl.position());
