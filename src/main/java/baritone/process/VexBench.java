@@ -42,10 +42,32 @@ public final class VexBench implements AbstractGameEventListener {
             "armor.feet with diamond_boots", "weapon.offhand with totem_of_undying", "hotbar.0 with diamond_sword",
             "hotbar.1 with respawn_anchor 32", "hotbar.2 with glowstone 64", "hotbar.3 with golden_apple 16", "hotbar.4 with obsidian 16",
             "inventory.0 with totem_of_undying", "inventory.1 with totem_of_undying", "inventory.2 with totem_of_undying"};
-    // -Dostinato.vex.kit=sword|crystal|anchor picks which of VexBot's combat modes the round exercises
+    private static final String[] DIAMOND = {
+            "armor.head with diamond_helmet", "armor.chest with diamond_chestplate", "armor.legs with diamond_leggings",
+            "armor.feet with diamond_boots", "weapon.offhand with shield"};
+
+    private static String[] gear(String... extra) {
+        String[] k = java.util.Arrays.copyOf(DIAMOND, DIAMOND.length + extra.length);
+        System.arraycopy(extra, 0, k, DIAMOND.length, extra.length);
+        return k;
+    }
+
+    // -Dostinato.vex.kit=sword|crystal|anchor|axe|bow|crossbow|cobweb|potion|mace|elytramace|spear|trident picks which of VexBot's combat modes the round exercises
     private static final String[] KIT = switch (System.getProperty("ostinato.vex.kit", "sword")) {
         case "crystal" -> CRYSTAL_KIT;
         case "anchor" -> ANCHOR_KIT;
+        case "axe" -> gear("hotbar.0 with diamond_axe", "hotbar.1 with golden_apple 8");
+        case "bow" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with bow", "hotbar.2 with arrow 64", "hotbar.3 with golden_apple 8");
+        case "crossbow" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with crossbow", "hotbar.2 with arrow 64", "hotbar.3 with golden_apple 8");
+        case "cobweb" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with cobweb 64", "hotbar.2 with golden_apple 8");
+        case "potion" -> gear("hotbar.0 with diamond_sword", "hotbar.1 with splash_potion[potion_contents={potion:\"minecraft:strong_harming\"}] 8",
+                "hotbar.2 with splash_potion[potion_contents={potion:\"minecraft:strong_healing\"}] 8", "hotbar.3 with golden_apple 8");
+        case "mace" -> gear("hotbar.0 with mace", "hotbar.1 with wind_charge 64", "hotbar.2 with diamond_sword", "hotbar.3 with golden_apple 8");
+        case "elytramace" -> new String[]{"armor.head with diamond_helmet", "armor.chest with elytra", "armor.legs with diamond_leggings",
+                "armor.feet with diamond_boots", "weapon.offhand with shield", "hotbar.0 with mace", "hotbar.1 with wind_charge 64",
+                "hotbar.2 with firework_rocket 64", "hotbar.3 with golden_apple 8"};
+        case "spear" -> gear("hotbar.0 with diamond_spear", "hotbar.1 with mace", "hotbar.2 with wind_charge 64", "hotbar.3 with golden_apple 8");
+        case "trident" -> gear("hotbar.0 with trident", "hotbar.1 with mace", "hotbar.2 with wind_charge 64", "hotbar.3 with golden_apple 8");
         default -> SWORD_KIT;
     };
 
