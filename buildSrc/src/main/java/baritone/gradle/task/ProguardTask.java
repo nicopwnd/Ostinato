@@ -130,9 +130,24 @@ public class ProguardTask extends BaritoneGradleTask {
         template.add(0, "-injars '" + this.artifactPath.toString() + "'");
         template.add(1, "-outjars '" + this.getTemporaryFile(PROGUARD_EXPORT_PATH) + "'");
 
-        template.add(2, "-libraryjars  <java.home>/jmods/java.base.jmod(!**.jar;!module-info.class)");
-        template.add(3, "-libraryjars  <java.home>/jmods/java.desktop.jmod(!**.jar;!module-info.class)");
-        template.add(4, "-libraryjars  <java.home>/jmods/jdk.unsupported.jmod(!**.jar;!module-info.class)");
+        // Resolve the JDK actually used to run ProGuard (the toolchain launcher), not the
+        // JVM that Gradle itself runs on. Some JDK distributions (e.g. Temurin builds with
+        // extended patch numbers like "jdk-25.0.4.101-hotspot") end up with a java.home
+        // system property whose directory does not exist / has no jmods, which previously
+        // made proguard fail with "No such file or directory: .../jmods/java.base.jmod".
+        File pgJavaHome = new File(System.getProperty("java.home"));
+        try {
+            File launcherJava = getJavaLauncherForProguard().getExecutablePath().getAsFile()
+                    .getCanonicalFile();
+            File home = launcherJava.getParentFile().getParentFile();
+            if (new File(home, "jmods").isDirectory()) {
+                pgJavaHome = home;
+            }
+        } catch (Exception ignored) {}
+        String jmodsDir = new File(pgJavaHome, "jmods").getAbsolutePath();
+        template.add(2, "-libraryjars  '" + jmodsDir + "/java.base.jmod(!**.jar;!module-info.class)'");
+        template.add(3, "-libraryjars  '" + jmodsDir + "/java.desktop.jmod(!**.jar;!module-info.class)'");
+        template.add(4, "-libraryjars  '" + jmodsDir + "/jdk.unsupported.jmod(!**.jar;!module-info.class)'");
 
         {
             final Stream<File> libraries;
