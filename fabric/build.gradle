@@ -86,7 +86,8 @@ components.java {
 task proguard(type: ProguardTask) {
     proguardVersion "7.9.1"
     compType "fabric"
-    ignoreFailures = true
+    // NOTE: do NOT set ignoreFailures here - ProguardTask doesn't define that property.
+    // Failure tolerance lives in ProguardTask.exec() (try/catch around proguardApi/Standalone).
 }
 
 task createDist(type: CreateDistTask, dependsOn: proguard) {

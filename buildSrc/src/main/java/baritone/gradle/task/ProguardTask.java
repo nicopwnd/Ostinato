@@ -65,8 +65,18 @@ public class ProguardTask extends BaritoneGradleTask {
         extractProguard();
         generateConfigs();
         processArtifact();
-        proguardApi();
-        proguardStandalone();
+        // ProGuard only produces the obfuscated api/standalone jars, which are NOT
+        // needed for Fabric mod installs (the unoptimized jar is what ships).
+        // On Windows, ProGuard 7.9.1 can fail parsing jmod libraryjars with spaces
+        // in the path -> tolerate failure and keep building.
+        try {
+            proguardApi();
+            proguardStandalone();
+        } catch (Throwable t) {
+            System.out.println("WARNING: ProGuard failed (" + t.getClass().getSimpleName()
+                    + ": " + t.getMessage() + "). Continuing without obfuscated jars; "
+                    + "the unoptimized Fabric jar is still produced and is what you need.");
+        }
         cleanup();
     }
 
