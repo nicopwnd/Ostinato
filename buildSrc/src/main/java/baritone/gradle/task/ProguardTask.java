@@ -144,10 +144,13 @@ public class ProguardTask extends BaritoneGradleTask {
                 pgJavaHome = home;
             }
         } catch (Exception ignored) {}
-        String jmodsDir = new File(pgJavaHome, "jmods").getAbsolutePath();
-        template.add(2, "-libraryjars  '" + jmodsDir + "/java.base.jmod(!**.jar;!module-info.class)'");
-        template.add(3, "-libraryjars  '" + jmodsDir + "/java.desktop.jmod(!**.jar;!module-info.class)'");
-        template.add(4, "-libraryjars  '" + jmodsDir + "/jdk.unsupported.jmod(!**.jar;!module-info.class)'");
+        String jmodsDir = new File(pgJavaHome, "jmods").getAbsolutePath().replace('\\', '/');
+        // NOTE: the filter (!**.jar;!module-info.class) must be OUTSIDE the quotes.
+        // Quoting the whole "path(filter)" string makes ProGuard treat the filter as
+        // part of the file name -> "No such file or directory".
+        template.add(2, "-libraryjars '" + jmodsDir + "/java.base.jmod'(!**.jar;!module-info.class)");
+        template.add(3, "-libraryjars '" + jmodsDir + "/java.desktop.jmod'(!**.jar;!module-info.class)");
+        template.add(4, "-libraryjars '" + jmodsDir + "/jdk.unsupported.jmod'(!**.jar;!module-info.class)");
 
         {
             final Stream<File> libraries;
