@@ -127,14 +127,17 @@ public class ProguardTask extends BaritoneGradleTask {
 
         // Setup the template that will be used to derive the API and Standalone configs
         List<String> template = Files.readAllLines(getTemporaryFile(PROGUARD_CONFIG_DEST));
-        template.add(0, "-injars '" + this.artifactPath.toString() + "'");
-        template.add(1, "-outjars '" + this.getTemporaryFile(PROGUARD_EXPORT_PATH) + "'");
+        // Windows bug fix: ProGuard's config-file tokenizer (proguard.FileOptionReader)
+        // mis-parses quoted paths containing spaces and/or a "(...)" filter when the path
+        // uses backslashes - the filter gets mangled (";;;;;;;!...") or glued onto the file
+        // name, causing "Can't read [...] (No such file or directory)". The same config with
+        // forward slashes parses fine everywhere. So normalize every path we inject into the
+        // generated .pro files to forward slashes.
+        template.add(0, "-injars '" + this.artifactPath.toString().replace('\\', '/') + "'");
+        template.add(1, "-outjars '" + this.getTemporaryFile(PROGUARD_EXPORT_PATH).toString().replace('\\', '/') + "'");
 
         // Resolve the JDK actually used to run ProGuard (the toolchain launcher), not the
-        // JVM that Gradle itself runs on. Some JDK distributions (e.g. Temurin builds with
-        // extended patch numbers like "jdk-25.0.4.101-hotspot") end up with a java.home
-        // system property whose directory does not exist / has no jmods, which previously
-        // made proguard fail with "No such file or directory: .../jmods/java.base.jmod".
+        // JVM that Gradle itself runs on, so the jmods directory always exists.
         File pgJavaHome = new File(System.getProperty("java.home"));
         try {
             File launcherJava = getJavaLauncherForProguard().getExecutablePath().getAsFile()
@@ -145,9 +148,7 @@ public class ProguardTask extends BaritoneGradleTask {
             }
         } catch (Exception ignored) {}
         String jmodsDir = new File(pgJavaHome, "jmods").getAbsolutePath().replace('\\', '/');
-        // NOTE: the filter (!**.jar;!module-info.class) must be OUTSIDE the quotes.
-        // Quoting the whole "path(filter)" string makes ProGuard treat the filter as
-        // part of the file name -> "No such file or directory".
+        // NOTE: the filter (!**.jar;!module-info.class) stays OUTSIDE the quotes.
         template.add(2, "-libraryjars '" + jmodsDir + "/java.base.jmod'(!**.jar;!module-info.class)");
         template.add(3, "-libraryjars '" + jmodsDir + "/java.desktop.jmod'(!**.jar;!module-info.class)");
         template.add(4, "-libraryjars '" + jmodsDir + "/jdk.unsupported.jmod'(!**.jar;!module-info.class)");
@@ -171,14 +172,14 @@ public class ProguardTask extends BaritoneGradleTask {
                         .map(f -> isMcJar(f) ? mcJar : f);
             }
             libraries.forEach(f -> {
-                template.add(2, "-libraryjars '" + f + "'");
+                template.add(2, "-libraryjars '" + f.toString().replace('\\', '/') + "'");
             });
         }
 
         Files.createDirectories(this.getRootRelativeFile(PROGUARD_MAPPING_DIR));
 
         List<String> api = new ArrayList<>(template);
-        api.add(2, "-printmapping " + new File(this.getRootRelativeFile(PROGUARD_MAPPING_DIR).toFile(), "mappings-" + addCompTypeFirst("api.txt")));
+        api.add(2, "-printmapping '" + new File(this.getRootRelativeFile(PROGUARD_MAPPING_DIR).toFile(), "mappings-" + addCompTypeFirst("api.txt")).getAbsolutePath().replace('\\', '/') + "'");
 
         // API config doesn't require any changes from the changes that we made to the template
         Files.write(getTemporaryFile(compType + PROGUARD_API_CONFIG), api);
@@ -186,7 +187,7 @@ public class ProguardTask extends BaritoneGradleTask {
         // For the Standalone config, don't keep the API package
         List<String> standalone = new ArrayList<>(template);
         standalone.removeIf(s -> s.contains("# this is the keep api"));
-        standalone.add(2, "-printmapping " + new File(this.getRootRelativeFile(PROGUARD_MAPPING_DIR).toFile(), "mappings-" + addCompTypeFirst("standalone.txt")));
+        standalone.add(2, "-printmapping '" + new File(this.getRootRelativeFile(PROGUARD_MAPPING_DIR).toFile(), "mappings-" + addCompTypeFirst("standalone.txt")).getAbsolutePath().replace('\\', '/') + "'");
         Files.write(getTemporaryFile(compType + PROGUARD_STANDALONE_CONFIG), standalone);
     }
 
