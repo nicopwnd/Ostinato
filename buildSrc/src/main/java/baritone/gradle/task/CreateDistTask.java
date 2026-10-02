@@ -56,9 +56,19 @@ public class CreateDistTask extends BaritoneGradleTask {
         }
 
         // Copy build jars to dist/
-        // TODO: dont copy files that dont exist
-        Files.copy(this.artifactApiPath, api, REPLACE_EXISTING);
-        Files.copy(this.artifactStandalonePath, standalone, REPLACE_EXISTING);
+        // The api/standalone jars are only produced by ProGuard obfuscation. If the
+        // proguard task was skipped or failed (ignoreFailures), the shipping artifact
+        // is still the unoptimized remapped jar, so don't hard-fail on missing ones.
+        if (Files.exists(this.artifactApiPath)) {
+            Files.copy(this.artifactApiPath, api, REPLACE_EXISTING);
+        } else {
+            System.out.println("Skipping dist copy, not built: " + this.artifactApiPath.getFileName());
+        }
+        if (Files.exists(this.artifactStandalonePath)) {
+            Files.copy(this.artifactStandalonePath, standalone, REPLACE_EXISTING);
+        } else {
+            System.out.println("Skipping dist copy, not built: " + this.artifactStandalonePath.getFileName());
+        }
         Files.copy(this.artifactUnoptimizedPath, unoptimized, REPLACE_EXISTING);
 
         // Calculate all checksums and format them like "shasum"

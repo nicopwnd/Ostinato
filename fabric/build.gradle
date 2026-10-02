@@ -79,9 +79,14 @@ components.java {
     }
 }
 
+// The mod that actually ships is the remapped, UNobfuscated jar ("unoptimized").
+// ProGuard only produces extra api/standalone artifacts; its config generation
+// mis-parses Windows JDK jmod paths (spaces + backslashes), so allow the build to
+// finish even if obfuscation fails - the unoptimized jar is already complete.
 task proguard(type: ProguardTask) {
     proguardVersion "7.9.1"
     compType "fabric"
+    ignoreFailures = true
 }
 
 task createDist(type: CreateDistTask, dependsOn: proguard) {
